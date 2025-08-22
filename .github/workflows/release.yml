@@ -14,39 +14,42 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      # 1. 拉取代码
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. 设置 Node.js 环境（用于缓存 node_modules）
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20.x'
           cache: 'pnpm'
 
-      # 3. 安装 pnpm（使用官方 action）
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9
-          run_install: false  # 我们手动运行 pnpm install
+      # ✅ 使用 corepack 安装 pnpm（推荐）
+      - name: Enable pnpm via corepack
+        run: |
+          corepack enable
+          corepack prepare pnpm@9 --activate
 
-      # 5. 安装依赖
+      # ✅ 调试：确认 pnpm 可用
+      - name: Check pnpm version
+        run: |
+          which pnpm
+          pnpm --version
+
+      # ✅ 安装依赖
       - name: Install dependencies
         run: pnpm install
 
-      # 6. 构建项目
+      # ✅ 构建项目
       - name: Build project
         run: pnpm build
 
-      # 7. 上传构建产物（用于 GitHub Pages）
+      # ✅ 上传构建产物（GitHub Pages）
       - name: Upload build artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: dist
 
-      # 8. 构建 Docker 镜像
+      # ✅ 构建 Docker 镜像
       - name: Build Docker image
         run: |
           docker build \
@@ -54,7 +57,7 @@ jobs:
             -t ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ github.sha }} \
             .
 
-      # 9. 登录 GitHub Container Registry
+      # ✅ 登录 GHCR
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v2
         with:
@@ -62,12 +65,12 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # 10. 推送 Docker 镜像（带 commit sha 标签）
+      # ✅ 推送镜像
       - name: Push Docker image
         run: |
           docker push ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
 
-      # 11. 如果是 main 分支，打上 latest 标签并推送
+      # ✅ 打 latest 标签（仅 main 分支）
       - name: Tag and push latest
         if: github.ref == 'refs/heads/main'
         run: |
