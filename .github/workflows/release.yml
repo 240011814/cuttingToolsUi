@@ -32,10 +32,6 @@ jobs:
           version: 9
           run_install: false  # 我们手动运行 pnpm install
 
-      # 4. 【可选】调试：检查 pnpm 是否安装成功
-      - name: Debug: Check pnpm version
-        run: pnpm --version
-
       # 5. 安装依赖
       - name: Install dependencies
         run: pnpm install
