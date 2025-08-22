@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 env:
-  IMAGE_NAME: cuttingToolsUi
+  IMAGE_NAME: cutting_tools_ui
   REGISTRY: ghcr.io
 
 jobs:
