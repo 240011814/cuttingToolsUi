@@ -14,39 +14,43 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      # 拉代码
+      # 1. 拉取代码
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 设置 Node.js
+      # 2. 设置 Node.js 环境（用于缓存 node_modules）
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20.x'
           cache: 'pnpm'
 
-      # 安装 pnpm
+      # 3. 安装 pnpm（使用官方 action）
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
           version: 9
-          run_install: false
+          run_install: false  # 我们手动运行 pnpm install
 
-      # 装依赖
+      # 4. 【可选】调试：检查 pnpm 是否安装成功
+      - name: Debug: Check pnpm version
+        run: pnpm --version
+
+      # 5. 安装依赖
       - name: Install dependencies
         run: pnpm install
 
-      # 构建
+      # 6. 构建项目
       - name: Build project
         run: pnpm build
 
-      # 上传构建产物（用于 GitHub Pages）
+      # 7. 上传构建产物（用于 GitHub Pages）
       - name: Upload build artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: dist
 
-      # 构建 Docker 镜像
+      # 8. 构建 Docker 镜像
       - name: Build Docker image
         run: |
           docker build \
@@ -54,7 +58,7 @@ jobs:
             -t ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ github.sha }} \
             .
 
-      # 登录到 GitHub Container Registry
+      # 9. 登录 GitHub Container Registry
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v2
         with:
@@ -62,20 +66,20 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # 推送镜像
+      # 10. 推送 Docker 镜像（带 commit sha 标签）
       - name: Push Docker image
         run: |
           docker push ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
 
-      # 给 main 分支的镜像额外打一个 latest
-      - name: Tag latest
+      # 11. 如果是 main 分支，打上 latest 标签并推送
+      - name: Tag and push latest
         if: github.ref == 'refs/heads/main'
         run: |
           docker tag ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ github.sha }} \
             ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:latest
           docker push ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:latest
 
-  # GitHub Pages 部署
+  # 部署到 GitHub Pages
   deploy:
     runs-on: ubuntu-latest
     needs: build
