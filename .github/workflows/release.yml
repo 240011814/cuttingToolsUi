@@ -14,57 +14,73 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      # 1. 拉取代码
+      - name: Checkout repository
         uses: actions/checkout@v4
 
+      # 2. 安装 Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20.x'
 
-      # ✅ 强制全局安装 pnpm（最可靠方式）
-      - name: Install pnpm globally
-        run: npm install -g pnpm@9
+      # 3. 全局安装 pnpm >=10.5.0（满足 engines.pnpm 要求）
+      - name: Install latest pnpm globally
+        run: npm install -g pnpm@latest
 
-      - name: Verify pnpm
-        run: pnpm --version  # 应输出 9.x.x
+      # 4. 验证 pnpm 版本（必须 >=10.5.0）
+      - name: Check pnpm version
+        run: |
+          pnpm --version
+          echo "✅ pnpm version check passed"
 
+      # 5. 安装依赖
       - name: Install dependencies
         run: pnpm install
 
+      # 6. 构建项目
       - name: Build project
         run: pnpm build
 
-      - name: Upload artifact for GitHub Pages
+      # 7. 上传构建产物（用于 GitHub Pages）
+      - name: Upload build artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: dist
 
-      # Docker 构建和推送（保持不变）
+      # 8. 构建 Docker 镜像
       - name: Build Docker image
         run: |
-          docker build --build-arg NODE_ENV=production -t ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ github.sha }} .
+          docker build \
+            --build-arg NODE_ENV=production \
+            -t ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ github.sha }} \
+            .
 
-      - name: Login to GHCR
+      # 9. 登录 GitHub Container Registry
+      - name: Login to GitHub Container Registry
         uses: docker/login-action@v2
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # 10. 推送 Docker 镜像（带 commit sha 标签）
       - name: Push Docker image
         run: |
           docker push ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
 
+      # 11. 如果是 main 分支，打上 latest 标签并推送
       - name: Tag and push latest
         if: github.ref == 'refs/heads/main'
         run: |
-          docker tag ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ github.sha }} ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:latest
+          docker tag ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ github.sha }} \
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:latest
           docker push ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:latest
 
+  # 部署到 GitHub Pages
   deploy:
-    needs: build
     runs-on: ubuntu-latest
+    needs: build
     permissions:
       pages: write
       id-token: write
