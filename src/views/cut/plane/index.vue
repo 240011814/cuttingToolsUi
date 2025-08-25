@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
+import { useMessage } from 'naive-ui';
 import { CutBin } from '@/service/api';
 
+const message = useMessage();
 // 数据模型
 interface Item {
   label: string;
@@ -48,7 +50,7 @@ const materials = ref<Material[]>([]);
 const results = ref<ResultBin[]>([]);
 
 // 用于保存 canvas 引用
-const canvases = ref<HTMLCanvasElement[]>([]);
+const canvases = ref<(HTMLCanvasElement | null)[]>([]);
 
 const loading = ref(false);
 // 统计计算
@@ -76,7 +78,7 @@ function addItem() {
     width.value <= 0 ||
     height.value <= 0
   ) {
-    alert('请输入有效的项目参数！');
+    message.error('请输入有效的项目参数！');
     return;
   }
 
@@ -105,7 +107,7 @@ function addMaterial() {
     materialWidth.value <= 0 ||
     materialHeight.value <= 0
   ) {
-    alert('请输入有效的材料参数！');
+    message.error('请输入有效的材料参数！');
     return;
   }
 
@@ -155,7 +157,7 @@ function clearMaterialInputs() {
 // 优化主逻辑
 async function runOptimization() {
   if (items.value.length === 0) {
-    alert('请先添加至少一个切割项目！');
+    message.error('请先添加至少一个切割项目！');
     return;
   }
 
@@ -186,8 +188,7 @@ async function runOptimization() {
     setTimeout(() => {
       drawAllBins();
     }, 100);
-  } catch (error: any) {
-    console.error('请求失败:', error);
+  } catch {
   } finally {
     loading.value = false;
   }
@@ -280,9 +281,12 @@ async function runOptimization() {
       if (e.key === 'Enter') {
         const active = document.activeElement;
         if (['INPUT', 'TEXTAREA'].includes(active?.tagName || '')) {
-          if (['label', 'width', 'height', 'quantity'].includes(active.id)) {
+          if (active && ['label', 'width', 'height', 'quantity'].includes(active.id)) {
             addItem();
-          } else if (['materialName', 'materialWidth', 'materialHeight', 'materialCount'].includes(active.id)) {
+          } else if (
+            active &&
+            ['materialName', 'materialWidth', 'materialHeight', 'materialCount'].includes(active.id)
+          ) {
             addMaterial();
           }
         }
@@ -293,7 +297,7 @@ async function runOptimization() {
 </script>
 
 <template>
-  <div class="rounded bg-white p-4 shadow">
+  <div class="p-4">
     <NCard title="材料裁剪可视化" size="large" class="mb-4">
       <!-- 添加切割项目 -->
       <section class="mb-6 border rounded-lg bg-gray-50 p-4">
@@ -447,17 +451,16 @@ async function runOptimization() {
             <span v-else class="text-blue-600">🆕 新材料</span>
           </p>
         </div>
-        <canvas :ref="el => (canvases[index] = el)" class="block bg-white"></canvas>
+        <canvas :ref="el => (canvases[index] = el as HTMLCanvasElement | null)" class="block bg-white"></canvas>
       </div>
     </div>
+    <NModal v-model:show="loading" preset="dialog" title="计算中...">
+      <div class="flex flex-col items-center justify-center p-6">
+        <NSpin size="large" />
+        <div class="mt-3">正在计算，请稍候...</div>
+      </div>
+    </NModal>
   </div>
-
-  <NModal v-model:show="loading" preset="dialog" title="计算中...">
-    <div class="flex flex-col items-center justify-center p-6">
-      <NSpin size="large" />
-      <div class="mt-3">正在计算，请稍候...</div>
-    </div>
-  </NModal>
 </template>
 
 <style scoped></style>

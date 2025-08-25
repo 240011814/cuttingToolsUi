@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { h, onMounted, ref } from 'vue';
-import { NButton } from 'naive-ui';
+import { computed, h, onMounted, ref } from 'vue';
+import { NButton, NCard, NDataTable, NInputNumber, NModal, NSpin } from 'naive-ui';
 import { CutBar } from '@/service/api';
+
 const itemsData = ref<{ length: number; qty: number }[]>([]);
 const materialsData = ref<{ length: number; qty: number }[]>([]);
 
@@ -11,13 +12,14 @@ const matLength = ref<number | null>(null);
 const matQty = ref<number | null>(null);
 const newMaterialLength = ref(600);
 
+const cutResult = ref<Api.Cut.BarResult[] | null>(null);
 const loading = ref(false);
-const stats = ref('');
 const scaleFactor = ref(1);
 
 const canvasWrapper = ref<HTMLDivElement | null>(null);
-const bars = ref<HTMLDivElement | null>(null);
+const containerWidth = ref(800); // 动态容器宽度
 
+// item 表格
 const itemColumns = [
   { title: '长度(cm)', key: 'length' },
   { title: '数量', key: 'qty' },
@@ -38,6 +40,7 @@ const itemColumns = [
   }
 ];
 
+// material 表格
 const materialColumns = [
   { title: '长度(cm)', key: 'length' },
   { title: '数量', key: 'qty' },
@@ -82,103 +85,64 @@ function removeFromList(list: 'items' | 'materials', index: number) {
 function clearAll() {
   itemsData.value = [];
   materialsData.value = [];
-  stats.value = '';
-  if (bars.value) bars.value.innerHTML = '';
+  cutResult.value = null;
 }
 
+// 获取数据
 async function fetchData() {
   loading.value = true;
-  const items: number[] = [];
-  itemsData.value.forEach(i => {
-    for (let n = 0; n < i.qty; n++) items.push(i.length);
-  });
-  const materials: number[] = [];
-  materialsData.value.forEach(m => {
-    for (let n = 0; n < m.qty; n++) materials.push(m.length);
-  });
+  const items: number[] = itemsData.value.flatMap(i => Array(i.qty).fill(i.length));
+
+  const materials: number[] = materialsData.value.flatMap(i => Array(i.qty).fill(i.length));
   try {
     const data = await CutBar({ items, materials, newMaterialLength: newMaterialLength.value });
-    renderBars(data);
-  } catch (err) {
-    console.error('请求失败:', err);
+    cutResult.value = data;
+  } catch {
   } finally {
     loading.value = false;
   }
 }
 
-function renderBars(data: Api.Cut.BarResult[] | null) {
-  if (!bars.value) return;
-  bars.value.innerHTML = '';
-  if (data === null || data.length === 0) {
-    stats.value = '暂无数据';
-    return;
+// 统计信息
+const result = computed(() => {
+  if (!cutResult.value || cutResult.value.length === 0) {
+    return {
+      totalMaterials: 0,
+      totalLength: 0,
+      totalUsed: 0,
+      totalRemaining: 0,
+      usagePercent: '0.00'
+    };
   }
 
-  const totalMaterials = data.length;
+  const totalMaterials = cutResult.value.length;
   let totalLength = 0;
   let totalUsed = 0;
   let totalRemaining = 0;
 
-  data.forEach(item => {
+  cutResult.value.forEach(item => {
     totalLength += item.totalLength;
     totalUsed += item.used;
     totalRemaining += item.remaining;
   });
 
-  const usagePercent = ((totalUsed / totalLength) * 100).toFixed(2);
+  return {
+    totalMaterials,
+    totalLength,
+    totalUsed,
+    totalRemaining,
+    usagePercent: ((totalUsed / totalLength) * 100).toFixed(2)
+  };
+});
 
-  stats.value = `
-    材料总数: ${totalMaterials} 根 |
-    总长度: ${totalLength} cm |
-    已用长度: ${totalUsed} cm |
-    剩余长度: ${totalRemaining} cm |
-    使用率: ${usagePercent}%
-  `;
+// 颜色池
+const randomColors = Array.from({ length: 50 }, (_, i) => `hsl(${(i * 30) % 360}, 70%, 50%)`);
 
-  const containerWidth = bars.value.clientWidth || 800;
-  const maxLength = Math.max(...data.map(d => d.totalLength));
-  const scale = containerWidth / maxLength;
-
-  data.forEach(item => {
-    const barWrapper = document.createElement('div');
-    barWrapper.className = 'mb-6';
-
-    const label = document.createElement('div');
-    label.className = 'font-bold mb-1';
-    label.textContent = `材料 #${item.index} (总长: ${item.totalLength}cm, 已用: ${item.used}cm, 剩余: ${item.remaining}cm)`;
-    barWrapper.appendChild(label);
-
-    const bar = document.createElement('div');
-    bar.className = 'flex h-10';
-
-    item.cuts.forEach((cut: number) => {
-      const cutDiv = document.createElement('div');
-      cutDiv.style.backgroundColor = getRandomColor();
-      cutDiv.style.width = `${cut * scale}px`;
-      cutDiv.className = 'flex items-center justify-center text-white text-xs border border-white';
-      cutDiv.textContent = `${cut}cm`;
-      bar.appendChild(cutDiv);
-    });
-
-    if (item.remaining > 0) {
-      const remDiv = document.createElement('div');
-      remDiv.style.width = `${item.remaining * scale}px`;
-      remDiv.className = 'flex items-center justify-center text-black text-xs bg-gray-300';
-      remDiv.textContent = `剩余${item.remaining}cm`;
-      bar.appendChild(remDiv);
-    }
-
-    barWrapper.appendChild(bar);
-    bars.value?.appendChild(barWrapper);
-  });
-}
-
-function getRandomColor() {
-  return `hsl(${Math.random() * 360}, 70%, 50%)`;
-}
-
+// 缩放 + 拖动
 onMounted(() => {
   if (canvasWrapper.value) {
+    containerWidth.value = canvasWrapper.value.clientWidth;
+
     let isDragging = false;
     let startX = 0;
     let scrollLeft = 0;
@@ -212,6 +176,7 @@ onMounted(() => {
 
 <template>
   <div class="p-4">
+    <!-- 输入区域 -->
     <NCard title="材料裁剪可视化" size="large" class="mb-4">
       <h3>裁剪尺寸</h3>
       <div class="mb-2 flex items-center gap-2">
@@ -238,16 +203,59 @@ onMounted(() => {
       </div>
     </NCard>
 
+    <!-- 结果统计 -->
     <NCard title="结果统计" size="large" class="mb-4">
-      <div v-html="stats" />
+      <p>
+        材料总数: {{ result.totalMaterials }} 根 | 总长度: {{ result.totalLength }} cm | 已用长度:
+        {{ result.totalUsed }} cm | 剩余长度: {{ result.totalRemaining }} cm | 使用率: {{ result.usagePercent }}%
+      </p>
     </NCard>
 
+    <!-- 裁剪图示 -->
     <NCard title="裁剪图示" size="large">
       <div ref="canvasWrapper" class="cursor-grab overflow-x-auto border border-gray-300 rounded-md p-4">
-        <div ref="bars" class="origin-top-left" :style="{ transform: `scale(${scaleFactor})` }"></div>
+        <div class="origin-top-left" :style="{ transform: `scale(${scaleFactor})` }">
+          <div v-for="item in cutResult" :key="item.index" class="mb-6">
+            <!-- 标签 -->
+            <div class="mb-1 font-bold">
+              材料 #{{ item.index }} (总长: {{ item.totalLength }}cm, 已用: {{ item.used }}cm, 剩余:
+              {{ item.remaining }}cm)
+            </div>
+
+            <!-- 条形图 -->
+            <div class="h-10 flex">
+              <div
+                v-for="(cut, idx) in item.cuts"
+                :key="idx"
+                class="flex items-center justify-center border border-white text-xs text-white"
+                :style="{
+                  width:
+                    cut * (containerWidth / Math.max(...(cutResult ? cutResult.map(d => d.totalLength) : [1]))) + 'px',
+                  backgroundColor: randomColors[idx % randomColors.length]
+                }"
+              >
+                {{ cut }}cm
+              </div>
+
+              <div
+                v-if="item.remaining > 0"
+                class="flex items-center justify-center bg-gray-300 text-xs text-black"
+                :style="{
+                  width:
+                    item.remaining *
+                      (containerWidth / Math.max(...(cutResult ? cutResult.map(d => d.totalLength) : [1]))) +
+                    'px'
+                }"
+              >
+                剩余{{ item.remaining }}cm
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </NCard>
 
+    <!-- 加载中弹窗 -->
     <NModal v-model:show="loading" preset="dialog" title="计算中...">
       <div class="flex flex-col items-center justify-center p-6">
         <NSpin size="large" />

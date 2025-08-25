@@ -166,7 +166,10 @@ const local: App.I18n.Schema = {
     404: 'Page Not Found',
     500: 'Server Error',
     'iframe-page': 'Iframe',
-    home: 'Home'
+    home: 'Home',
+    cut: 'cutTools',
+    cut_bar: 'Bar Cut',
+    cut_plane: 'Plane Cut'
   },
   page: {
     login: {
