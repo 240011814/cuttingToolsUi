@@ -166,7 +166,10 @@ const local: App.I18n.Schema = {
     404: '页面不存在',
     500: '服务器错误',
     'iframe-page': '外链页面',
-    home: '首页'
+    home: '首页',
+    cut: '切割工具',
+    cut_bar: '一维切割',
+    cut_plane: '平面切割'
   },
   page: {
     login: {

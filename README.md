@@ -68,8 +68,7 @@
 
 ## 文档
 
-- [地址](https://docs.soybeanjs.cn)
-- [旧版文档](https://legacy-docs.soybeanjs.cn)
+- [地址](https://docs.soybeanjs.cn/zh/guide/intro.html)
 
 
 ## 合作事项
