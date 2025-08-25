@@ -40,6 +40,39 @@ export const generatedRoutes: GeneratedRoute[] = [
     }
   },
   {
+    name: 'cut',
+    path: '/cut',
+    component: 'layout.base',
+    meta: {
+      title: 'cut',
+      i18nKey: 'route.cut',
+      order: 2,
+      icon: 'mdi:scissors-cutting'
+    },
+    children: [
+      {
+        name: 'cut_bar',
+        path: '/cut/bar',
+        component: 'view.cut_bar',
+        meta: {
+          title: 'cut_bar',
+          i18nKey: 'route.cut_bar',
+          icon: 'mdi:angle-acute'
+        }
+      },
+      {
+        name: 'cut_plane',
+        path: '/cut/plane',
+        component: 'view.cut_plane',
+        meta: {
+          title: 'cut_plane',
+          i18nKey: 'route.cut_plane',
+          icon: 'mdi:grid-large'
+        }
+      }
+    ]
+  },
+  {
     name: 'home',
     path: '/home',
     component: 'layout.base$view.home',
