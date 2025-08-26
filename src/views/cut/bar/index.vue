@@ -11,6 +11,7 @@ const itemQty = ref<number | null>(null);
 const matLength = ref<number | null>(null);
 const matQty = ref<number | null>(null);
 const newMaterialLength = ref(600);
+const loss = ref(0.2);
 
 const cutResult = ref<Api.Cut.BarResult[] | null>(null);
 const loading = ref(false);
@@ -95,7 +96,12 @@ async function fetchData() {
 
   const materials: number[] = materialsData.value.flatMap(i => Array(i.qty).fill(i.length));
   try {
-    const data = await CutBar({ items, materials, newMaterialLength: newMaterialLength.value });
+    const data = await CutBar({
+      items,
+      materials,
+      newMaterialLength: newMaterialLength.value,
+      loss: loss.value
+    });
     cutResult.value = data;
   } catch {
   } finally {
@@ -194,8 +200,17 @@ onMounted(() => {
       </div>
       <NDataTable :columns="materialColumns" :data="materialsData" />
 
-      <h3 class="mt-6">新材料长度</h3>
-      <NInputNumber v-model:value="newMaterialLength" class="w-40" />
+      <h3 class="mt-6">参数配置</h3>
+      <div class="mb-4 flex items-center gap-6">
+        <div class="flex items-center gap-2">
+          <span class="w-24">新材料长度</span>
+          <NInputNumber v-model:value="newMaterialLength" class="w-40" />
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="w-24">切割损耗</span>
+          <NInputNumber v-model:value="loss" class="w-40" />
+        </div>
+      </div>
 
       <div class="mt-4 flex gap-2">
         <NButton type="primary" @click="fetchData">开始裁剪</NButton>
