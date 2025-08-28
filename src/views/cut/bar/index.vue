@@ -102,7 +102,8 @@ async function fetchData() {
       newMaterialLength: newMaterialLength.value,
       loss: loss.value
     });
-    cutResult.value = data;
+    const { data: reslut } = data;
+    cutResult.value = reslut;
   } catch {
   } finally {
     loading.value = false;
