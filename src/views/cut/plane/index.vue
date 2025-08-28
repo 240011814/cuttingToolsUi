@@ -182,7 +182,12 @@ async function runOptimization() {
       items: expandedItems,
       materials: materialData
     });
-    results.value = data;
+    const { data: reslut } = data;
+    if (!reslut || reslut.length === 0) {
+      message.warning('无法使用现有材料完成所有切割项目，将使用新材料。');
+    } else {
+      results.value = reslut;
+    }
 
     // 延迟绘制，确保 canvas 已渲染
     setTimeout(() => {
