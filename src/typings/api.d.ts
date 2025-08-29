@@ -135,6 +135,7 @@ declare namespace Api {
       materials: number[];
       newMaterialLength: number;
       loss: number;
+      utilizationWeight: number;
     }
   }
 }
