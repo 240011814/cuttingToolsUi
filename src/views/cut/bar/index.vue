@@ -215,7 +215,7 @@ onMounted(() => {
         </div>
         <div class="flex items-center gap-2">
           <span class="w-24">利用权重</span>
-          <NSlider v-model:value="utilizationWeight" :min="1" :max="20" class="w-40" />
+          <NSlider v-model:value="utilizationWeight" :min="1" :max="5" :step="0.1" class="w-40" />
         </div>
       </div>
 
