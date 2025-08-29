@@ -12,6 +12,7 @@ const matLength = ref<number | null>(null);
 const matQty = ref<number | null>(null);
 const newMaterialLength = ref(600);
 const loss = ref(0.2);
+const utilizationWeight = ref(4);
 
 const cutResult = ref<Api.Cut.BarResult[] | null>(null);
 const loading = ref(false);
@@ -100,7 +101,8 @@ async function fetchData() {
       items,
       materials,
       newMaterialLength: newMaterialLength.value,
-      loss: loss.value
+      loss: loss.value,
+      utilizationWeight: utilizationWeight.value
     });
     const { data: reslut } = data;
     cutResult.value = reslut;
@@ -210,6 +212,10 @@ onMounted(() => {
         <div class="flex items-center gap-2">
           <span class="w-24">切割损耗</span>
           <NInputNumber v-model:value="loss" class="w-40" />
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="w-24">利用权重</span>
+          <NSlider v-model:value="utilizationWeight" :min="1" :max="20" class="w-40" />
         </div>
       </div>
 
