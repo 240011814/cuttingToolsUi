@@ -142,9 +142,9 @@ const result = computed(() => {
 
   return {
     totalMaterials,
-    totalLength,
-    totalUsed,
-    totalRemaining,
+    totalLength: totalLength.toFixed(2),
+    totalUsed: totalUsed.toFixed(2),
+    totalRemaining: totalRemaining.toFixed(2),
     usagePercent: ((totalUsed / totalLength) * 100).toFixed(2)
   };
 });
