@@ -16,6 +16,7 @@ const utilizationWeight = ref(4);
 
 const cutResult = ref<Api.Cut.BarResult[] | null>(null);
 const loading = ref(false);
+const disabledPrint = ref(true);
 const scaleFactor = ref(1);
 
 const canvasWrapper = ref<HTMLDivElement | null>(null);
@@ -93,9 +94,12 @@ function clearAll() {
 // 获取数据
 async function fetchData() {
   loading.value = true;
-  const items: number[] = itemsData.value.flatMap(i => Array(i.qty).fill(i.length));
+  disabledPrint.value = true;
+  const items: number[] = itemsData.value.flatMap((i: { length: number; qty: number }) => Array(i.qty).fill(i.length));
 
-  const materials: number[] = materialsData.value.flatMap(i => Array(i.qty).fill(i.length));
+  const materials: number[] = materialsData.value.flatMap((i: { length: number; qty: number }) =>
+    Array(i.qty).fill(i.length)
+  );
   try {
     const data = await CutBar({
       items,
@@ -106,6 +110,7 @@ async function fetchData() {
     });
     const { data: reslut } = data;
     cutResult.value = reslut;
+    disabledPrint.value = false;
   } catch {
   } finally {
     loading.value = false;
@@ -129,7 +134,7 @@ const result = computed(() => {
   let totalUsed = 0;
   let totalRemaining = 0;
 
-  cutResult.value.forEach(item => {
+  cutResult.value.forEach((item: Api.Cut.BarResult) => {
     totalLength += item.totalLength;
     totalUsed += item.used;
     totalRemaining += item.remaining;
@@ -156,12 +161,12 @@ onMounted(() => {
     let startX = 0;
     let scrollLeft = 0;
 
-    canvasWrapper.value.addEventListener('wheel', e => {
+    canvasWrapper.value.addEventListener('wheel', (e: WheelEvent) => {
       e.preventDefault();
       scaleFactor.value += e.deltaY * -0.001;
       scaleFactor.value = Math.min(Math.max(0.5, scaleFactor.value), 3);
     });
-    canvasWrapper.value.addEventListener('mousedown', e => {
+    canvasWrapper.value.addEventListener('mousedown', (e: MouseEvent) => {
       isDragging = true;
       startX = e.pageX - canvasWrapper.value!.offsetLeft;
       scrollLeft = canvasWrapper.value!.scrollLeft;
@@ -172,7 +177,7 @@ onMounted(() => {
     canvasWrapper.value.addEventListener('mouseleave', () => {
       isDragging = false;
     });
-    canvasWrapper.value.addEventListener('mousemove', e => {
+    canvasWrapper.value.addEventListener('mousemove', (e: MouseEvent) => {
       if (!isDragging) return;
       e.preventDefault();
       const x = e.pageX - canvasWrapper.value!.offsetLeft;
@@ -221,6 +226,7 @@ onMounted(() => {
 
       <div class="mt-4 flex gap-2">
         <NButton type="primary" @click="fetchData">开始裁剪</NButton>
+        <BarPrinter v-if="!disabledPrint" :data="cutResult" />
         <NButton type="warning" @click="clearAll">清空所有</NButton>
       </div>
     </NCard>
