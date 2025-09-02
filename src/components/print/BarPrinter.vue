@@ -39,7 +39,7 @@ function printResult() {
   if (!printArea.value) return;
 
   const printContent = printArea.value.innerHTML;
-  const printWindow = window.open('', '', 'width=800,height=600');
+  const printWindow = window.open('', '');
 
   printWindow!.document.write(`
     <html>

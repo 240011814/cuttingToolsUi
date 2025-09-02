@@ -47,7 +47,8 @@ const local: App.I18n.Schema = {
     yesOrNo: {
       yes: 'Yes',
       no: 'No'
-    }
+    },
+    loading: 'Loading...'
   },
   request: {
     logout: 'Logout user after request failed',

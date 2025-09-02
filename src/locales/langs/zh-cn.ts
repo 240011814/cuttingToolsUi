@@ -47,7 +47,8 @@ const local: App.I18n.Schema = {
     yesOrNo: {
       yes: '是',
       no: '否'
-    }
+    },
+    loading: '加载中...'
   },
   request: {
     logout: '请求失败后登出用户',

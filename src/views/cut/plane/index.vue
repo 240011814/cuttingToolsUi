@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { ref } from 'vue';
 import { useMessage } from 'naive-ui';
 import { CutBin } from '@/service/api';
 
@@ -19,27 +19,14 @@ interface Material {
   count: number;
 }
 
-interface ResultBin {
-  binId: number;
-  materialType?: string;
-  materialWidth: number; // 米
-  materialHeight: number; // 米
-  utilization: number;
-  pieces: {
-    label: string;
-    x: number; // 米
-    y: number; // 米
-    w: number; // 米
-    h: number; // 米
-  }[];
-}
-
 // 响应式数据
 const label = ref('');
+const group = ref(false);
 const width = ref<number | null>(null);
 const height = ref<number | null>(null);
 const quantity = ref(1);
-
+const newMaterialHeight = ref(200);
+const newMaterialWidth = ref(200);
 const materialName = ref('');
 const materialWidth = ref<number | null>(null);
 const materialHeight = ref<number | null>(null);
@@ -47,26 +34,12 @@ const materialCount = ref(1);
 
 const items = ref<Item[]>([]);
 const materials = ref<Material[]>([]);
-const results = ref<ResultBin[]>([]);
+const results = ref<Api.Cut.BinResult[]>([]);
 
 // 用于保存 canvas 引用
 const canvases = ref<(HTMLCanvasElement | null)[]>([]);
 
 const loading = ref(false);
-// 统计计算
-const totalItems = computed(() => {
-  return items.value.reduce((sum, item) => sum + item.quantity, 0);
-});
-
-const totalItemArea = computed(() => {
-  return items.value.reduce((sum, item) => sum + item.width * item.height * item.quantity, 0);
-});
-
-// 判断是否为旧材料
-const isRemainderMaterial = (bin: ResultBin) => {
-  if (!bin.materialType) return false;
-  return materials.value.some(m => bin.materialType?.startsWith(m.name));
-};
 
 // 添加项目
 function addItem() {
@@ -82,7 +55,7 @@ function addItem() {
     return;
   }
 
-  const existingIndex = items.value.findIndex(item => item.label === label.value);
+  const existingIndex = items.value.findIndex((item: Item) => item.label === label.value);
   if (existingIndex !== -1) {
     items.value[existingIndex].quantity = quantity.value;
   } else {
@@ -161,18 +134,18 @@ async function runOptimization() {
     return;
   }
 
-  const expandedItems = items.value.flatMap(item => {
+  const expandedItems = items.value.flatMap((item: Item) => {
     return Array.from({ length: item.quantity }, (_, i) => ({
       label: `${item.label}_${i + 1}`,
-      width: item.width / 100,
-      height: item.height / 100
+      width: item.width,
+      height: item.height
     }));
   });
 
-  const materialData = materials.value.map(m => ({
+  const materialData = materials.value.map((m: Material) => ({
     name: m.name,
-    width: m.width / 100,
-    height: m.height / 100,
+    width: m.width,
+    height: m.height,
     availableCount: m.count
   }));
 
@@ -180,7 +153,9 @@ async function runOptimization() {
     loading.value = true;
     const data = await CutBin({
       items: expandedItems,
-      materials: materialData
+      materials: materialData,
+      width: newMaterialWidth.value,
+      height: newMaterialHeight.value
     });
     const { data: reslut } = data;
     if (!reslut || reslut.length === 0) {
@@ -188,116 +163,10 @@ async function runOptimization() {
     } else {
       results.value = reslut;
     }
-
-    // 延迟绘制，确保 canvas 已渲染
-    setTimeout(() => {
-      drawAllBins();
-    }, 100);
   } catch {
   } finally {
     loading.value = false;
   }
-
-  // 绘制所有结果
-  function drawAllBins() {
-    const maxMaterialWidth = Math.max(...results.value.map(b => b.materialWidth));
-    const maxMaterialHeight = Math.max(...results.value.map(b => b.materialHeight));
-    const maxCanvasSize = 400;
-    const scale = Math.min(maxCanvasSize / (maxMaterialWidth * 100), maxCanvasSize / (maxMaterialHeight * 100)) * 100;
-
-    canvases.value.forEach((canvas, index) => {
-      const bin = results.value[index];
-      if (!canvas) return;
-
-      const ctx = canvas.getContext('2d')!;
-      const widthCm = bin.materialWidth * 100;
-      const heightCm = bin.materialHeight * 100;
-      const widthPx = (widthCm * scale) / 100;
-      const heightPx = (heightCm * scale) / 100;
-
-      canvas.width = widthPx;
-      canvas.height = heightPx;
-
-      const isRemainder = isRemainderMaterial(bin);
-
-      // 背景
-      ctx.fillStyle = isRemainder ? '#e8f5e8' : '#e3f2fd';
-      ctx.fillRect(0, 0, widthPx, heightPx);
-
-      // 边框
-      ctx.strokeStyle = '#333';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(0, 0, widthPx, heightPx);
-
-      // 网格线 (10cm)
-      ctx.strokeStyle = '#bbb';
-      ctx.lineWidth = 1;
-      for (let x = 0; x <= widthCm; x += 10) {
-        const px = (x * scale) / 100;
-        ctx.beginPath();
-        ctx.moveTo(px, 0);
-        ctx.lineTo(px, heightPx);
-        ctx.stroke();
-      }
-      for (let y = 0; y <= heightCm; y += 10) {
-        const py = (y * scale) / 100;
-        ctx.beginPath();
-        ctx.moveTo(0, py);
-        ctx.lineTo(widthPx, py);
-        ctx.stroke();
-      }
-
-      // 绘制每个 piece
-      bin.pieces.forEach(piece => {
-        const hue = Math.floor(Math.random() * 360);
-        const color = `hsl(${hue}, 70%, 80%)`;
-
-        const x = (piece.x * 100 * scale) / 100;
-        const y = (piece.y * 100 * scale) / 100;
-        const w = (piece.w * 100 * scale) / 100;
-        const h = (piece.h * 100 * scale) / 100;
-
-        ctx.fillStyle = color;
-        ctx.fillRect(x, y, w, h);
-
-        ctx.strokeStyle = '#333';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(x, y, w, h);
-
-        // 标签
-        ctx.fillStyle = 'rgba(0,0,0,0.8)';
-        const labelWidth = Math.min(w - 4, 120);
-        ctx.fillRect(x + 2, y + 2, labelWidth, 36);
-
-        ctx.fillStyle = 'white';
-        ctx.font = '12px Arial';
-        ctx.fillText(piece.label, x + 6, y + 16);
-
-        const sizeText = `${(piece.w * 100).toFixed(1)}×${(piece.h * 100).toFixed(1)}cm`;
-        ctx.font = '11px Arial';
-        ctx.fillText(sizeText, x + 6, y + 30);
-      });
-    });
-  }
-
-  // 回车快捷键支持
-  onMounted(() => {
-    window.addEventListener('keypress', e => {
-      if (e.key === 'Enter') {
-        const active = document.activeElement;
-        if (['INPUT', 'TEXTAREA'].includes(active?.tagName || '')) {
-          if (active && ['label', 'width', 'height', 'quantity'].includes(active.id)) {
-            addItem();
-          } else if (
-            active &&
-            ['materialName', 'materialWidth', 'materialHeight', 'materialCount'].includes(active.id)
-          ) {
-            addMaterial();
-          }
-        }
-      }
-    });
-  });
 }
 </script>
 
@@ -422,47 +291,37 @@ async function runOptimization() {
         </table>
       </section>
 
+      <h3 class="mt-6">参数配置</h3>
+      <div class="mb-4 flex items-center gap-6">
+        <div class="flex items-center gap-2">
+          <span class="w-24">新材料长度</span>
+          <NInputNumber v-model:value="newMaterialHeight" class="w-40" />
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="w-24">新材料高度</span>
+          <NInputNumber v-model:value="newMaterialWidth" class="w-40" />
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="w-24">聚合显示</span>
+          <NSwitch v-model:value="group" class="w-40" />
+        </div>
+      </div>
+
       <!-- 操作按钮 -->
-      <div class="mb-6 flex gap-3">
+      <div class="mt-4 flex gap-2">
         <NButton type="primary" @click="runOptimization">开始裁剪</NButton>
+        <PlanePrinter :results="results" :materials="materials"></PlanePrinter>
         <NButton type="warning" @click="clearAll">清空所有</NButton>
       </div>
     </NCard>
 
-    <!-- 统计信息 -->
-    <NCard title="结果统计" size="large" class="mb-4">
-      <p>总项目数: {{ totalItems }} (面积: {{ totalItemArea.toFixed(1) }} cm²), 剩余材料: {{ materials.length }} 种</p>
-    </NCard>
+    <PlaneStats :results="results"></PlaneStats>
+    <PlaneCanvas :results="results" :group-data="group" :materials="materials"></PlaneCanvas>
 
-    <!-- 优化结果 -->
-    <div v-if="results.length" id="bins" class="mt-8 space-y-6">
-      <h3 class="text-xl font-semibold">优化结果: 使用 {{ results.length }} 块材料, 放置 {{ totalItems }} 个项目</h3>
-      <div
-        v-for="(bin, index) in results"
-        :key="index"
-        class="bin-card overflow-hidden border rounded-lg"
-        :class="{
-          'border-green-400 bg-green-50': isRemainderMaterial(bin),
-          'border-blue-400 bg-blue-50': !isRemainderMaterial(bin)
-        }"
-      >
-        <div class="bg-gray-100 p-3">
-          <h3 class="text-gray-800 font-semibold">{{ bin.materialType || '材料' }}</h3>
-          <p class="text-sm text-gray-600">
-            ID: {{ bin.binId }} | 尺寸: {{ (bin.materialWidth * 100).toFixed(1) }}×{{
-              (bin.materialHeight * 100).toFixed(1)
-            }}cm | 利用率: {{ bin.utilization.toFixed(1) }}%
-            <span v-if="isRemainderMaterial(bin)" class="text-green-600">♻️ 剩余材料</span>
-            <span v-else class="text-blue-600">🆕 新材料</span>
-          </p>
-        </div>
-        <canvas :ref="el => (canvases[index] = el as HTMLCanvasElement | null)" class="block bg-white"></canvas>
-      </div>
-    </div>
     <NModal v-model:show="loading" preset="dialog" title="计算中...">
       <div class="flex flex-col items-center justify-center p-6">
         <NSpin size="large" />
-        <div class="mt-3">正在计算，请稍候...</div>
+        <div class="mt-3">{{ $t('common.loading') }}</div>
       </div>
     </NModal>
   </div>
