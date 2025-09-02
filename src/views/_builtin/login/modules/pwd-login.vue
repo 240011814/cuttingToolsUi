@@ -39,39 +39,39 @@ async function handleSubmit() {
   await authStore.login(model.userName, model.password);
 }
 
-type AccountKey = 'super' | 'admin' | 'user';
+// type AccountKey = 'super' | 'admin' | 'user';
 
-interface Account {
-  key: AccountKey;
-  label: string;
-  userName: string;
-  password: string;
-}
+// interface Account {
+//   key: AccountKey;
+//   label: string;
+//   userName: string;
+//   password: string;
+// }
 
-const accounts = computed<Account[]>(() => [
-  {
-    key: 'super',
-    label: $t('page.login.pwdLogin.superAdmin'),
-    userName: 'Super',
-    password: '123456'
-  },
-  {
-    key: 'admin',
-    label: $t('page.login.pwdLogin.admin'),
-    userName: 'Admin',
-    password: '123456'
-  },
-  {
-    key: 'user',
-    label: $t('page.login.pwdLogin.user'),
-    userName: 'User',
-    password: '123456'
-  }
-]);
+// const accounts = computed<Account[]>(() => [
+//   {
+//     key: 'super',
+//     label: $t('page.login.pwdLogin.superAdmin'),
+//     userName: 'Super',
+//     password: '123456'
+//   },
+//   {
+//     key: 'admin',
+//     label: $t('page.login.pwdLogin.admin'),
+//     userName: 'Admin',
+//     password: '123456'
+//   },
+//   {
+//     key: 'user',
+//     label: $t('page.login.pwdLogin.user'),
+//     userName: 'User',
+//     password: '123456'
+//   }
+// ]);
 
-async function handleAccountLogin(account: Account) {
-  await authStore.login(account.userName, account.password);
-}
+// async function handleAccountLogin(account: Account) {
+//   await authStore.login(account.userName, account.password);
+// }
 </script>
 
 <template>
@@ -105,12 +105,14 @@ async function handleAccountLogin(account: Account) {
           {{ $t(loginModuleRecord.register) }}
         </NButton>
       </div>
-      <NDivider class="text-14px text-#666 !m-0">{{ $t('page.login.pwdLogin.otherAccountLogin') }}</NDivider>
+      <!--
+ <NDivider class="text-14px text-#666 !m-0">{{ $t('page.login.pwdLogin.otherAccountLogin') }}</NDivider>
       <div class="flex-center gap-12px">
         <NButton v-for="item in accounts" :key="item.key" type="primary" @click="handleAccountLogin(item)">
           {{ item.label }}
         </NButton>
       </div>
+-->
     </NSpace>
   </NForm>
 </template>

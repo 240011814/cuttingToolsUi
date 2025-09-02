@@ -344,6 +344,7 @@ declare namespace App {
         update: string;
         updateSuccess: string;
         userCenter: string;
+        loading: string;
         yesOrNo: {
           yes: string;
           no: string;

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, h, onMounted, ref } from 'vue';
-import { NButton, NCard, NDataTable, NInputNumber, NModal, NSpin } from 'naive-ui';
+import { NButton, NCard, NDataTable, NInputNumber, NModal, NSpin, useMessage } from 'naive-ui';
 import { CutBar } from '@/service/api';
 
 const itemsData = ref<{ length: number; qty: number }[]>([]);
@@ -13,7 +13,7 @@ const matQty = ref<number | null>(null);
 const newMaterialLength = ref(600);
 const loss = ref(0.2);
 const utilizationWeight = ref(4);
-
+const group = ref(false);
 const cutResult = ref<Api.Cut.BarResult[] | null>(null);
 const loading = ref(false);
 const disabledPrint = ref(true);
@@ -69,6 +69,9 @@ function addItem() {
     itemsData.value.push({ length: itemLength.value, qty: itemQty.value });
     itemLength.value = null;
     itemQty.value = null;
+  } else {
+    const message = useMessage();
+    message.error('请输入有效的项目参数！');
   }
 }
 
@@ -77,6 +80,9 @@ function addMaterial() {
     materialsData.value.push({ length: matLength.value, qty: matQty.value });
     matLength.value = null;
     matQty.value = null;
+  } else {
+    const message = useMessage();
+    message.error('请输入有效的项目参数！');
   }
 }
 
@@ -142,11 +148,37 @@ const result = computed(() => {
 
   return {
     totalMaterials,
-    totalLength,
-    totalUsed,
-    totalRemaining,
+    totalLength: totalLength.toFixed(2),
+    totalUsed: totalUsed.toFixed(2),
+    totalRemaining: totalRemaining.toFixed(2),
     usagePercent: ((totalUsed / totalLength) * 100).toFixed(2)
   };
+});
+
+const processedResult = computed(() => {
+  if (!cutResult.value) return [];
+
+  // 按 cuts + remaining 来归一化 key
+  const map = new Map<string, any>();
+
+  if (group.value === false) {
+    return cutResult.value;
+  }
+  cutResult.value.forEach((item: Api.Cut.BarResult) => {
+    const cutsKey = item.cuts
+      .slice()
+      .sort((a, b) => a - b)
+      .join(',');
+    const key = `${cutsKey}|${item.remaining}`;
+    if (!map.has(key)) {
+      map.set(key, { ...item, count: 1 });
+    } else {
+      map.get(key).count = map.get(key).count + 1;
+    }
+  });
+
+  // 转成数组并排序 (例如按 remaining 从小到大)
+  return Array.from(map.values()).sort((a, b) => a.remaining - b.remaining);
 });
 
 // 颜色池
@@ -219,8 +251,12 @@ onMounted(() => {
           <NInputNumber v-model:value="loss" class="w-40" />
         </div>
         <div class="flex items-center gap-2">
-          <span class="w-24">利用权重</span>
+          <span class="w-24">利用率权重</span>
           <NSlider v-model:value="utilizationWeight" :min="1" :max="8" :step="0.1" class="w-40" />
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="w-24">聚合显示</span>
+          <NSwitch v-model:value="group" class="w-40" />
         </div>
       </div>
 
@@ -243,11 +279,11 @@ onMounted(() => {
     <NCard title="裁剪图示" size="large">
       <div ref="canvasWrapper" class="cursor-grab overflow-x-auto border border-gray-300 rounded-md p-4">
         <div class="origin-top-left" :style="{ transform: `scale(${scaleFactor})` }">
-          <div v-for="item in cutResult" :key="item.index" class="mb-6">
+          <div v-for="item in processedResult" :key="item.index" class="mb-6">
             <!-- 标签 -->
             <div class="mb-1 font-bold">
               材料 #{{ item.index }} (总长: {{ item.totalLength }}cm, 已用: {{ item.used }}cm, 剩余:
-              {{ item.remaining }}cm)
+              {{ item.remaining }}cm) * {{ item.count || 1 }} 根
             </div>
 
             <!-- 条形图 -->
@@ -287,7 +323,7 @@ onMounted(() => {
     <NModal v-model:show="loading" preset="dialog" title="计算中...">
       <div class="flex flex-col items-center justify-center p-6">
         <NSpin size="large" />
-        <div class="mt-3">正在计算，请稍候...</div>
+        <div class="mt-3">{{ $t('common.loading') }}</div>
       </div>
     </NModal>
   </div>
