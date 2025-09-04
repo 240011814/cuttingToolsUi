@@ -163,15 +163,37 @@ function transformElegantRouteToVueRoute(
 const routeMap: RouteMap = {
   "root": "/",
   "not-found": "/:pathMatch(.*)*",
+  "exception": "/exception",
+  "exception_403": "/exception/403",
+  "exception_404": "/exception/404",
+  "exception_500": "/exception/500",
+  "document": "/document",
+  "document_project": "/document/project",
+  "document_project-link": "/document/project-link",
+  "document_video": "/document/video",
+  "document_vue": "/document/vue",
+  "document_vite": "/document/vite",
+  "document_unocss": "/document/unocss",
+  "document_naive": "/document/naive",
+  "document_pro-naive": "/document/pro-naive",
+  "document_antd": "/document/antd",
+  "document_alova": "/document/alova",
   "403": "/403",
   "404": "/404",
   "500": "/500",
+  "about": "/about",
   "cut": "/cut",
   "cut_bar": "/cut/bar",
   "cut_plane": "/cut/plane",
   "home": "/home",
   "iframe-page": "/iframe-page/:url",
-  "login": "/login/:module(pwd-login|code-login|register|reset-pwd|bind-wechat)?"
+  "login": "/login/:module(pwd-login|code-login|register|reset-pwd|bind-wechat)?",
+  "manage": "/manage",
+  "manage_menu": "/manage/menu",
+  "manage_role": "/manage/role",
+  "manage_user": "/manage/user",
+  "manage_user-detail": "/manage/user-detail/:id",
+  "user-center": "/user-center"
 };
 
 /**

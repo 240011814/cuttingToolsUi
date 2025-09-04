@@ -37,6 +37,14 @@ export function fetchRefreshToken(refreshToken: string) {
   });
 }
 
+export function registerUser(data: Api.Auth.RegisterRequest) {
+  return request<Api.Auth.UserInfo>({
+    url: '/auth/register',
+    method: 'post',
+    data
+  });
+}
+
 /**
  * return custom backend error
  *

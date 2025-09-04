@@ -168,6 +168,28 @@ const local: App.I18n.Schema = {
     500: 'Server Error',
     'iframe-page': 'Iframe',
     home: 'Home',
+    document: 'Document',
+    document_project: 'Project Document',
+    'document_project-link': 'Project Document(External Link)',
+    document_video: 'Video Tutorial',
+    document_vue: 'Vue Document',
+    document_vite: 'Vite Document',
+    document_unocss: 'UnoCSS Document',
+    document_naive: 'Naive UI Document',
+    'document_pro-naive': 'Pro Naive UI Document',
+    document_antd: 'Ant Design Vue Document',
+    document_alova: 'Alova Document',
+    'user-center': 'User Center',
+    about: 'About',
+    manage: 'System Manage',
+    manage_user: 'User Manage',
+    'manage_user-detail': 'User Detail',
+    manage_role: 'Role Manage',
+    manage_menu: 'Menu Manage',
+    exception: 'Exception',
+    exception_403: '403',
+    exception_404: '404',
+    exception_500: '500',
     cut: 'cutTools',
     cut_bar: 'Bar Cut',
     cut_plane: 'Plane Cut'
@@ -219,6 +241,19 @@ const local: App.I18n.Schema = {
         title: 'Bind WeChat'
       }
     },
+    about: {
+      title: 'About',
+      introduction: `SoybeanAdmin is an elegant and powerful admin template, based on the latest front-end technology stack, including Vue3, Vite7, TypeScript, Pinia and UnoCSS. It has built-in rich theme configuration and components, strict code specifications, and an automated file routing system. In addition, it also uses the online mock data solution based on ApiFox. SoybeanAdmin provides you with a one-stop admin solution, no additional configuration, and out of the box. It is also a best practice for learning cutting-edge technologies quickly.`,
+      projectInfo: {
+        title: 'Project Info',
+        version: 'Version',
+        latestBuildTime: 'Latest Build Time',
+        githubLink: 'Github Link',
+        previewLink: 'Preview Link'
+      },
+      prdDep: 'Production Dependency',
+      devDep: 'Development Dependency'
+    },
     home: {
       branchDesc:
         'For the convenience of everyone in developing and updating the merge, we have streamlined the code of the main branch, only retaining the homepage menu, and the rest of the content has been moved to the example branch for maintenance. The preview address displays the content of the example branch.',
@@ -247,6 +282,253 @@ const local: App.I18n.Schema = {
         desc5: 'Soybean just wrote some of the workbench pages casually, and it was enough to see!'
       },
       creativity: 'Creativity'
+    },
+    function: {
+      tab: {
+        tabOperate: {
+          title: 'Tab Operation',
+          addTab: 'Add Tab',
+          addTabDesc: 'To about page',
+          closeTab: 'Close Tab',
+          closeCurrentTab: 'Close Current Tab',
+          closeAboutTab: 'Close "About" Tab',
+          addMultiTab: 'Add Multi Tab',
+          addMultiTabDesc1: 'To MultiTab page',
+          addMultiTabDesc2: 'To MultiTab page(with query params)'
+        },
+        tabTitle: {
+          title: 'Tab Title',
+          changeTitle: 'Change Title',
+          change: 'Change',
+          resetTitle: 'Reset Title',
+          reset: 'Reset'
+        }
+      },
+      multiTab: {
+        routeParam: 'Route Param',
+        backTab: 'Back function_tab'
+      },
+      toggleAuth: {
+        toggleAccount: 'Toggle Account',
+        authHook: 'Auth Hook Function `hasAuth`',
+        superAdminVisible: 'Super Admin Visible',
+        adminVisible: 'Admin Visible',
+        adminOrUserVisible: 'Admin and User Visible'
+      },
+      request: {
+        repeatedErrorOccurOnce: 'Repeated Request Error Occurs Once',
+        repeatedError: 'Repeated Request Error',
+        repeatedErrorMsg1: 'Custom Request Error 1',
+        repeatedErrorMsg2: 'Custom Request Error 2'
+      }
+    },
+    alova: {
+      scenes: {
+        captchaSend: 'Captcha Send',
+        autoRequest: 'Auto Request',
+        visibilityRequestTips: 'Automatically request when switching browser window',
+        pollingRequestTips: 'It will request every 3 seconds',
+        networkRequestTips: 'Automatically request after network reconnecting',
+        refreshTime: 'Refresh Time',
+        startRequest: 'Start Request',
+        stopRequest: 'Stop Request',
+        requestCrossComponent: 'Request Cross Component',
+        triggerAllRequest: 'Manually Trigger All Automated Requests'
+      }
+    },
+    proNaive: {
+      form: {
+        basic: {
+          title: 'Basic Example',
+          appName: 'ApplicationName',
+          appStatus: 'ApplicationStatus',
+          createTime: 'CreateTime',
+          responseDate: 'ResponseDate',
+          specificationInfo: 'SpecificationInfo',
+          specificate: 'Specificate',
+          specificationName: 'SpecificationName',
+          specificationValue: 'SpecificationValue',
+          specificationColorRed: 'Red',
+          specificationColorOrange: 'Orange',
+          addSpecificateItem: 'Add Specificate Item',
+          fillValue: 'FillValue',
+          reset: 'Reset',
+          submit: 'Submit',
+          add: 'Add',
+          delete: 'Delete',
+          color: 'Color',
+          normal: 'Normal',
+          anomaly: 'Anomaly'
+        },
+        query: {
+          title1: 'Query Example, which expands by default',
+          title2: 'Query Example, which fold by default, and two lines are retained when folding',
+          appName: 'ApplicationName',
+          appStatus: 'ApplicationStatus',
+          createTime: 'CreateTime',
+          responseDate: 'ResponseDate',
+          endDate: 'EndDate',
+          field: 'Field'
+        },
+        step: {
+          title: 'Step Form',
+          step1: {
+            title: 'Form 1',
+            field: 'Form 1 field',
+            nextStep: 'Next Step'
+          },
+          step2: {
+            title: 'Form 2',
+            field: 'Form 2 field',
+            prevStep: 'Prev Step',
+            submit: 'Submit'
+          }
+        }
+      },
+      table: {
+        remote: {
+          filterCondition: 'Filter Condition',
+          name: 'Name',
+          createTime: 'CreateTime',
+          responseTime: 'ResponseTime',
+          title: 'Remote Loading',
+          replicableText: 'Replicable Text',
+          tags: 'Tags',
+          dateFormatting: 'Date Formatting',
+          image: 'Image'
+        },
+        rowEdit: {
+          title: 'Edit Table',
+          reset: 'Reset',
+          submit: 'Submit',
+          edit: 'Edit',
+          delete: 'Delete',
+          save: 'Save',
+          task: 'Task',
+          score: 'Score',
+          time: 'Time',
+          name: 'Name',
+          action: 'Action'
+        }
+      }
+    },
+    manage: {
+      common: {
+        status: {
+          enable: 'Enable',
+          disable: 'Disable'
+        }
+      },
+      role: {
+        title: 'Role List',
+        roleName: 'Role Name',
+        roleCode: 'Role Code',
+        roleStatus: 'Role Status',
+        roleDesc: 'Role Description',
+        menuAuth: 'Menu Auth',
+        buttonAuth: 'Button Auth',
+        form: {
+          roleName: 'Please enter role name',
+          roleCode: 'Please enter role code',
+          roleStatus: 'Please select role status',
+          roleDesc: 'Please enter role description'
+        },
+        addRole: 'Add Role',
+        editRole: 'Edit Role'
+      },
+      user: {
+        title: 'User List',
+        userName: 'User Name',
+        userGender: 'Gender',
+        nickName: 'Nick Name',
+        userPhone: 'Phone Number',
+        userEmail: 'Email',
+        userStatus: 'User Status',
+        userRole: 'User Role',
+        form: {
+          userName: 'Please enter user name',
+          userGender: 'Please select gender',
+          nickName: 'Please enter nick name',
+          userPhone: 'Please enter phone number',
+          userEmail: 'Please enter email',
+          userStatus: 'Please select user status',
+          userRole: 'Please select user role'
+        },
+        addUser: 'Add User',
+        editUser: 'Edit User',
+        gender: {
+          male: 'Male',
+          female: 'Female'
+        }
+      },
+      menu: {
+        home: 'Home',
+        title: 'Menu List',
+        id: 'ID',
+        parentId: 'Parent ID',
+        menuType: 'Menu Type',
+        menuName: 'Menu Name',
+        routeName: 'Route Name',
+        routePath: 'Route Path',
+        pathParam: 'Path Param',
+        layout: 'Layout Component',
+        page: 'Page Component',
+        i18nKey: 'I18n Key',
+        icon: 'Icon',
+        localIcon: 'Local Icon',
+        iconTypeTitle: 'Icon Type',
+        order: 'Order',
+        constant: 'Constant',
+        keepAlive: 'Keep Alive',
+        href: 'Href',
+        hideInMenu: 'Hide In Menu',
+        activeMenu: 'Active Menu',
+        multiTab: 'Multi Tab',
+        fixedIndexInTab: 'Fixed Index In Tab',
+        query: 'Query Params',
+        button: 'Button',
+        buttonCode: 'Button Code',
+        buttonDesc: 'Button Desc',
+        menuStatus: 'Menu Status',
+        form: {
+          home: 'Please select home',
+          menuType: 'Please select menu type',
+          menuName: 'Please enter menu name',
+          routeName: 'Please enter route name',
+          routePath: 'Please enter route path',
+          pathParam: 'Please enter path param',
+          page: 'Please select page component',
+          layout: 'Please select layout component',
+          i18nKey: 'Please enter i18n key',
+          icon: 'Please enter iconify name',
+          localIcon: 'Please enter local icon name',
+          order: 'Please enter order',
+          keepAlive: 'Please select whether to cache route',
+          href: 'Please enter href',
+          hideInMenu: 'Please select whether to hide menu',
+          activeMenu: 'Please select route name of the highlighted menu',
+          multiTab: 'Please select whether to support multiple tabs',
+          fixedInTab: 'Please select whether to fix in the tab',
+          fixedIndexInTab: 'Please enter the index fixed in the tab',
+          queryKey: 'Please enter route parameter Key',
+          queryValue: 'Please enter route parameter Value',
+          button: 'Please select whether it is a button',
+          buttonCode: 'Please enter button code',
+          buttonDesc: 'Please enter button description',
+          menuStatus: 'Please select menu status'
+        },
+        addMenu: 'Add Menu',
+        editMenu: 'Edit Menu',
+        addChildMenu: 'Add Child Menu',
+        type: {
+          directory: 'Directory',
+          menu: 'Menu'
+        },
+        iconType: {
+          iconify: 'Iconify Icon',
+          local: 'Local Icon'
+        }
+      }
     }
   },
   form: {

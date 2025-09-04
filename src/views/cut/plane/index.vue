@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useMessage } from 'naive-ui';
-import { CutBin } from '@/service/api';
+import { cutBin } from '@/service/api';
 
 const message = useMessage();
 // 数据模型
@@ -151,7 +151,7 @@ async function runOptimization() {
 
   try {
     loading.value = true;
-    const data = await CutBin({
+    const data = await cutBin({
       items: expandedItems,
       materials: materialData,
       width: newMaterialWidth.value,

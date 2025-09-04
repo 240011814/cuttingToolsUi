@@ -1,6 +1,6 @@
 import { request } from '../request';
 
-export function CutBar(data: Api.Cut.BarRequest) {
+export function cutBar(data: Api.Cut.BarRequest) {
   return request<Api.Cut.BarResult[]>({
     url: '/cut/bar',
     method: 'post',
@@ -8,7 +8,7 @@ export function CutBar(data: Api.Cut.BarRequest) {
   });
 }
 
-export function CutBin(data: Api.Cut.BinRequest) {
+export function cutBin(data: Api.Cut.BinRequest) {
   return request<Api.Cut.BinResult[]>({
     url: '/cut/plane',
     method: 'post',
