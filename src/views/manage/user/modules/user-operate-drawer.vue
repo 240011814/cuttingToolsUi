@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { enableStatusOptions, userGenderOptions } from '@/constants/business';
-import { fetchGetAllRoles } from '@/service/api';
+import { enableStatusOptions } from '@/constants/business';
+import { editUser } from '@/service/api';
 import { useFormRules, useNaiveForm } from '@/hooks/common/form';
 import { $t } from '@/locales';
 
@@ -39,55 +39,51 @@ const title = computed(() => {
   return titles[props.operateType];
 });
 
-type Model = Pick<
-  Api.SystemManage.User,
-  'userName' | 'userGender' | 'nickName' | 'userPhone' | 'userEmail' | 'userRoles' | 'status'
->;
+type Model = Pick<Api.SystemManage.User, 'id' | 'userName' | 'nickName' | 'phone' | 'email' | 'userRoles' | 'status'>;
 
 const model = ref(createDefaultModel());
 
 function createDefaultModel(): Model {
   return {
+    id: '',
     userName: '',
-    userGender: null,
     nickName: '',
-    userPhone: '',
-    userEmail: '',
+    phone: '',
+    email: '',
     userRoles: [],
-    status: null
+    status: '1'
   };
 }
 
-type RuleKey = Extract<keyof Model, 'userName' | 'status'>;
+type RuleKey = Extract<keyof Model, 'userName'>;
 
 const rules: Record<RuleKey, App.Global.FormRule> = {
-  userName: defaultRequiredRule,
-  status: defaultRequiredRule
+  userName: defaultRequiredRule
 };
 
 /** the enabled role options */
 const roleOptions = ref<CommonType.Option<string>[]>([]);
 
-async function getRoleOptions() {
-  const { error, data } = await fetchGetAllRoles();
+// async function getRoleOptions() {
+//   const { error, data } = await fetchGetAllRoles();
 
-  if (!error) {
-    const options = data.map(item => ({
-      label: item.roleName,
-      value: item.roleCode
-    }));
+//   if (!error) {
+//     const options = data.map(item => ({
+//       label: item.roleName,
+//       value: item.roleCode
+//     }));
 
-    // the mock data does not have the roleCode, so fill it
-    // if the real request, remove the following code
-    const userRoleOptions = model.value.userRoles.map(item => ({
-      label: item,
-      value: item
-    }));
-    // end
+//     // the mock data does not have the roleCode, so fill it
+//     // if the real request, remove the following code
+//     const userRoleOptions = model.value.userRoles.map(item => ({
+//       label: item,
+//       value: item
+//     }));
+//     // end
 
-    roleOptions.value = [...userRoleOptions, ...options];
-  }
-}
+//     roleOptions.value = [...userRoleOptions, ...options];
+//   }
+// }
 
 function handleInitModel() {
   model.value = createDefaultModel();
@@ -103,7 +99,13 @@ function closeDrawer() {
 
 async function handleSubmit() {
   await validate();
-  // request
+  await editUser({
+    nickName: model.value.nickName,
+    phone: model.value.phone,
+    email: model.value.email,
+    enabled: model.value.status === '1',
+    id: model.value.id
+  });
   window.$message?.success($t('common.updateSuccess'));
   closeDrawer();
   emit('submitted');
@@ -113,7 +115,7 @@ watch(visible, () => {
   if (visible.value) {
     handleInitModel();
     restoreValidation();
-    getRoleOptions();
+    // getRoleOptions();
   }
 });
 </script>
@@ -123,28 +125,23 @@ watch(visible, () => {
     <NDrawerContent :title="title" :native-scrollbar="false" closable>
       <NForm ref="formRef" :model="model" :rules="rules">
         <NFormItem :label="$t('page.manage.user.userName')" path="userName">
-          <NInput v-model:value="model.userName" :placeholder="$t('page.manage.user.form.userName')" />
-        </NFormItem>
-        <NFormItem :label="$t('page.manage.user.userGender')" path="userGender">
-          <NRadioGroup v-model:value="model.userGender">
-            <NRadio v-for="item in userGenderOptions" :key="item.value" :value="item.value" :label="$t(item.label)" />
-          </NRadioGroup>
+          <NInput v-model:value="model.userName" :disabled="true" :placeholder="$t('page.manage.user.form.userName')" />
         </NFormItem>
         <NFormItem :label="$t('page.manage.user.nickName')" path="nickName">
           <NInput v-model:value="model.nickName" :placeholder="$t('page.manage.user.form.nickName')" />
         </NFormItem>
         <NFormItem :label="$t('page.manage.user.userPhone')" path="userPhone">
-          <NInput v-model:value="model.userPhone" :placeholder="$t('page.manage.user.form.userPhone')" />
+          <NInput v-model:value="model.phone" :placeholder="$t('page.manage.user.form.userPhone')" />
         </NFormItem>
         <NFormItem :label="$t('page.manage.user.userEmail')" path="email">
-          <NInput v-model:value="model.userEmail" :placeholder="$t('page.manage.user.form.userEmail')" />
+          <NInput v-model:value="model.email" :placeholder="$t('page.manage.user.form.userEmail')" />
         </NFormItem>
         <NFormItem :label="$t('page.manage.user.userStatus')" path="status">
           <NRadioGroup v-model:value="model.status">
             <NRadio v-for="item in enableStatusOptions" :key="item.value" :value="item.value" :label="$t(item.label)" />
           </NRadioGroup>
         </NFormItem>
-        <NFormItem :label="$t('page.manage.user.userRole')" path="roles">
+        <NFormItem v-if="false" :label="$t('page.manage.user.userRole')" path="roles">
           <NSelect
             v-model:value="model.userRoles"
             multiple

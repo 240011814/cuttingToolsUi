@@ -1,6 +1,6 @@
 <script setup lang="tsx">
 import { NButton, NPopconfirm, NTag } from 'naive-ui';
-import { enableStatusRecord, userGenderRecord } from '@/constants/business';
+import { enableStatusRecord } from '@/constants/business';
 import { fetchGetUserList } from '@/service/api';
 import { useAppStore } from '@/store/modules/app';
 import { useTable, useTableOperate } from '@/hooks/common/table';
@@ -23,17 +23,13 @@ const {
 } = useTable({
   apiFn: fetchGetUserList,
   showTotal: true,
+  immediate: true,
   apiParams: {
     current: 1,
     size: 10,
     // if you want to use the searchParams in Form, you need to define the following properties, and the value is null
     // the value can not be undefined, otherwise the property in Form will not be reactive
-    status: null,
-    userName: null,
-    userGender: null,
-    nickName: null,
-    userPhone: null,
-    userEmail: null
+    search: null
   },
   columns: () => [
     {
@@ -42,10 +38,10 @@ const {
       width: 48
     },
     {
-      key: 'index',
+      key: 'id',
       title: $t('common.index'),
       align: 'center',
-      width: 64
+      width: 200
     },
     {
       key: 'userName',
@@ -54,79 +50,68 @@ const {
       minWidth: 100
     },
     {
-      key: 'userGender',
-      title: $t('page.manage.user.userGender'),
-      align: 'center',
-      width: 100,
-      render: row => {
-        if (row.userGender === null) {
-          return null;
-        }
-
-        const tagMap: Record<Api.SystemManage.UserGender, NaiveUI.ThemeColor> = {
-          1: 'primary',
-          2: 'error'
-        };
-
-        const label = $t(userGenderRecord[row.userGender]);
-
-        return <NTag type={tagMap[row.userGender]}>{label}</NTag>;
-      }
-    },
-    {
       key: 'nickName',
       title: $t('page.manage.user.nickName'),
       align: 'center',
       minWidth: 100
     },
     {
-      key: 'userPhone',
+      key: 'phone',
       title: $t('page.manage.user.userPhone'),
       align: 'center',
       width: 120
     },
     {
-      key: 'userEmail',
+      key: 'email',
       title: $t('page.manage.user.userEmail'),
       align: 'center',
       minWidth: 200
     },
     {
-      key: 'status',
+      key: 'enabled',
       title: $t('page.manage.user.userStatus'),
       align: 'center',
       width: 100,
       render: row => {
-        if (row.status === null) {
-          return null;
-        }
-
+        const status = row.enabled ? '1' : '2';
         const tagMap: Record<Api.Common.EnableStatus, NaiveUI.ThemeColor> = {
           1: 'success',
           2: 'warning'
         };
+        const label = $t(enableStatusRecord[status]);
 
-        const label = $t(enableStatusRecord[row.status]);
-
-        return <NTag type={tagMap[row.status]}>{label}</NTag>;
+        return (
+          <NTag type={tagMap[status]}>
+            {{
+              default: () => label
+            }}
+          </NTag>
+        );
       }
     },
     {
       key: 'operate',
       title: $t('common.operate'),
       align: 'center',
-      width: 130,
+      width: 180,
       render: row => (
         <div class="flex-center gap-8px">
-          <NButton type="primary" ghost size="small" onClick={() => edit(row.id)}>
+          <NButton
+            type="primary"
+            ghost
+            size="small"
+            onClick={() => {
+              edit(row.id);
+            }}
+          >
             {$t('common.edit')}
           </NButton>
           <NPopconfirm onPositiveClick={() => handleDelete(row.id)}>
             {{
-              default: () => $t('common.confirmDelete'),
+              default: () => $t('page.login.common.confirm'),
               trigger: () => (
                 <NButton type="error" ghost size="small">
-                  {$t('common.delete')}
+                  {$t('page.login.resetPwd.title')}
                 </NButton>
               )
             }}
@@ -141,30 +126,24 @@ const {
   drawerVisible,
   operateType,
   editingData,
-  handleAdd,
   handleEdit,
   checkedRowKeys,
-  onBatchDeleted,
   onDeleted
   // closeDrawer
 } = useTableOperate(data, getData);
 
-async function handleBatchDelete() {
-  // request
-  console.log(checkedRowKeys.value);
-
-  onBatchDeleted();
-}
-
-function handleDelete(id: number) {
-  // request
-  console.log(id);
-
+function handleDelete(_id: string) {
   onDeleted();
 }
 
-function edit(id: number) {
-  handleEdit(id);
+function edit(id: string) {
+  handleEdit(id, item => {
+    if (item?.enabled) {
+      item.status = '1';
+    } else {
+      item.status = '2';
+    }
+  });
 }
 </script>
 
@@ -177,8 +156,8 @@ function edit(id: number) {
           v-model:columns="columnChecks"
           :disabled-delete="checkedRowKeys.length === 0"
           :loading="loading"
-          @add="handleAdd"
-          @delete="handleBatchDelete"
+          :enable-add="false"
+          :enable-delete="false"
           @refresh="getData"
         />
       </template>

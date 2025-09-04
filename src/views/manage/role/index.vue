@@ -22,6 +22,7 @@ const {
   resetSearchParams
 } = useTable({
   apiFn: fetchGetRoleList,
+  immediate: true,
   apiParams: {
     current: 1,
     size: 10,
@@ -120,19 +121,15 @@ const {
 
 async function handleBatchDelete() {
   // request
-  console.log(checkedRowKeys.value);
-
   onBatchDeleted();
 }
 
-function handleDelete(id: number) {
+function handleDelete(_id: string | number) {
   // request
-  console.log(id);
-
   onDeleted();
 }
 
-function edit(id: number) {
+function edit(id: string | number) {
   handleEdit(id);
 }
 </script>

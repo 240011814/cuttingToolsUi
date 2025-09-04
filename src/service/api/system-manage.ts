@@ -24,9 +24,17 @@ export function fetchGetAllRoles() {
 /** get user list */
 export function fetchGetUserList(params?: Api.SystemManage.UserSearchParams) {
   return request<Api.SystemManage.UserList>({
-    url: '/systemManage/getUserList',
+    url: '/user/list',
     method: 'get',
     params
+  });
+}
+
+export function editUser(data: any) {
+  return request<boolean>({
+    url: '/user/edit',
+    method: 'post',
+    data
   });
 }
 

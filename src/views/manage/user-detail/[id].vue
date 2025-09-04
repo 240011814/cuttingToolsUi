@@ -8,6 +8,7 @@ defineProps<Props>();
 
 <template>
   <LookForward />
+  {{ id }}
 </template>
 
 <style scoped></style>

@@ -10,9 +10,9 @@ import SvgIcon from '@/components/custom/svg-icon.vue';
 import {
   getLayoutAndPage,
   getPathParamFromRoutePath,
-  getRoutePathByRouteName,
-  getRoutePathWithParam,
-  transformLayoutAndPageToComponent
+  getRoutePathByRouteName
+  // getRoutePathWithParam,
+  // transformLayoutAndPageToComponent
 } from './shared';
 
 defineOptions({
@@ -237,24 +237,22 @@ function handleCreateButton() {
   return buttonItem;
 }
 
-function getSubmitParams() {
-  const { layout, page, pathParam, ...params } = model.value;
+// function getSubmitParams() {
+//   const { layout, page, pathParam, ...params } = model.value;
 
-  const component = transformLayoutAndPageToComponent(layout, page);
-  const routePath = getRoutePathWithParam(model.value.routePath, pathParam);
+//   const component = transformLayoutAndPageToComponent(layout, page);
+//   const routePath = getRoutePathWithParam(model.value.routePath, pathParam);
 
-  params.component = component;
-  params.routePath = routePath;
+//   params.component = component;
+//   params.routePath = routePath;
 
-  return params;
-}
+//   return params;
+// }
 
 async function handleSubmit() {
   await validate();
 
-  const params = getSubmitParams();
-
-  console.log('params: ', params);
+  // const _params = getSubmitParams();
 
   // request
   window.$message?.success($t('common.updateSuccess'));

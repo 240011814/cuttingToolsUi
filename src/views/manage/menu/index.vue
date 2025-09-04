@@ -20,6 +20,8 @@ const wrapperRef = ref<HTMLElement | null>(null);
 
 const { columns, columnChecks, data, loading, pagination, getData, getDataByPage } = useTable({
   apiFn: fetchGetMenuList,
+  immediate: true,
+  apiParams: undefined,
   columns: () => [
     {
       type: 'selection',
@@ -181,15 +183,11 @@ function handleAdd() {
 
 async function handleBatchDelete() {
   // request
-  console.log(checkedRowKeys.value);
-
   onBatchDeleted();
 }
 
-function handleDelete(id: number) {
+function handleDelete(_id: number | string) {
   // request
-  console.log(id);
-
   onDeleted();
 }
 

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, h, onMounted, ref } from 'vue';
 import { NButton, NCard, NDataTable, NInputNumber, NModal, NSpin, useMessage } from 'naive-ui';
-import { CutBar } from '@/service/api';
+import { cutBar } from '@/service/api';
 
 const itemsData = ref<{ length: number; qty: number }[]>([]);
 const materialsData = ref<{ length: number; qty: number }[]>([]);
@@ -107,7 +107,7 @@ async function fetchData() {
     Array(i.qty).fill(i.length)
   );
   try {
-    const data = await CutBar({
+    const data = await cutBar({
       items,
       materials,
       newMaterialLength: newMaterialLength.value,

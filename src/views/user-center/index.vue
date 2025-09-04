@@ -1,7 +1,9 @@
-<script setup lang="ts"></script>
+<script lang="ts" setup>
+//
+</script>
 
 <template>
-  <LookForward />
+  <div class="">
+    <!-- page only one root element -->
+  </div>
 </template>
-
-<style scoped></style>
