@@ -45,7 +45,10 @@ export const generatedRoutes: GeneratedRoute[] = [
     component: 'layout.base$view.about',
     meta: {
       title: 'about',
-      i18nKey: 'route.about'
+      i18nKey: 'route.about',
+      order: 99,
+      icon: 'mdi:information-outline',
+      hideInMenu: true
     }
   },
   {
@@ -126,7 +129,7 @@ export const generatedRoutes: GeneratedRoute[] = [
       i18nKey: 'route.manage',
       icon: 'carbon:cloud-service-management',
       order: 9,
-      roles: []
+      roles: ['admin']
     },
     children: [
       {
@@ -187,7 +190,10 @@ export const generatedRoutes: GeneratedRoute[] = [
     component: 'layout.base$view.user-center',
     meta: {
       title: 'user-center',
-      i18nKey: 'route.user-center'
+      i18nKey: 'route.user-center',
+      icon: 'mdi:account-circle',
+      order: 98,
+      keepAlive: true
     }
   }
 ];

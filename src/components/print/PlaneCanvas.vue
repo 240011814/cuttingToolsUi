@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from 'vue';
+import { computed, defineProps, nextTick, onMounted, ref, watch } from 'vue';
 import { NCard } from 'naive-ui';
 
 const props = defineProps<{

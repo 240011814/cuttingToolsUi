@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { nextTick, ref } from 'vue';
+import { defineProps, nextTick, ref } from 'vue';
 import html2canvas from 'html2canvas';
 
 const props = defineProps<{

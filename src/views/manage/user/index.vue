@@ -1,7 +1,7 @@
 <script setup lang="tsx">
 import { NButton, NPopconfirm, NTag } from 'naive-ui';
 import { enableStatusRecord } from '@/constants/business';
-import { fetchGetUserList } from '@/service/api';
+import { fetchGetUserList, resetPassword } from '@/service/api';
 import { useAppStore } from '@/store/modules/app';
 import { useTable, useTableOperate } from '@/hooks/common/table';
 import { $t } from '@/locales';
@@ -106,7 +106,7 @@ const {
           >
             {$t('common.edit')}
           </NButton>
-          <NPopconfirm onPositiveClick={() => handleDelete(row.id)}>
+          <NPopconfirm onPositiveClick={() => reset(row.id)}>
             {{
               default: () => $t('page.login.common.confirm'),
               trigger: () => (
@@ -127,13 +127,17 @@ const {
   operateType,
   editingData,
   handleEdit,
-  checkedRowKeys,
-  onDeleted
+  checkedRowKeys
   // closeDrawer
 } = useTableOperate(data, getData);
 
-function handleDelete(_id: string) {
-  onDeleted();
+async function reset(id: string) {
+  const result = await resetPassword({ id });
+  if (result) {
+    window.$message?.success('重置成功');
+  } else {
+    window.$message?.error('重置失败');
+  }
 }
 
 function edit(id: string) {
