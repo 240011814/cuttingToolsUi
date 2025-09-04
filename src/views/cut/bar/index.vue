@@ -18,7 +18,7 @@ const cutResult = ref<Api.Cut.BarResult[] | null>(null);
 const loading = ref(false);
 const disabledPrint = ref(true);
 const scaleFactor = ref(1);
-
+const saveData = ref<Api.Cut.RecordRequest | null>(null);
 const canvasWrapper = ref<HTMLDivElement | null>(null);
 const containerWidth = ref(800); // 动态容器宽度
 
@@ -95,6 +95,7 @@ function clearAll() {
   itemsData.value = [];
   materialsData.value = [];
   cutResult.value = null;
+  saveData.value = null;
 }
 
 // 获取数据
@@ -107,15 +108,22 @@ async function fetchData() {
     Array(i.qty).fill(i.length)
   );
   try {
-    const data = await cutBar({
+    const request = {
       items,
       materials,
       newMaterialLength: newMaterialLength.value,
       loss: loss.value,
       utilizationWeight: utilizationWeight.value
-    });
+    };
+    const data = await cutBar(request);
     const { data: reslut } = data;
     cutResult.value = reslut;
+    saveData.value = {
+      type: '1',
+      request: JSON.stringify(request),
+      response: JSON.stringify(reslut),
+      name: ``
+    };
     disabledPrint.value = false;
   } catch {
   } finally {
@@ -263,6 +271,7 @@ onMounted(() => {
       <div class="mt-4 flex gap-2">
         <NButton type="primary" @click="fetchData">开始裁剪</NButton>
         <BarPrinter v-if="!disabledPrint" :data="cutResult" />
+        <SaveCutRecord :data="saveData" @saved="saveData = null"></SaveCutRecord>
         <NButton type="warning" @click="clearAll">清空所有</NButton>
       </div>
     </NCard>

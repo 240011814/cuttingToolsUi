@@ -15,3 +15,11 @@ export function cutBin(data: Api.Cut.BinRequest) {
     data
   });
 }
+
+export function add(data: Api.Cut.RecordRequest) {
+  return request<Api.Cut.CutRecord[]>({
+    url: '/cutRecord/add',
+    method: 'post',
+    data
+  });
+}

@@ -31,7 +31,7 @@ const materialName = ref('');
 const materialWidth = ref<number | null>(null);
 const materialHeight = ref<number | null>(null);
 const materialCount = ref(1);
-
+const saveData = ref<Api.Cut.RecordRequest | null>(null);
 const items = ref<Item[]>([]);
 const materials = ref<Material[]>([]);
 const results = ref<Api.Cut.BinResult[]>([]);
@@ -151,16 +151,23 @@ async function runOptimization() {
 
   try {
     loading.value = true;
-    const data = await cutBin({
+    const request = {
       items: expandedItems,
       materials: materialData,
       width: newMaterialWidth.value,
       height: newMaterialHeight.value
-    });
+    };
+    const data = await cutBin(request);
     const { data: reslut } = data;
     if (!reslut || reslut.length === 0) {
       message.warning('无法使用现有材料完成所有切割项目，将使用新材料。');
     } else {
+      saveData.value = {
+        type: '1',
+        request: JSON.stringify(request),
+        response: JSON.stringify(reslut),
+        name: ``
+      };
       results.value = reslut;
     }
   } catch {
@@ -311,6 +318,7 @@ async function runOptimization() {
       <div class="mt-4 flex gap-2">
         <NButton type="primary" @click="runOptimization">开始裁剪</NButton>
         <PlanePrinter :results="results" :materials="materials"></PlanePrinter>
+        <SaveCutRecord :data="saveData" @saved="saveData = null"></SaveCutRecord>
         <NButton type="warning" @click="clearAll">清空所有</NButton>
       </div>
     </NCard>

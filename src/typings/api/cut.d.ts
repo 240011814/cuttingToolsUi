@@ -17,6 +17,22 @@ declare namespace Api {
       utilization: number;
     }
 
+    interface CutRecord {
+      id: string;
+
+      type: string;
+
+      request: string;
+
+      response: string;
+
+      createTime: string;
+
+      code: string;
+
+      name: string;
+    }
+
     interface Piece {
       label: string;
       x: number;
@@ -31,6 +47,13 @@ declare namespace Api {
       materials: MaterialType[];
       height: number;
       width: number;
+    }
+
+    interface RecordRequest {
+      type: string;
+      request: string;
+      response: string;
+      name: string;
     }
 
     interface Item {
