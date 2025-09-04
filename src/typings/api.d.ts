@@ -13,11 +13,13 @@ declare namespace Api {
       size: number;
       /** total count */
       total: number;
+
+      page: any;
     }
 
     /** common params of paginating query list data */
     interface PaginatingQueryRecord<T = any> extends PaginatingCommonParams {
-      records: T[];
+      content: T[];
     }
 
     /** common search params of table */
@@ -34,110 +36,17 @@ declare namespace Api {
     /** common record */
     type CommonRecord<T = any> = {
       /** record id */
-      id: number;
+      id: number | string;
       /** record creator */
-      createBy: string;
+      createBy?: string;
       /** record create time */
-      createTime: string;
+      createTime?: string;
       /** record updater */
-      updateBy: string;
+      updateBy?: string;
       /** record update time */
-      updateTime: string;
+      updateTime?: string;
       /** record status */
       status: EnableStatus | null;
     } & T;
-  }
-
-  /**
-   * namespace Auth
-   *
-   * backend api module: "auth"
-   */
-  namespace Auth {
-    interface LoginToken {
-      accessToken: string;
-      refreshToken: string;
-    }
-
-    interface UserInfo {
-      userId: string;
-      userName: string;
-      roles: string[];
-      buttons: string[];
-    }
-  }
-
-  /**
-   * namespace Route
-   *
-   * backend api module: "route"
-   */
-  namespace Route {
-    type ElegantConstRoute = import('@elegant-router/types').ElegantConstRoute;
-
-    interface MenuRoute extends ElegantConstRoute {
-      id: string;
-    }
-
-    interface UserRoute {
-      routes: MenuRoute[];
-      home: import('@elegant-router/types').LastLevelRouteKey;
-    }
-  }
-
-  namespace Cut {
-    interface BarResult {
-      index: number;
-      totalLength: number;
-      cuts: number[];
-      used: number;
-      remaining: number;
-    }
-
-    interface BinResult {
-      binId: number;
-      materialType: string; // 新增：材料类型
-      materialWidth: number; // 新增：材料宽度
-      materialHeight: number; // 新增：材料高度
-      pieces: Piece[];
-      utilization: number;
-    }
-
-    interface Piece {
-      label: string;
-      x: number;
-      y: number;
-      w: number;
-      h: number;
-      rotated: boolean;
-    }
-
-    interface BinRequest {
-      items: Item[];
-      materials: MaterialType[];
-      height: number;
-      width: number;
-    }
-
-    interface Item {
-      label: string;
-      width: number;
-      height: number;
-    }
-
-    interface MaterialType {
-      name: string; // 新增：材料类型
-      width: number; // 新增：材料宽度
-      height: number; // 新增：材料高度
-      availableCount: number; // 新增：材料数量
-    }
-
-    interface BarRequest {
-      items: number[];
-      materials: number[];
-      newMaterialLength: number;
-      loss: number;
-      utilizationWeight: number;
-    }
   }
 }

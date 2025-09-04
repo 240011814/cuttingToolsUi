@@ -38,12 +38,15 @@ export function useTable<A extends NaiveUI.TableApiFn>(config: NaiveUI.NaiveTabl
     apiParams,
     columns: config.columns,
     transformer: res => {
-      const { records = [], current = 1, size = 10, total = 0 } = res.data || {};
+      const { content = [], page = {} } = res.data || {};
+      const { size = 10, number = 0, totalElements: total = 0 } = page;
+      const current = number + 1;
+      // const { content = [], current = 1, size = 10, total = 0 } = res.data || {};
 
       // Ensure that the size is greater than 0, If it is less than 0, it will cause paging calculation errors.
       const pageSize = size <= 0 ? 10 : size;
 
-      const recordsWithIndex = records.map((item, index) => {
+      const recordsWithIndex = content.map((item, index) => {
         return {
           ...item,
           index: (current - 1) * pageSize + index + 1
@@ -226,11 +229,13 @@ export function useTableOperate<T extends TableData = TableData>(data: Ref<T[]>,
   /** the editing row data */
   const editingData: Ref<T | null> = ref(null);
 
-  function handleEdit(id: T['id']) {
+  function handleEdit(id: T['id'], callback?: (editing: any) => void) {
     operateType.value = 'edit';
     const findItem = data.value.find(item => item.id === id) || null;
     editingData.value = jsonClone(findItem);
-
+    if (callback) {
+      callback(editingData.value);
+    }
     openDrawer();
   }
 

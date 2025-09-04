@@ -9,6 +9,8 @@ interface Props {
   itemAlign?: NaiveUI.Align;
   disabledDelete?: boolean;
   loading?: boolean;
+  enableAdd?: boolean;
+  enableDelete?: boolean;
 }
 
 defineProps<Props>();
@@ -42,13 +44,13 @@ function refresh() {
   <NSpace :align="itemAlign" wrap justify="end" class="lt-sm:w-200px">
     <slot name="prefix"></slot>
     <slot name="default">
-      <NButton size="small" ghost type="primary" @click="add">
+      <NButton v-if="enableAdd" size="small" ghost type="primary" @click="add">
         <template #icon>
           <icon-ic-round-plus class="text-icon" />
         </template>
         {{ $t('common.add') }}
       </NButton>
-      <NPopconfirm @positive-click="batchDelete">
+      <NPopconfirm v-if="enableDelete" @positive-click="batchDelete">
         <template #trigger>
           <NButton size="small" ghost type="error" :disabled="disabledDelete">
             <template #icon>

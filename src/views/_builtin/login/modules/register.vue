@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive } from 'vue';
+import { registerUser } from '@/service/api';
 import { useRouterPush } from '@/hooks/common/router';
 import { useFormRules, useNaiveForm } from '@/hooks/common/form';
 import { useCaptcha } from '@/hooks/business/captcha';
@@ -40,8 +41,19 @@ const rules = computed<Record<keyof FormModel, App.Global.FormRule[]>>(() => {
 
 async function handleSubmit() {
   await validate();
-  // request to register
-  window.$message?.success($t('page.login.common.validateSuccess'));
+
+  const { data: user } = await registerUser({
+    userName: model.phone,
+    phone: model.phone,
+    code: model.code,
+    password: model.password,
+    confirmPassword: model.confirmPassword
+  });
+  if (user) {
+    toggleLoginModule('pwd-login');
+  } else {
+    window.$message?.error('注册失败');
+  }
 }
 </script>
 
@@ -50,7 +62,8 @@ async function handleSubmit() {
     <NFormItem path="phone">
       <NInput v-model:value="model.phone" :placeholder="$t('page.login.common.phonePlaceholder')" />
     </NFormItem>
-    <NFormItem path="code">
+
+    <NFormItem v-if="false" path="code">
       <div class="w-full flex-y-center gap-16px">
         <NInput v-model:value="model.code" :placeholder="$t('page.login.common.codePlaceholder')" />
         <NButton size="large" :disabled="isCounting" :loading="loading" @click="getCaptcha(model.phone)">
@@ -58,6 +71,7 @@ async function handleSubmit() {
         </NButton>
       </div>
     </NFormItem>
+
     <NFormItem path="password">
       <NInput
         v-model:value="model.password"
