@@ -1,12 +1,10 @@
 <script setup lang="tsx">
 import { NButton, NPopconfirm, NTag } from 'naive-ui';
-import { enableStatusRecord } from '@/constants/business';
-import { fetchGetUserList, resetPassword } from '@/service/api';
+import { cutList, deleteRecod } from '@/service/api';
 import { useAppStore } from '@/store/modules/app';
 import { useTable, useTableOperate } from '@/hooks/common/table';
 import { $t } from '@/locales';
-import UserOperateDrawer from './modules/user-operate-drawer.vue';
-import UserSearch from './modules/user-search.vue';
+import RecordSearch from './modules/record-search.vue';
 
 const appStore = useAppStore();
 
@@ -21,62 +19,41 @@ const {
   searchParams,
   resetSearchParams
 } = useTable({
-  apiFn: fetchGetUserList,
+  apiFn: cutList,
   showTotal: true,
   immediate: true,
   apiParams: {
     current: 1,
     size: 10,
-    // if you want to use the searchParams in Form, you need to define the following properties, and the value is null
-    // the value can not be undefined, otherwise the property in Form will not be reactive
-    search: null
+    name: null,
+    type: null,
+    startTime: null,
+    endTime: null
   },
   columns: () => [
     {
-      key: 'id',
-      title: $t('common.index'),
-      align: 'center',
-      width: 200
-    },
-    {
-      key: 'userName',
-      title: $t('page.manage.user.userName'),
+      key: 'code',
+      title: '编号',
       align: 'center',
       minWidth: 100
     },
     {
-      key: 'nickName',
-      title: $t('page.manage.user.nickName'),
+      key: 'name',
+      title: '名称',
       align: 'center',
       minWidth: 100
     },
+
     {
-      key: 'phone',
-      title: $t('page.manage.user.userPhone'),
+      key: 'type',
+      title: '类型',
       align: 'center',
-      width: 120
-    },
-    {
-      key: 'email',
-      title: $t('page.manage.user.userEmail'),
-      align: 'center',
-      minWidth: 200
-    },
-    {
-      key: 'enabled',
-      title: $t('page.manage.user.userStatus'),
-      align: 'center',
-      width: 100,
+      width: 120,
       render: row => {
-        const status = row.enabled ? '1' : '2';
-        const tagMap: Record<Api.Common.EnableStatus, NaiveUI.ThemeColor> = {
-          1: 'success',
-          2: 'warning'
-        };
-        const label = $t(enableStatusRecord[status]);
+        const label = row.type === '1' ? '一维' : '平面';
 
         return (
-          <NTag type={tagMap[status]}>
+          <NTag>
             {{
               default: () => label
             }}
@@ -84,6 +61,13 @@ const {
         );
       }
     },
+    {
+      key: 'createTime',
+      title: '创建时间',
+      align: 'center',
+      minWidth: 200
+    },
+
     {
       key: 'operate',
       title: $t('common.operate'),
@@ -99,14 +83,14 @@ const {
               edit(row.id);
             }}
           >
-            {$t('common.edit')}
+            {$t('common.view')}
           </NButton>
-          <NPopconfirm onPositiveClick={() => reset(row.id)}>
+          <NPopconfirm onPositiveClick={() => deleteData(row.id)}>
             {{
-              default: () => $t('page.login.common.confirm'),
+              default: () => $t('common.confirmDelete'),
               trigger: () => (
                 <NButton type="error" ghost size="small">
-                  {$t('page.login.resetPwd.title')}
+                  {$t('common.delete')}
                 </NButton>
               )
             }}
@@ -118,20 +102,19 @@ const {
 });
 
 const {
-  drawerVisible,
-  operateType,
-  editingData,
   handleEdit,
-  checkedRowKeys
+  checkedRowKeys,
+  onDeleted
   // closeDrawer
 } = useTableOperate(data, getData);
 
-async function reset(id: string) {
-  const result = await resetPassword({ id });
+async function deleteData(id: string) {
+  const result = await deleteRecod(id);
   if (result) {
-    window.$message?.success('重置成功');
+    window.$message?.success('删除成功');
+    onDeleted();
   } else {
-    window.$message?.error('重置失败');
+    window.$message?.error('删除失败');
   }
 }
 
@@ -148,8 +131,8 @@ function edit(id: string) {
 
 <template>
   <div class="min-h-500px flex-col-stretch gap-16px overflow-hidden lt-sm:overflow-auto">
-    <UserSearch v-model:model="searchParams" @reset="resetSearchParams" @search="getDataByPage" />
-    <NCard :title="$t('page.manage.user.title')" :bordered="false" size="small" class="card-wrapper sm:flex-1-hidden">
+    <RecordSearch v-model:model="searchParams" @reset="resetSearchParams" @search="getDataByPage" />
+    <NCard title="历史记录" :bordered="false" size="small" class="card-wrapper sm:flex-1-hidden">
       <template #header-extra>
         <TableHeaderOperation
           v-model:columns="columnChecks"
@@ -172,12 +155,6 @@ function edit(id: string) {
         :row-key="row => row.id"
         :pagination="mobilePagination"
         class="sm:h-full"
-      />
-      <UserOperateDrawer
-        v-model:visible="drawerVisible"
-        :operate-type="operateType"
-        :row-data="editingData"
-        @submitted="getDataByPage"
       />
     </NCard>
   </div>

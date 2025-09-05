@@ -38,6 +38,7 @@ declare module "@elegant-router/types" {
     "about": "/about";
     "cut": "/cut";
     "cut_bar": "/cut/bar";
+    "cut_history": "/cut/history";
     "cut_plane": "/cut/plane";
     "home": "/home";
     "iframe-page": "/iframe-page/:url";
@@ -129,6 +130,7 @@ declare module "@elegant-router/types" {
     | "login"
     | "about"
     | "cut_bar"
+    | "cut_history"
     | "cut_plane"
     | "home"
     | "manage_menu"

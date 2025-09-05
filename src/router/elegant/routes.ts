@@ -73,6 +73,17 @@ export const generatedRoutes: GeneratedRoute[] = [
         }
       },
       {
+        name: 'cut_history',
+        path: '/cut/history',
+        component: 'view.cut_history',
+        meta: {
+          title: 'cut_history',
+          i18nKey: 'route.cut_history',
+          order: 3,
+          icon: 'mdi:history'
+        }
+      },
+      {
         name: 'cut_plane',
         path: '/cut/plane',
         component: 'view.cut_plane',

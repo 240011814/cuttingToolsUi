@@ -33,6 +33,13 @@ declare namespace Api {
       name: string;
     }
 
+    interface CutRecordSearchParams extends Api.Common.CommonSearchParams {
+      name?: string | null;
+      type?: string | null;
+      startTime?: number | null;
+      endTime?: number | null;
+    }
+
     interface Piece {
       label: string;
       x: number;

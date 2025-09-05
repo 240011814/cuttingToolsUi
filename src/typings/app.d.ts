@@ -349,6 +349,7 @@ declare namespace App {
           yes: string;
           no: string;
         };
+        view: string;
       };
       request: {
         logout: string;
@@ -758,6 +759,17 @@ declare namespace App {
               local: string;
             };
           };
+        };
+        cut: {
+          inputName: string;
+          name: string;
+          type: string;
+          startTime: string;
+          endTime: string;
+          search: string;
+          selectType: string;
+          inputStartTime: string;
+          inputEndTime: string;
         };
       };
       form: {

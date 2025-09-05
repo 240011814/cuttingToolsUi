@@ -184,6 +184,7 @@ const routeMap: RouteMap = {
   "about": "/about",
   "cut": "/cut",
   "cut_bar": "/cut/bar",
+  "cut_history": "/cut/history",
   "cut_plane": "/cut/plane",
   "home": "/home",
   "iframe-page": "/iframe-page/:url",

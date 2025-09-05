@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import { defineProps, ref } from 'vue';
-import { add } from '@/service/api';
+import { addRecord } from '@/service/api';
 
 const props = defineProps<{
   data: Api.Cut.RecordRequest | null;
@@ -23,7 +23,7 @@ async function saveConfirm() {
     ...props.data,
     name: inputName.value
   };
-  const { data: res } = await add(payload);
+  const { data: res } = await addRecord(payload);
   if (res) {
     window.$message?.success('保存成功');
     showModal.value = false;

@@ -163,7 +163,7 @@ async function runOptimization() {
       message.warning('无法使用现有材料完成所有切割项目，将使用新材料。');
     } else {
       saveData.value = {
-        type: '1',
+        type: '2',
         request: JSON.stringify(request),
         response: JSON.stringify(reslut),
         name: ``

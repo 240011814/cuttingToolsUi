@@ -48,7 +48,8 @@ const local: App.I18n.Schema = {
       yes: '是',
       no: '否'
     },
-    loading: '加载中...'
+    loading: '加载中...',
+    view: '查看'
   },
   request: {
     logout: '请求失败后登出用户',
@@ -161,6 +162,7 @@ const local: App.I18n.Schema = {
       resetSuccessMsg: '重置成功'
     }
   },
+
   route: {
     login: '登录',
     403: '无权限',
@@ -192,7 +194,8 @@ const local: App.I18n.Schema = {
     exception_500: '500',
     cut: '切割工具',
     cut_bar: '一维切割',
-    cut_plane: '平面切割'
+    cut_plane: '平面切割',
+    cut_history: '历史记录'
   },
   page: {
     login: {
@@ -529,6 +532,17 @@ const local: App.I18n.Schema = {
           local: '本地图标'
         }
       }
+    },
+    cut: {
+      name: '名称',
+      type: '类型',
+      startTime: '开始时间',
+      endTime: '结束时间',
+      search: '搜索',
+      inputName: '请输入名称',
+      selectType: '请选择类型',
+      inputStartTime: '请选择开始时间',
+      inputEndTime: '请选择结束时间'
     }
   },
   form: {
