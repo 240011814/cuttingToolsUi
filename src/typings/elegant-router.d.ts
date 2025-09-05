@@ -38,8 +38,10 @@ declare module "@elegant-router/types" {
     "about": "/about";
     "cut": "/cut";
     "cut_bar": "/cut/bar";
+    "cut_bar-detail": "/cut/bar-detail/:id";
     "cut_history": "/cut/history";
     "cut_plane": "/cut/plane";
+    "cut_plane-detail": "/cut/plane-detail/:id";
     "home": "/home";
     "iframe-page": "/iframe-page/:url";
     "login": "/login/:module(pwd-login|code-login|register|reset-pwd|bind-wechat)?";
@@ -129,8 +131,10 @@ declare module "@elegant-router/types" {
     | "iframe-page"
     | "login"
     | "about"
+    | "cut_bar-detail"
     | "cut_bar"
     | "cut_history"
+    | "cut_plane-detail"
     | "cut_plane"
     | "home"
     | "manage_menu"

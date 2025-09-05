@@ -195,7 +195,9 @@ const local: App.I18n.Schema = {
     cut: '切割工具',
     cut_bar: '一维切割',
     cut_plane: '平面切割',
-    cut_history: '历史记录'
+    cut_history: '历史记录',
+    'cut_bar-detail': '一维切割详情',
+    'cut_plane-detail': '平面切割详情'
   },
   page: {
     login: {

@@ -73,6 +73,16 @@ export const generatedRoutes: GeneratedRoute[] = [
         }
       },
       {
+        name: 'cut_bar-detail',
+        path: '/cut/bar-detail/:id',
+        component: 'view.cut_bar-detail',
+        meta: {
+          title: 'cut_bar-detail',
+          i18nKey: 'route.cut_bar-detail',
+          hideInMenu: true
+        }
+      },
+      {
         name: 'cut_history',
         path: '/cut/history',
         component: 'view.cut_history',
@@ -91,6 +101,16 @@ export const generatedRoutes: GeneratedRoute[] = [
           title: 'cut_plane',
           i18nKey: 'route.cut_plane',
           icon: 'mdi:grid-large'
+        }
+      },
+      {
+        name: 'cut_plane-detail',
+        path: '/cut/plane-detail/:id',
+        component: 'view.cut_plane-detail',
+        meta: {
+          title: 'cut_plane-detail',
+          i18nKey: 'route.cut_plane-detail',
+          hideInMenu: true
         }
       }
     ]

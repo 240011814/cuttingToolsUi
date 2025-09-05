@@ -194,7 +194,9 @@ const local: App.I18n.Schema = {
     cut: 'cutTools',
     cut_bar: 'Bar Cut',
     cut_plane: 'Plane Cut',
-    cut_history: 'Cut History'
+    cut_history: 'Cut History',
+    'cut_bar-detail': 'Bar Cut Detail',
+    'cut_plane-detail': 'Plane Cut Detail'
   },
   page: {
     login: {

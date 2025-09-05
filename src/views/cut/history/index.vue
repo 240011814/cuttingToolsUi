@@ -3,11 +3,12 @@ import { NButton, NPopconfirm, NTag } from 'naive-ui';
 import { cutList, deleteRecod } from '@/service/api';
 import { useAppStore } from '@/store/modules/app';
 import { useTable, useTableOperate } from '@/hooks/common/table';
+import { useRouterPush } from '@/hooks/common/router';
 import { $t } from '@/locales';
 import RecordSearch from './modules/record-search.vue';
 
 const appStore = useAppStore();
-
+const { routerPushByKey } = useRouterPush();
 const {
   columns,
   columnChecks,
@@ -80,7 +81,7 @@ const {
             ghost
             size="small"
             onClick={() => {
-              edit(row.id);
+              edit(row);
             }}
           >
             {$t('common.view')}
@@ -102,7 +103,6 @@ const {
 });
 
 const {
-  handleEdit,
   checkedRowKeys,
   onDeleted
   // closeDrawer
@@ -118,14 +118,18 @@ async function deleteData(id: string) {
   }
 }
 
-function edit(id: string) {
-  handleEdit(id, item => {
-    if (item?.enabled) {
-      item.status = '1';
-    } else {
-      item.status = '2';
-    }
-  });
+function edit(row: Api.Cut.CutRecord) {
+  if (row.type === '1') {
+    routerPushByKey(`cut_bar-detail`, {
+      params: { id: row.id },
+      query: { request: row.request, response: row.response }
+    });
+  } else {
+    routerPushByKey('cut_plane-detail', {
+      params: { id: row.id },
+      query: { request: row.request, response: row.response }
+    });
+  }
 }
 </script>
 
