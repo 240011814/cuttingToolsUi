@@ -19,7 +19,6 @@ const loss = ref(request.loss || 0);
 const utilizationWeight = ref(request.utilizationWeight || 1);
 const group = ref(false);
 const cutResult = ref<Api.Cut.BarResult[] | null>(response || null);
-const disabledPrint = ref(true);
 const scaleFactor = ref(1);
 const canvasWrapper = ref<HTMLDivElement | null>(null);
 const containerWidth = ref(800); // 动态容器宽度
@@ -163,7 +162,7 @@ onMounted(() => {
       </div>
 
       <div class="mt-4 flex gap-2">
-        <BarPrinter v-if="!disabledPrint" :data="cutResult" />
+        <BarPrinter :data="cutResult" />
       </div>
     </NCard>
 
