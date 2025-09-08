@@ -45,7 +45,10 @@ export const generatedRoutes: GeneratedRoute[] = [
     component: 'layout.base$view.about',
     meta: {
       title: 'about',
-      i18nKey: 'route.about'
+      i18nKey: 'route.about',
+      order: 99,
+      icon: 'mdi:information-outline',
+      hideInMenu: true
     }
   },
   {
@@ -70,6 +73,27 @@ export const generatedRoutes: GeneratedRoute[] = [
         }
       },
       {
+        name: 'cut_bar-detail',
+        path: '/cut/bar-detail/:id',
+        component: 'view.cut_bar-detail',
+        meta: {
+          title: 'cut_bar-detail',
+          i18nKey: 'route.cut_bar-detail',
+          hideInMenu: true
+        }
+      },
+      {
+        name: 'cut_history',
+        path: '/cut/history',
+        component: 'view.cut_history',
+        meta: {
+          title: 'cut_history',
+          i18nKey: 'route.cut_history',
+          order: 3,
+          icon: 'mdi:history'
+        }
+      },
+      {
         name: 'cut_plane',
         path: '/cut/plane',
         component: 'view.cut_plane',
@@ -77,6 +101,16 @@ export const generatedRoutes: GeneratedRoute[] = [
           title: 'cut_plane',
           i18nKey: 'route.cut_plane',
           icon: 'mdi:grid-large'
+        }
+      },
+      {
+        name: 'cut_plane-detail',
+        path: '/cut/plane-detail/:id',
+        component: 'view.cut_plane-detail',
+        meta: {
+          title: 'cut_plane-detail',
+          i18nKey: 'route.cut_plane-detail',
+          hideInMenu: true
         }
       }
     ]
@@ -126,7 +160,7 @@ export const generatedRoutes: GeneratedRoute[] = [
       i18nKey: 'route.manage',
       icon: 'carbon:cloud-service-management',
       order: 9,
-      roles: []
+      roles: ['admin']
     },
     children: [
       {
@@ -187,7 +221,10 @@ export const generatedRoutes: GeneratedRoute[] = [
     component: 'layout.base$view.user-center',
     meta: {
       title: 'user-center',
-      i18nKey: 'route.user-center'
+      i18nKey: 'route.user-center',
+      icon: 'mdi:account-circle',
+      order: 98,
+      keepAlive: true
     }
   }
 ];

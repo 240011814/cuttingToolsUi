@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from 'vue';
+import { computed, defineProps, nextTick, onMounted, ref, watch } from 'vue';
 import { NCard } from 'naive-ui';
 
 const props = defineProps<{
   results: Api.Cut.BinResult[];
-  materials: { name: string; width: number; height: number; count: number }[];
+  materials: Api.Cut.Item[];
   groupData: boolean;
 }>();
 
@@ -14,7 +14,7 @@ const canvasImages = ref<string[]>([]);
 
 function isRemainderMaterial(bin: Api.Cut.BinResult) {
   if (!bin.materialType) return false;
-  return props.materials.some(m => bin.materialType?.startsWith(m.name));
+  return props.materials.some(m => bin.materialType?.startsWith(m.label));
 }
 
 // 给切割方案生成唯一 key（忽略 label）

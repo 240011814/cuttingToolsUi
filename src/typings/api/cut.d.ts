@@ -17,6 +17,29 @@ declare namespace Api {
       utilization: number;
     }
 
+    interface CutRecord {
+      id: string;
+
+      type: string;
+
+      request: string;
+
+      response: string;
+
+      createTime: string;
+
+      code: string;
+
+      name: string;
+    }
+
+    interface CutRecordSearchParams extends Api.Common.CommonSearchParams {
+      name?: string | null;
+      type?: string | null;
+      startTime?: number | null;
+      endTime?: number | null;
+    }
+
     interface Piece {
       label: string;
       x: number;
@@ -33,17 +56,24 @@ declare namespace Api {
       width: number;
     }
 
+    interface RecordRequest {
+      type: string;
+      request: string;
+      response: string;
+      name: string;
+    }
+
     interface Item {
       label: string;
       width: number;
       height: number;
+      quantity?: number;
     }
 
-    interface MaterialType {
-      name: string; // 新增：材料类型
-      width: number; // 新增：材料宽度
-      height: number; // 新增：材料高度
-      availableCount: number; // 新增：材料数量
+    interface BarItem {
+      label?: string;
+      length: number;
+      quantity: number;
     }
 
     interface BarRequest {

@@ -1,23 +1,10 @@
 <script setup lang="ts">
-import { ref } from 'vue';
-import { useMessage } from 'naive-ui';
+import { h, ref } from 'vue';
+import { NButton, useMessage } from 'naive-ui';
 import { cutBin } from '@/service/api';
 
 const message = useMessage();
 // 数据模型
-interface Item {
-  label: string;
-  width: number;
-  height: number;
-  quantity: number;
-}
-
-interface Material {
-  name: string;
-  width: number;
-  height: number;
-  count: number;
-}
 
 // 响应式数据
 const label = ref('');
@@ -31,15 +18,61 @@ const materialName = ref('');
 const materialWidth = ref<number | null>(null);
 const materialHeight = ref<number | null>(null);
 const materialCount = ref(1);
-
-const items = ref<Item[]>([]);
-const materials = ref<Material[]>([]);
+const saveData = ref<Api.Cut.RecordRequest | null>(null);
+const items = ref<Api.Cut.Item[]>([]);
+const materials = ref<Api.Cut.Item[]>([]);
 const results = ref<Api.Cut.BinResult[]>([]);
 
 // 用于保存 canvas 引用
 const canvases = ref<(HTMLCanvasElement | null)[]>([]);
 
 const loading = ref(false);
+
+// item 表格
+const itemColumns = [
+  { title: '标签', key: 'label' },
+  { title: '宽(cm)', key: 'width' },
+  { title: '高(cm)', key: 'height' },
+  { title: '数量', key: 'quantity' },
+  {
+    title: '操作',
+    key: 'actions',
+    render(_row: any, index: number) {
+      return h(
+        NButton,
+        {
+          size: 'small',
+          type: 'error',
+          onClick: () => removeItem(index)
+        },
+        { default: () => '删除' }
+      );
+    }
+  }
+];
+
+// material 表格
+const materialColumns = [
+  { title: '标签', key: 'label' },
+  { title: '宽(cm)', key: 'width' },
+  { title: '高(cm)', key: 'height' },
+  { title: '数量', key: 'quantity' },
+  {
+    title: '操作',
+    key: 'actions',
+    render(_row: any, index: number) {
+      return h(
+        NButton,
+        {
+          size: 'small',
+          type: 'error',
+          onClick: () => removeMaterial(index)
+        },
+        { default: () => '删除' }
+      );
+    }
+  }
+];
 
 // 添加项目
 function addItem() {
@@ -55,7 +88,7 @@ function addItem() {
     return;
   }
 
-  const existingIndex = items.value.findIndex((item: Item) => item.label === label.value);
+  const existingIndex = items.value.findIndex((item: Api.Cut.Item) => item.label === label.value);
   if (existingIndex !== -1) {
     items.value[existingIndex].quantity = quantity.value;
   } else {
@@ -85,10 +118,10 @@ function addMaterial() {
   }
 
   materials.value.push({
-    name: materialName.value,
+    label: materialName.value,
     width: materialWidth.value,
     height: materialHeight.value,
-    count: materialCount.value
+    quantity: materialCount.value
   });
 
   clearMaterialInputs();
@@ -134,33 +167,35 @@ async function runOptimization() {
     return;
   }
 
-  const expandedItems = items.value.flatMap((item: Item) => {
-    return Array.from({ length: item.quantity }, (_, i) => ({
+  const expandedItems: Api.Cut.Item[] = items.value.flatMap((item: Api.Cut.Item) => {
+    const count = item.quantity ?? 0;
+    if (count < 1) return [];
+    return Array.from({ length: count }, (_, i) => ({
       label: `${item.label}_${i + 1}`,
       width: item.width,
       height: item.height
     }));
   });
 
-  const materialData = materials.value.map((m: Material) => ({
-    name: m.name,
-    width: m.width,
-    height: m.height,
-    availableCount: m.count
-  }));
-
   try {
     loading.value = true;
-    const data = await cutBin({
+    const request = {
       items: expandedItems,
-      materials: materialData,
+      materials: materials.value,
       width: newMaterialWidth.value,
       height: newMaterialHeight.value
-    });
+    };
+    const data = await cutBin(request);
     const { data: reslut } = data;
     if (!reslut || reslut.length === 0) {
       message.warning('无法使用现有材料完成所有切割项目，将使用新材料。');
     } else {
+      saveData.value = {
+        type: '2',
+        request: JSON.stringify({ rowItems: items.value, ...request }),
+        response: JSON.stringify(reslut),
+        name: ``
+      };
       results.value = reslut;
     }
   } catch {
@@ -174,122 +209,50 @@ async function runOptimization() {
   <div class="p-4">
     <NCard title="材料裁剪可视化" size="large" class="mb-4">
       <!-- 添加切割项目 -->
-      <section class="mb-6 border rounded-lg bg-gray-50 p-4">
-        <h3 class="mb-3 text-lg font-semibold">裁剪尺寸</h3>
-        <div class="flex flex-wrap items-center gap-3">
-          <input v-model="label" type="text" placeholder="标签" class="border rounded px-3 py-2" />
-          <input
-            v-model.number="width"
-            type="number"
-            placeholder="宽(cm)"
-            step="0.1"
-            min="0.1"
-            class="w-24 border rounded px-3 py-2"
-          />
-          <input
-            v-model.number="height"
-            type="number"
-            placeholder="高(cm)"
-            step="0.1"
-            min="0.1"
-            class="w-24 border rounded px-3 py-2"
-          />
-          <input
-            v-model.number="quantity"
-            type="number"
-            placeholder="数量"
-            class="w-20 border rounded px-3 py-2"
-            min="1"
-          />
-          <NButton type="primary" @click="addItem">添加尺寸</NButton>
-        </div>
-      </section>
+
+      <h3 class="mb-3 text-lg font-semibold">裁剪尺寸</h3>
+      <div class="mb-2 flex items-center gap-2">
+        <NInput v-model:value="label" class="input-width" type="text" placeholder="标签" />
+        <NInputNumber v-model:value="width" type="number" placeholder="宽(cm)" step="0.1" min="0.1" class="w-40" />
+        <NInputNumber v-model:value="height" type="number" placeholder="高(cm)" step="0.1" min="0.1" class="w-40" />
+        <NInputNumber v-model:value="quantity" type="number" placeholder="数量" class="w-40" min="1" />
+        <NButton type="primary" @click="addItem">添加尺寸</NButton>
+      </div>
 
       <!-- 切割项目列表 -->
-      <section class="mb-6">
-        <h3 class="mb-2 text-lg font-semibold">切割项目</h3>
-        <table class="w-full border-collapse text-sm">
-          <thead>
-            <tr class="bg-gray-100">
-              <th class="border px-3 py-2">标签</th>
-              <th class="border px-3 py-2">宽(cm)</th>
-              <th class="border px-3 py-2">高(cm)</th>
-              <th class="border px-3 py-2">数量</th>
-              <th class="border px-3 py-2">操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="(item, index) in items" :key="index" class="hover:bg-gray-50">
-              <td class="border px-3 py-2">{{ item.label }}</td>
-              <td class="border px-3 py-2">{{ item.width.toFixed(1) }}</td>
-              <td class="border px-3 py-2">{{ item.height.toFixed(1) }}</td>
-              <td class="border px-3 py-2">{{ item.quantity }}</td>
-              <td class="border px-3 py-2">
-                <button class="text-sm text-red-600" @click="removeItem(index)">删除</button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </section>
+
+      <h3 class="mb-2 text-lg font-semibold">切割项目</h3>
+      <NDataTable :columns="itemColumns" :data="items" />
 
       <!-- 添加剩余材料 -->
-      <section class="mb-6 border rounded-lg bg-gray-50 p-4">
-        <h3 class="mb-3 text-lg font-semibold">库存材料</h3>
-        <div class="flex flex-wrap items-center gap-3">
-          <input v-model="materialName" type="text" placeholder="材料名称" class="border rounded px-3 py-2" />
-          <input
-            v-model.number="materialWidth"
-            type="number"
-            placeholder="宽(cm)"
-            step="0.1"
-            min="0.1"
-            class="w-24 border rounded px-3 py-2"
-          />
-          <input
-            v-model.number="materialHeight"
-            type="number"
-            placeholder="高(cm)"
-            step="0.1"
-            min="0.1"
-            class="w-24 border rounded px-3 py-2"
-          />
-          <input
-            v-model.number="materialCount"
-            type="number"
-            placeholder="数量"
-            class="w-20 border rounded px-3 py-2"
-            min="1"
-          />
-          <NButton type="primary" @click="addMaterial">添加材料</NButton>
-        </div>
-      </section>
+
+      <h3 class="mb-3 text-lg font-semibold">库存材料</h3>
+      <div class="mb-2 flex items-center gap-2">
+        <NInput v-model:value="materialName" type="text" placeholder="材料名称" class="input-width" />
+        <NInputNumber
+          v-model:value="materialWidth"
+          type="number"
+          placeholder="宽(cm)"
+          step="0.1"
+          min="0.1"
+          class="w-40"
+        />
+        <NInputNumber
+          v-model:value="materialHeight"
+          type="number"
+          placeholder="高(cm)"
+          step="0.1"
+          min="0.1"
+          class="w-40"
+        />
+        <NInputNumber v-model:value="materialCount" type="number" placeholder="数量" class="w-40" min="1" />
+        <NButton type="primary" @click="addMaterial">添加材料</NButton>
+      </div>
 
       <!-- 剩余材料列表 -->
-      <section class="mb-6">
-        <h3 class="mb-2 text-lg font-semibold">剩余材料</h3>
-        <table class="w-full border-collapse text-sm">
-          <thead>
-            <tr class="bg-gray-100">
-              <th class="border px-3 py-2">名称</th>
-              <th class="border px-3 py-2">宽(cm)</th>
-              <th class="border px-3 py-2">高(cm)</th>
-              <th class="border px-3 py-2">数量</th>
-              <th class="border px-3 py-2">操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="(material, index) in materials" :key="index" class="hover:bg-gray-50">
-              <td class="border px-3 py-2">{{ material.name }}</td>
-              <td class="border px-3 py-2">{{ material.width.toFixed(1) }}</td>
-              <td class="border px-3 py-2">{{ material.height.toFixed(1) }}</td>
-              <td class="border px-3 py-2">{{ material.count }}</td>
-              <td class="border px-3 py-2">
-                <button class="text-sm text-red-600" @click="removeMaterial(index)">删除</button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </section>
+
+      <h3 class="mb-2 text-lg font-semibold">库存材料</h3>
+      <NDataTable :columns="materialColumns" :data="materials" />
 
       <h3 class="mt-6">参数配置</h3>
       <div class="mb-4 flex items-center gap-6">
@@ -311,6 +274,7 @@ async function runOptimization() {
       <div class="mt-4 flex gap-2">
         <NButton type="primary" @click="runOptimization">开始裁剪</NButton>
         <PlanePrinter :results="results" :materials="materials"></PlanePrinter>
+        <SaveCutRecord :data="saveData" @saved="saveData = null"></SaveCutRecord>
         <NButton type="warning" @click="clearAll">清空所有</NButton>
       </div>
     </NCard>
@@ -327,4 +291,8 @@ async function runOptimization() {
   </div>
 </template>
 
-<style scoped></style>
+<style scoped>
+.input-width {
+  width: 200px;
+}
+</style>

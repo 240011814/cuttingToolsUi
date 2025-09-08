@@ -38,6 +38,14 @@ export function editUser(data: any) {
   });
 }
 
+export function resetPassword(data: any) {
+  return request<boolean>({
+    url: '/user/resetPassword',
+    method: 'post',
+    data
+  });
+}
+
 /** get menu list */
 export function fetchGetMenuList() {
   return request<Api.SystemManage.MenuList>({

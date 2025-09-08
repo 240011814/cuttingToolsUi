@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, defineProps, ref } from 'vue';
 import { NButton } from 'naive-ui';
 
 const props = defineProps<{

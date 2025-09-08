@@ -48,7 +48,8 @@ const local: App.I18n.Schema = {
       yes: 'Yes',
       no: 'No'
     },
-    loading: 'Loading...'
+    loading: 'Loading...',
+    view: 'View'
   },
   request: {
     logout: 'Logout user after request failed',
@@ -192,7 +193,10 @@ const local: App.I18n.Schema = {
     exception_500: '500',
     cut: 'cutTools',
     cut_bar: 'Bar Cut',
-    cut_plane: 'Plane Cut'
+    cut_plane: 'Plane Cut',
+    cut_history: 'Cut History',
+    'cut_bar-detail': 'Bar Cut Detail',
+    'cut_plane-detail': 'Plane Cut Detail'
   },
   page: {
     login: {
@@ -529,6 +533,17 @@ const local: App.I18n.Schema = {
           local: 'Local Icon'
         }
       }
+    },
+    cut: {
+      name: 'Name',
+      type: 'Type',
+      startTime: 'Start Time',
+      endTime: 'End Time',
+      search: 'Search',
+      inputName: 'Please input name',
+      selectType: 'Please select type',
+      inputStartTime: 'Please select start time',
+      inputEndTime: 'Please select end time'
     }
   },
   form: {

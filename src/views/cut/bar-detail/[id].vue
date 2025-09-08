@@ -1,133 +1,40 @@
 <script setup lang="ts">
-import { computed, h, onMounted, ref } from 'vue';
-import { NButton, NCard, NDataTable, NInputNumber, NModal, NSpin, useMessage } from 'naive-ui';
-import { cutBar } from '@/service/api';
+import { computed, onMounted, ref } from 'vue';
+import { useRoute } from 'vue-router';
+import { NCard, NDataTable, NInputNumber } from 'naive-ui';
+const route = useRoute();
+const request: Api.Cut.BarRequest & {
+  rowItems: Api.Cut.BarItem[];
+  rowMaterials: Api.Cut.BarItem[];
+} = JSON.parse(route.query.request as string) as Api.Cut.BarRequest & {
+  rowItems: Api.Cut.BarItem[];
+  rowMaterials: Api.Cut.BarItem[];
+};
+const response: Api.Cut.BarResult[] = JSON.parse(route.query.response as string) as Api.Cut.BarResult[];
+const itemsData = ref<Api.Cut.BarItem[]>(request.rowItems || []);
+const materialsData = ref<Api.Cut.BarItem[]>(request.rowMaterials || []);
 
-const itemsData = ref<Api.Cut.BarItem[]>([]);
-const materialsData = ref<Api.Cut.BarItem[]>([]);
-
-const itemLength = ref<number | null>(null);
-const itemQty = ref<number | null>(null);
-const matLength = ref<number | null>(null);
-const matQty = ref<number | null>(null);
-const newMaterialLength = ref(600);
-const loss = ref(0.2);
-const utilizationWeight = ref(4);
+const newMaterialLength = ref(request.newMaterialLength || 600);
+const loss = ref(request.loss || 0);
+const utilizationWeight = ref(request.utilizationWeight || 1);
 const group = ref(false);
-const cutResult = ref<Api.Cut.BarResult[] | null>(null);
-const loading = ref(false);
+const cutResult = ref<Api.Cut.BarResult[] | null>(response || null);
 const disabledPrint = ref(true);
 const scaleFactor = ref(1);
-const saveData = ref<Api.Cut.RecordRequest | null>(null);
 const canvasWrapper = ref<HTMLDivElement | null>(null);
 const containerWidth = ref(800); // 动态容器宽度
 
 // item 表格
 const itemColumns = [
   { title: '长度(cm)', key: 'length' },
-  { title: '数量', key: 'quantity' },
-  {
-    title: '操作',
-    key: 'actions',
-    render(_row: any, index: number) {
-      return h(
-        NButton,
-        {
-          size: 'small',
-          type: 'error',
-          onClick: () => removeFromList('items', index)
-        },
-        { default: () => '删除' }
-      );
-    }
-  }
+  { title: '数量', key: 'quantity' }
 ];
 
 // material 表格
 const materialColumns = [
   { title: '长度(cm)', key: 'length' },
-  { title: '数量', key: 'quantity' },
-  {
-    title: '操作',
-    key: 'actions',
-    render(_row: any, index: number) {
-      return h(
-        NButton,
-        {
-          size: 'small',
-          type: 'error',
-          onClick: () => removeFromList('materials', index)
-        },
-        { default: () => '删除' }
-      );
-    }
-  }
+  { title: '数量', key: 'quantity' }
 ];
-
-function addItem() {
-  if (itemLength.value && itemQty.value && itemQty.value > 0) {
-    itemsData.value.push({ length: itemLength.value, quantity: itemQty.value });
-    itemLength.value = null;
-    itemQty.value = null;
-  } else {
-    const message = useMessage();
-    message.error('请输入有效的项目参数！');
-  }
-}
-
-function addMaterial() {
-  if (matLength.value && matQty.value && matQty.value > 0) {
-    materialsData.value.push({ length: matLength.value, quantity: matQty.value });
-    matLength.value = null;
-    matQty.value = null;
-  } else {
-    const message = useMessage();
-    message.error('请输入有效的项目参数！');
-  }
-}
-
-function removeFromList(list: 'items' | 'materials', index: number) {
-  if (list === 'items') itemsData.value.splice(index, 1);
-  else materialsData.value.splice(index, 1);
-}
-
-function clearAll() {
-  itemsData.value = [];
-  materialsData.value = [];
-  cutResult.value = null;
-  saveData.value = null;
-}
-
-// 获取数据
-async function fetchData() {
-  loading.value = true;
-  disabledPrint.value = true;
-  const items: number[] = itemsData.value.flatMap((i: Api.Cut.BarItem) => Array(i.quantity).fill(i.length));
-
-  const materials: number[] = materialsData.value.flatMap((i: Api.Cut.BarItem) => Array(i.quantity).fill(i.length));
-  try {
-    const request = {
-      items,
-      materials,
-      newMaterialLength: newMaterialLength.value,
-      loss: loss.value,
-      utilizationWeight: utilizationWeight.value
-    };
-    const data = await cutBar(request);
-    const { data: reslut } = data;
-    cutResult.value = reslut;
-    saveData.value = {
-      type: '1',
-      request: JSON.stringify({ rowItems: itemsData.value, rowMaterials: materialsData.value, ...request }),
-      response: JSON.stringify(reslut),
-      name: ``
-    };
-    disabledPrint.value = false;
-  } catch {
-  } finally {
-    loading.value = false;
-  }
-}
 
 // 统计信息
 const result = computed(() => {
@@ -231,34 +138,23 @@ onMounted(() => {
     <!-- 输入区域 -->
     <NCard title="材料裁剪可视化" size="large" class="mb-4">
       <h3>裁剪尺寸</h3>
-      <div class="mb-2 flex items-center gap-2">
-        <NInputNumber v-model:value="itemLength" placeholder="长度" class="w-40" />
-        <NInputNumber v-model:value="itemQty" placeholder="数量" class="w-32" />
-        <NButton type="primary" @click="addItem">添加尺寸</NButton>
-      </div>
       <NDataTable :columns="itemColumns" :data="itemsData" />
-
       <h3 class="mt-6">材料库存</h3>
-      <div class="mb-2 flex items-center gap-2">
-        <NInputNumber v-model:value="matLength" placeholder="长度" class="w-40" />
-        <NInputNumber v-model:value="matQty" placeholder="数量" class="w-32" />
-        <NButton type="primary" @click="addMaterial">添加材料</NButton>
-      </div>
       <NDataTable :columns="materialColumns" :data="materialsData" />
 
       <h3 class="mt-6">参数配置</h3>
       <div class="mb-4 flex items-center gap-6">
         <div class="flex items-center gap-2">
           <span class="w-24">新材料长度</span>
-          <NInputNumber v-model:value="newMaterialLength" class="w-40" />
+          <NInputNumber v-model:value="newMaterialLength" disabled class="w-40" />
         </div>
         <div class="flex items-center gap-2">
           <span class="w-24">切割损耗</span>
-          <NInputNumber v-model:value="loss" class="w-40" />
+          <NInputNumber v-model:value="loss" disabled class="w-40" />
         </div>
         <div class="flex items-center gap-2">
           <span class="w-24">利用率权重</span>
-          <NSlider v-model:value="utilizationWeight" :min="1" :max="8" :step="0.1" class="w-40" />
+          <NSlider v-model:value="utilizationWeight" disabled :min="1" :max="8" :step="0.1" class="w-40" />
         </div>
         <div class="flex items-center gap-2">
           <span class="w-24">聚合显示</span>
@@ -267,10 +163,7 @@ onMounted(() => {
       </div>
 
       <div class="mt-4 flex gap-2">
-        <NButton type="primary" @click="fetchData">开始裁剪</NButton>
         <BarPrinter v-if="!disabledPrint" :data="cutResult" />
-        <SaveCutRecord :data="saveData" @saved="saveData = null"></SaveCutRecord>
-        <NButton type="warning" @click="clearAll">清空所有</NButton>
       </div>
     </NCard>
 
@@ -325,13 +218,5 @@ onMounted(() => {
         </div>
       </div>
     </NCard>
-
-    <!-- 加载中弹窗 -->
-    <NModal v-model:show="loading" preset="dialog" title="计算中...">
-      <div class="flex flex-col items-center justify-center p-6">
-        <NSpin size="large" />
-        <div class="mt-3">{{ $t('common.loading') }}</div>
-      </div>
-    </NModal>
   </div>
 </template>
