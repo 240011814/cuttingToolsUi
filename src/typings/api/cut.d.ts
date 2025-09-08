@@ -67,13 +67,13 @@ declare namespace Api {
       label: string;
       width: number;
       height: number;
+      quantity?: number;
     }
 
-    interface MaterialType {
-      name: string; // 新增：材料类型
-      width: number; // 新增：材料宽度
-      height: number; // 新增：材料高度
-      availableCount: number; // 新增：材料数量
+    interface BarItem {
+      label?: string;
+      length: number;
+      quantity: number;
     }
 
     interface BarRequest {

@@ -111,7 +111,6 @@ const {
 async function deleteData(id: string) {
   const result = await deleteRecod(id);
   if (result) {
-    window.$message?.success('删除成功');
     onDeleted();
   } else {
     window.$message?.error('删除失败');

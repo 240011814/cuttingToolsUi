@@ -4,7 +4,7 @@ import html2canvas from 'html2canvas';
 
 const props = defineProps<{
   results: Api.Cut.BinResult[];
-  materials: { name: string; width: number; height: number; count: number }[];
+  materials: Api.Cut.Item[];
 }>();
 
 const printArea = ref<HTMLDivElement | null>(null);

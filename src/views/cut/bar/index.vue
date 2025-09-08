@@ -3,8 +3,8 @@ import { computed, h, onMounted, ref } from 'vue';
 import { NButton, NCard, NDataTable, NInputNumber, NModal, NSpin, useMessage } from 'naive-ui';
 import { cutBar } from '@/service/api';
 
-const itemsData = ref<{ length: number; qty: number }[]>([]);
-const materialsData = ref<{ length: number; qty: number }[]>([]);
+const itemsData = ref<Api.Cut.BarItem[]>([]);
+const materialsData = ref<Api.Cut.BarItem[]>([]);
 
 const itemLength = ref<number | null>(null);
 const itemQty = ref<number | null>(null);
@@ -25,7 +25,7 @@ const containerWidth = ref(800); // 动态容器宽度
 // item 表格
 const itemColumns = [
   { title: '长度(cm)', key: 'length' },
-  { title: '数量', key: 'qty' },
+  { title: '数量', key: 'quantity' },
   {
     title: '操作',
     key: 'actions',
@@ -46,7 +46,7 @@ const itemColumns = [
 // material 表格
 const materialColumns = [
   { title: '长度(cm)', key: 'length' },
-  { title: '数量', key: 'qty' },
+  { title: '数量', key: 'quantity' },
   {
     title: '操作',
     key: 'actions',
@@ -66,7 +66,7 @@ const materialColumns = [
 
 function addItem() {
   if (itemLength.value && itemQty.value && itemQty.value > 0) {
-    itemsData.value.push({ length: itemLength.value, qty: itemQty.value });
+    itemsData.value.push({ length: itemLength.value, quantity: itemQty.value });
     itemLength.value = null;
     itemQty.value = null;
   } else {
@@ -77,7 +77,7 @@ function addItem() {
 
 function addMaterial() {
   if (matLength.value && matQty.value && matQty.value > 0) {
-    materialsData.value.push({ length: matLength.value, qty: matQty.value });
+    materialsData.value.push({ length: matLength.value, quantity: matQty.value });
     matLength.value = null;
     matQty.value = null;
   } else {
@@ -102,11 +102,9 @@ function clearAll() {
 async function fetchData() {
   loading.value = true;
   disabledPrint.value = true;
-  const items: number[] = itemsData.value.flatMap((i: { length: number; qty: number }) => Array(i.qty).fill(i.length));
+  const items: number[] = itemsData.value.flatMap((i: Api.Cut.BarItem) => Array(i.quantity).fill(i.length));
 
-  const materials: number[] = materialsData.value.flatMap((i: { length: number; qty: number }) =>
-    Array(i.qty).fill(i.length)
-  );
+  const materials: number[] = materialsData.value.flatMap((i: Api.Cut.BarItem) => Array(i.quantity).fill(i.length));
   try {
     const request = {
       items,
@@ -120,7 +118,7 @@ async function fetchData() {
     cutResult.value = reslut;
     saveData.value = {
       type: '1',
-      request: JSON.stringify(request),
+      request: JSON.stringify({ rowItems: itemsData.value, rowMaterials: materialsData.value, ...request }),
       response: JSON.stringify(reslut),
       name: ``
     };

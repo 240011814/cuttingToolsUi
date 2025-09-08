@@ -3,10 +3,16 @@ import { computed, onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { NCard, NDataTable, NInputNumber } from 'naive-ui';
 const route = useRoute();
-const request: Api.Cut.BarRequest = JSON.parse(route.query.request as string) as Api.Cut.BarRequest;
+const request: Api.Cut.BarRequest & {
+  rowItems: Api.Cut.BarItem[];
+  rowMaterials: Api.Cut.BarItem[];
+} = JSON.parse(route.query.request as string) as Api.Cut.BarRequest & {
+  rowItems: Api.Cut.BarItem[];
+  rowMaterials: Api.Cut.BarItem[];
+};
 const response: Api.Cut.BarResult[] = JSON.parse(route.query.response as string) as Api.Cut.BarResult[];
-const itemsData = ref<{ length: number; qty: number }[]>();
-const materialsData = ref<{ length: number; qty: number }[]>([]);
+const itemsData = ref<Api.Cut.BarItem[]>(request.rowItems || []);
+const materialsData = ref<Api.Cut.BarItem[]>(request.rowMaterials || []);
 
 const newMaterialLength = ref(request.newMaterialLength || 600);
 const loss = ref(request.loss || 0);
@@ -21,13 +27,13 @@ const containerWidth = ref(800); // 动态容器宽度
 // item 表格
 const itemColumns = [
   { title: '长度(cm)', key: 'length' },
-  { title: '数量', key: 'qty' }
+  { title: '数量', key: 'quantity' }
 ];
 
 // material 表格
 const materialColumns = [
   { title: '长度(cm)', key: 'length' },
-  { title: '数量', key: 'qty' }
+  { title: '数量', key: 'quantity' }
 ];
 
 // 统计信息
