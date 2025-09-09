@@ -9,6 +9,7 @@ const message = useMessage();
 // 响应式数据
 const label = ref('');
 const group = ref(false);
+const strategy = ref('Guillotine');
 const width = ref<number | null>(null);
 const height = ref<number | null>(null);
 const quantity = ref(1);
@@ -22,7 +23,10 @@ const saveData = ref<Api.Cut.RecordRequest | null>(null);
 const items = ref<Api.Cut.Item[]>([]);
 const materials = ref<Api.Cut.Item[]>([]);
 const results = ref<Api.Cut.BinResult[]>([]);
-
+const strategyOptions = [
+  { label: '刀切法', value: 'Guillotine' },
+  { label: '最大空闲法', value: 'MaxRects' }
+];
 // 用于保存 canvas 引用
 const canvases = ref<(HTMLCanvasElement | null)[]>([]);
 
@@ -183,7 +187,8 @@ async function runOptimization() {
       items: expandedItems,
       materials: materials.value,
       width: newMaterialWidth.value,
-      height: newMaterialHeight.value
+      height: newMaterialHeight.value,
+      strategy: strategy.value
     };
     const data = await cutBin(request);
     const { data: reslut } = data;
@@ -256,6 +261,10 @@ async function runOptimization() {
 
       <h3 class="mt-6">参数配置</h3>
       <div class="mb-4 flex items-center gap-6">
+        <div class="flex items-center gap-2">
+          <span class="w-24">方案</span>
+          <NSelect v-model:value="strategy" :options="strategyOptions" />
+        </div>
         <div class="flex items-center gap-2">
           <span class="w-24">新材料长度</span>
           <NInputNumber v-model:value="newMaterialHeight" class="w-40" />

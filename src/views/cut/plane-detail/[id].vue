@@ -11,13 +11,16 @@ const request: Api.Cut.BinRequest & {
 const response: Api.Cut.BinResult[] = JSON.parse(route.query.response as string) as Api.Cut.BinResult[];
 
 const group = ref(false);
-
+const strategy = ref(request.strategy || 'Guillotine');
 const newMaterialHeight = ref(request.height || 200);
 const newMaterialWidth = ref(request.width || 200);
 const items = ref<Api.Cut.Item[]>(request.rowItems || []);
 const materials = ref<Api.Cut.Item[]>(request.materials || []);
 const results = ref<Api.Cut.BinResult[]>(response || []);
-
+const strategyOptions = [
+  { label: '刀切法', value: 'Guillotine' },
+  { label: '最大空闲法', value: 'MaxRects' }
+];
 // item 表格
 const itemColumns = [
   { title: '标签', key: 'label' },
@@ -42,6 +45,10 @@ const itemColumns = [
 
       <h3 class="mt-6">参数配置</h3>
       <div class="mb-4 flex items-center gap-6">
+        <div class="flex items-center gap-2">
+          <span class="w-24">方案</span>
+          <NSelect v-model:value="strategy" :options="strategyOptions" />
+        </div>
         <div class="flex items-center gap-2">
           <span class="w-24">新材料长度</span>
           <NInputNumber v-model:value="newMaterialHeight" disabled class="w-40" />
