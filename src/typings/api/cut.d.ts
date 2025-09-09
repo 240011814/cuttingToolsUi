@@ -51,9 +51,10 @@ declare namespace Api {
 
     interface BinRequest {
       items: Item[];
-      materials: MaterialType[];
+      materials: Item[];
       height: number;
       width: number;
+      strategy: string;
     }
 
     interface RecordRequest {
