@@ -3,7 +3,7 @@ name: Build & Deploy
 on:
   push:
     branches:
-      - main
+      - english
   workflow_dispatch:
 
 env:
@@ -71,7 +71,7 @@ jobs:
 
       # 11. 如果是 main 分支，打上 latest 标签并推送
       - name: Tag and push latest
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/english'
         run: |
           docker tag ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ github.sha }} \
             ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:latest
