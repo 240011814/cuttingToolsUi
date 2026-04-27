@@ -27,9 +27,16 @@ jobs:
       - name: Install latest pnpm globally
         run: npm install -g pnpm@latest
 
+      - name: Install and Build
+        run: |
+          cd frontend
+          pnpm install
+          pnpm build
+
       - name: Build Docker image
         run: |
-          docker build -f frontend/Dockerfile \
+          cd frontend
+          docker build \
             -t ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ github.sha }} \
             .
 
