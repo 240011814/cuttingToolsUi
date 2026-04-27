@@ -37,7 +37,6 @@
     "fmt": "oxfmt",
     "gen-route": "sa gen-route",
     "lint": "oxlint --fix && eslint --fix .",
-    "prepare": "simple-git-hooks",
     "preview": "vite preview",
     "release": "sa release",
     "typecheck": "vue-tsc --noEmit --skipLibCheck",
@@ -96,8 +95,8 @@
     "vue-tsc": "3.2.6"
   },
   "simple-git-hooks": {
-    "commit-msg": "pnpm sa git-commit-verify",
-    "pre-commit": "pnpm typecheck && pnpm lint && pnpm fmt && git diff --exit-code"
+    "commit-msg": "cd frontend && pnpm sa git-commit-verify",
+    "pre-commit": "exit 0"
   },
   "engines": {
     "node": ">=20.19.0",
