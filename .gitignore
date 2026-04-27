@@ -12,8 +12,9 @@ Thumbs.db
 
 # Build
 dist/
-build/
+/build/
 backend/main
+!frontend/build/
 
 # Env
 .env*
