@@ -29,8 +29,7 @@ jobs:
 
       - name: Build Docker image
         run: |
-          cd frontend
-          docker build \
+          docker build -f frontend/Dockerfile \
             -t ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ github.sha }} \
             .
 
