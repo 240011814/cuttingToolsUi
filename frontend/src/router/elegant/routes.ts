@@ -56,7 +56,8 @@ export const generatedRoutes: GeneratedRoute[] = [
         component: 'view.ai_chat',
         meta: {
           title: 'ai_chat',
-          i18nKey: 'route.ai_chat'
+          i18nKey: 'route.ai_chat',
+          keepAlive: true
         }
       },
       {
