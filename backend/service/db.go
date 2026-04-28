@@ -6,6 +6,7 @@ import (
 	"log"
 
 	"backend/config"
+
 	"github.com/pressly/goose/v3"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -18,12 +19,18 @@ var embedMigrations embed.FS
 
 // InitDB 初始化数据库连接并自动运行迁移
 func InitDB(cfg *config.Config) (*gorm.DB, error) {
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local&tls=true",
+	tls:= "true"	
+	if(cfg.Database.Host == "10.1.6.156"){
+		tls = "false"
+	}
+		
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local&tls=%s",
 		cfg.Database.User,
 		cfg.Database.Password,
 		cfg.Database.Host,
 		cfg.Database.Port,
 		cfg.Database.DBName,
+		tls,
 	)
 
 	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})

@@ -12,40 +12,39 @@ http {
   keepalive_timeout 65;
 
   client_max_body_size 20m;
-
-  # DNS resolver for K8s/Docker environments
-  resolver 127.0.0.11 8.8.8.8 valid=30s;
-
   server {
     listen 80;
     server_name localhost;
-
     location / {
       root /usr/share/nginx/html;
       index index.html index.htm;
       try_files $uri $uri/ /index.html;
     }
+    location ^~/api/ {
 
-    # 处理认证接口：自动将 /api/auth/xxx 替换为 /auth/xxx
-    location /api/auth/ {
-      add_header X-Nginx-Debug "Matched Auth Location" always;
-      proxy_set_header Host $host;
+      proxy_connect_timeout 300;
+
+      proxy_send_timeout 300;
+
+      proxy_read_timeout 300;
+
+      proxy_pass ${BACKEND_URL};
+
       proxy_set_header X-Real-IP $remote_addr;
-      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-
-      # 当 proxy_pass 带有 URI 部分（即末尾带 /auth/）时，Nginx 会执行路径替换
-      proxy_pass ${BACKEND_URL}/auth/;
     }
 
-    # 处理其他 API 接口：将 /api/xxx 映射到 /api/xxx
-    location /api/ {
-      proxy_set_header Host $host;
+    location ^~/auth/ {
+
+      proxy_connect_timeout 300;
+
+      proxy_send_timeout 300;
+
+      proxy_read_timeout 300;
+
+      proxy_pass ${BACKEND_URL};
+
       proxy_set_header X-Real-IP $remote_addr;
-      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-
-      proxy_pass ${BACKEND_URL}/api/;
     }
-
     error_page 500 502 503 504 /50x.html;
     location = /50x.html {
       root html;
@@ -55,30 +54,35 @@ http {
   server {
     listen 443;
     server_name localhost;
-
     location / {
       root /usr/share/nginx/html;
       index index.html index.htm;
       try_files $uri $uri/ /index.html;
     }
+    location ^~/api/ {
 
-    location /api/auth/ {
-      add_header X-Nginx-Debug "Matched Auth Location" always;
-      proxy_set_header Host $host;
+      proxy_connect_timeout 300;
+
+      proxy_send_timeout 300;
+
+      proxy_read_timeout 300;
+
+      proxy_pass ${BACKEND_URL};
+
       proxy_set_header X-Real-IP $remote_addr;
-      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-
-      proxy_pass ${BACKEND_URL}/auth/;
     }
+    location ^~/auth/ {
 
-    location /api/ {
-      proxy_set_header Host $host;
+      proxy_connect_timeout 300;
+
+      proxy_send_timeout 300;
+
+      proxy_read_timeout 300;
+
+      proxy_pass ${BACKEND_URL};
+
       proxy_set_header X-Real-IP $remote_addr;
-      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-
-      proxy_pass ${BACKEND_URL}/api/;
     }
-
     error_page 500 502 503 504 /50x.html;
     location = /50x.html {
       root html;
