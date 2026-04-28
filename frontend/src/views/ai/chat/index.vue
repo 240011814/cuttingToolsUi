@@ -3,7 +3,6 @@ import { ref, nextTick } from 'vue';
 import { useMessage } from 'naive-ui';
 import { getServiceBaseURL } from '@/utils/service';
 import { fetchAddVocabulary } from '@/service/api';
-import { useI18n } from 'vue-i18n';
 import { useAuthStore } from '@/store/modules/auth';
 import { getAuthorization } from '@/service/request/shared';
 
@@ -35,7 +34,7 @@ Rules:
 - Focus on oral, daily-use English.
 - Be encouraging but precise with corrections.
 - Do not mention the <vocabs> tag in your natural speech.
-- **CRITICAL**: Every time you correct the user or introduce new words (like Sugar, Milk in your notes), you MUST extract them into the JSON format below and append it to the VERY END of your response. 
+- **CRITICAL**: Every time you correct the user or introduce new words (like Sugar, Milk in your notes), you MUST extract them into the JSON format below and append it to the VERY END of your response.
 Format Example:
 <vocabs>[{"word": "Sugar", "phonetic": "/ˈʃʊɡ.ər/", "definition": "糖", "example": "Do you take sugar? (你要加糖吗？)", "confusingWords": "Shook (摇动), Shocker (令人震惊的事)"}]</vocabs>
 If no new words, you can omit it, but if you taught anything, it MUST be there.`
@@ -48,7 +47,7 @@ const inputMessage = ref('');
 const isGenerating = ref(false);
 const scrollbarRef = ref<any>(null);
 const message = useMessage();
-const { t } = useI18n();
+
 
 // 生词本弹窗相关
 const showVocabModal = ref(false);
@@ -116,7 +115,7 @@ const sendMessage = async () => {
 
   scrollToBottom();
   isGenerating.value = true;
-  const authStore = useAuthStore();
+  const _authStore = useAuthStore();
   const { baseURL } = getServiceBaseURL(import.meta.env, import.meta.env.DEV && import.meta.env.VITE_HTTP_PROXY === 'Y');
 
   try {
@@ -285,41 +284,19 @@ const handlePlay = (text: string) => {
                   v-if="msg.role === 'assistant' && msg.content"
                   class="absolute -right-2 -top-4 opacity-0 group-hover:opacity-100 transition-all duration-300 flex gap-1 p-1 bg-white dark:bg-gray-700 rounded-full shadow-md border border-gray-100 dark:border-gray-600 z-10"
                 >
-                  <NTooltip trigger="hover">
-                    <template #trigger>
-                      <NButton
-                        circle
-                        size="small"
-                        quaternary
-                        @click.stop="handlePlay(formatDisplayContent(msg.content))"
-                      >
-                        <template #icon>
-                          <NIcon size="18" color="#2080f0">
-                            <div class="i-mdi:volume-high" />
-                          </NIcon>
-                        </template>
-                      </NButton>
-                    </template>
-                    朗读全文
-                  </NTooltip>
+                  <ButtonIcon
+                    icon="mdi:volume-high"
+                    class="text-18px text-primary"
+                    tooltip-content="朗读全文"
+                    @click.stop="handlePlay(formatDisplayContent(msg.content))"
+                  />
                   <div class="w-[1px] h-4 bg-gray-200 dark:bg-gray-600 self-center" />
-                  <NTooltip trigger="hover">
-                    <template #trigger>
-                      <NButton
-                        circle
-                        size="small"
-                        quaternary
-                        @click.stop="openVocabModal()"
-                      >
-                        <template #icon>
-                          <NIcon size="18" color="#f0a020">
-                            <div class="i-mdi:star" />
-                          </NIcon>
-                        </template>
-                      </NButton>
-                    </template>
-                    添加到生词本
-                  </NTooltip>
+                  <ButtonIcon
+                    icon="mdi:star"
+                    class="text-18px text-warning"
+                    tooltip-content="添加到生词本"
+                    @click.stop="openVocabModal()"
+                  />
                 </div>
               </div>
 
@@ -383,19 +360,11 @@ const handlePlay = (text: string) => {
         <NFormItem label="单词" path="word">
           <div class="flex gap-2 w-full">
             <NInput v-model:value="vocabForm.word" placeholder="输入单词" class="flex-1" />
-            <NButton
-              circle
-              secondary
-              type="info"
-              :disabled="!vocabForm.word"
+            <ButtonIcon
+              icon="mdi:volume-high"
+              class="text-20px text-primary"
               @click="handlePlay(vocabForm.word)"
-            >
-              <template #icon>
-                <NIcon size="20" color="#2080f0">
-                  <div class="i-mdi:volume-high" />
-                </NIcon>
-              </template>
-            </NButton>
+            />
           </div>
         </NFormItem>
         <NFormItem label="音标" path="phonetic">

@@ -65,7 +65,8 @@ export const generatedRoutes: GeneratedRoute[] = [
         component: 'view.ai_exercise',
         meta: {
           title: 'ai_exercise',
-          i18nKey: 'route.ai_exercise'
+          i18nKey: 'route.ai_exercise',
+          hideInMenu: true
         }
       },
       {
