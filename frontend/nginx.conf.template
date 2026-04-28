@@ -28,6 +28,7 @@ http {
 
     # 处理认证接口：将 /api/auth/xxx 转发到 /auth/xxx
     location /api/auth/ {
+      add_header X-Nginx-Debug "Matched Auth Location" always;
       proxy_set_header X-Real-IP $remote_addr;
       proxy_set_header Host $host;
       proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -63,6 +64,7 @@ http {
     }
 
     location /api/auth/ {
+      add_header X-Nginx-Debug "Matched Auth Location" always;
       proxy_set_header X-Real-IP $remote_addr;
       proxy_set_header Host $host;
       proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
