@@ -1,38 +1,82 @@
 package main
 
 import (
-	"github.com/gin-gonic/gin"
+	"log"
 	"net/http"
+
+	"backend/api"
+	"backend/config"
+	"backend/service"
+	"github.com/gin-gonic/gin"
 )
 
 func main() {
 	r := gin.Default()
 
+	// 允许处理 CORS 如果前后端分离且没代理 (前端目前使用 vite proxy 或是 nginx proxy, 所以按理可以不配)
+	// 但如果以后需要跨域，可以在这里添加 CORS 中间件
+
+	// 加载配置文件
+	cfg, err := config.LoadConfig("config.yaml")
+	if err != nil {
+		log.Printf("Warning: Failed to load config.yaml: %v", err)
+		cfg = &config.Config{}
+	}
+
+	// 初始化数据库
+	db, err := service.InitDB(cfg)
+	if err != nil {
+		log.Printf("Warning: Failed to initialize Database: %v", err)
+	} else {
+		// 自动迁移模型 (虽然用了 liquibase，但 GORM 也可以作为辅助)
+		// db.AutoMigrate(&model.User{})
+		_ = db
+	}
+
+	// 初始化 AI Service
+	aiService, err := service.NewAIService(cfg)
+	if err != nil {
+		log.Fatalf("Failed to initialize AI Service: %v", err)
+	}
+
+	// 初始化 Auth Service
+	authService := service.NewAuthService(cfg)
+
+	// 初始化 Vocabulary Service & Handler
+	vocabService := service.NewVocabularyService()
+	vocabHandler := api.NewVocabularyHandler(vocabService)
+
 	// 健康检查
 	r.GET("/api/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
-			"status": "ok",
+			"status":  "ok",
 			"message": "AI English Learning Backend is running",
 		})
 	})
 
-	// AI 纠错接口占位符
-	r.POST("/api/correct", func(c *gin.Context) {
-		var json struct {
-			Text string `json:"text" binding:"required"`
-		}
-		if err := c.ShouldBindJSON(&json); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
+	// 认证接口
+	authGroup := r.Group("/auth")
+	{
+		authGroup.POST("/login", api.HandleLogin(authService))
+		authGroup.GET("/getUserInfo", api.HandleGetUserInfo(authService, cfg.Auth.JWTSecret))
+	}
 
-		// 这里未来将对接 AI 接口
-		c.JSON(http.StatusOK, gin.H{
-			"original": json.Text,
-			"correction": "This is a placeholder correction for: " + json.Text,
-			"explanation": "AI integration is coming soon.",
-		})
-	})
+	// 业务接口 (需要鉴权)
+	apiGroup := r.Group("/api")
+	apiGroup.Use(api.AuthMiddleware(cfg.Auth.JWTSecret))
+	{
+		// AI 聊天流式接口
+		apiGroup.POST("/chat", api.HandleChatStream(aiService))
+
+		// 生词本接口
+		vocabGroup := apiGroup.Group("/vocabulary")
+		{
+			vocabGroup.POST("", vocabHandler.HandleAddWord)
+			vocabGroup.GET("", vocabHandler.HandleListWords)
+			vocabGroup.PUT("/:id", vocabHandler.HandleUpdateWord)
+			vocabGroup.DELETE("/:id", vocabHandler.HandleDeleteWord)
+		}
+	}
 
 	// 启动服务器
 	r.Run(":8080")

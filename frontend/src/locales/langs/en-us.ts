@@ -229,7 +229,11 @@ const local: App.I18n.Schema = {
     404: 'Page Not Found',
     500: 'Server Error',
     'iframe-page': 'Iframe',
-    home: 'Home'
+    home: 'Home',
+    ai: 'AI Training',
+    ai_chat: 'Simulation Training',
+    ai_vocabulary: 'Vocabulary Book',
+    ai_exercise: 'Exercise'
   },
   page: {
     login: {

@@ -225,7 +225,11 @@ const local: App.I18n.Schema = {
     404: '页面不存在',
     500: '服务器错误',
     'iframe-page': '外链页面',
-    home: '首页'
+    home: '首页',
+    ai: 'AI训练',
+    ai_chat: '模拟训练',
+    ai_vocabulary: '生词本',
+    ai_exercise: '练习'
   },
   page: {
     login: {

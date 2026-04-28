@@ -40,6 +40,47 @@ export const generatedRoutes: GeneratedRoute[] = [
     }
   },
   {
+    name: 'ai',
+    path: '/ai',
+    component: 'layout.base',
+    meta: {
+      title: 'ai',
+      i18nKey: 'route.ai',
+      icon: 'mdi:robot-outline',
+      order: 2
+    },
+    children: [
+      {
+        name: 'ai_chat',
+        path: '/ai/chat',
+        component: 'view.ai_chat',
+        meta: {
+          title: 'ai_chat',
+          i18nKey: 'route.ai_chat'
+        }
+      },
+      {
+        name: 'ai_exercise',
+        path: '/ai/exercise',
+        component: 'view.ai_exercise',
+        meta: {
+          title: 'ai_exercise',
+          i18nKey: 'route.ai_exercise'
+        }
+      },
+      {
+        name: 'ai_vocabulary',
+        path: '/ai/vocabulary',
+        component: 'view.ai_vocabulary',
+        meta: {
+          title: 'ai_vocabulary',
+          i18nKey: 'route.ai_vocabulary',
+          icon: 'mdi:book-open-outline'
+        }
+      }
+    ]
+  },
+  {
     name: 'home',
     path: '/home',
     component: 'layout.base$view.home',
