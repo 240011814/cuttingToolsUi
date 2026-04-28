@@ -18,7 +18,7 @@ var embedMigrations embed.FS
 
 // InitDB 初始化数据库连接并自动运行迁移
 func InitDB(cfg *config.Config) (*gorm.DB, error) {
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local&tls=true",
 		cfg.Database.User,
 		cfg.Database.Password,
 		cfg.Database.Host,
