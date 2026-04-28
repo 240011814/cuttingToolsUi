@@ -24,13 +24,9 @@ func main() {
 	}
 
 	// 初始化数据库
-	db, err := service.InitDB(cfg)
+	_, err = service.InitDB(cfg)
 	if err != nil {
-		log.Printf("Warning: Failed to initialize Database: %v", err)
-	} else {
-		// 自动迁移模型 (虽然用了 liquibase，但 GORM 也可以作为辅助)
-		// db.AutoMigrate(&model.User{})
-		_ = db
+		log.Fatalf("Failed to initialize Database: %v", err)
 	}
 
 	// 初始化 AI Service

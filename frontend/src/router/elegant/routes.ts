@@ -66,7 +66,8 @@ export const generatedRoutes: GeneratedRoute[] = [
         meta: {
           title: 'ai_exercise',
           i18nKey: 'route.ai_exercise',
-          hideInMenu: true
+          hideInMenu: true,
+          keepAlive: true
         }
       },
       {

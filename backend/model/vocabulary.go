@@ -14,6 +14,7 @@ type Vocabulary struct {
 	Example       string    `gorm:"type:text" json:"example"`
 	SourceContext string    `gorm:"type:text" json:"sourceContext"`
 	ConfusingWords string   `gorm:"type:text" json:"confusingWords"`
+	IsMastered    bool      `gorm:"default:false" json:"isMastered"`
 	CreatedAt     time.Time `json:"createdAt"`
 	UpdatedAt     time.Time `json:"updatedAt"`
 }
@@ -39,4 +40,5 @@ type UpdateVocabularyRequest struct {
 	Definition     string `json:"definition"`
 	Example        string `json:"example"`
 	ConfusingWords string `json:"confusingWords"`
+	IsMastered     *bool  `json:"isMastered"`
 }

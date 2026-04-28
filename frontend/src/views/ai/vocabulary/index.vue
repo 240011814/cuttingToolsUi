@@ -3,7 +3,8 @@ import { h, onMounted, ref, resolveComponent, computed } from 'vue';
 import { NButton, NPopconfirm, useMessage, useDialog } from 'naive-ui';
 import type { DataTableColumns, DataTableRowKey } from 'naive-ui';
 import { useRouterPush } from '@/hooks/common/router';
-import { fetchDeleteVocabulary, fetchGetVocabularyList } from '@/service/api';
+import { fetchDeleteVocabulary, fetchGetVocabularyList, fetchUpdateVocabulary } from '@/service/api';
+import { onKeyStroke } from '@vueuse/core';
 
 const message = useMessage();
 const dialog = useDialog();
@@ -13,10 +14,18 @@ const data = ref<any[]>([]);
 const keyword = ref('');
 const checkedRowKeys = ref<DataTableRowKey[]>([]);
 const isSelectionMode = ref(false);
+const activeTab = ref<'new' | 'mastered'>('new');
 
 const columns = computed<DataTableColumns<any>>(() => {
   const cols: DataTableColumns<any> = [
-    { title: '单词', key: 'word', width: 120 },
+    {
+      title: '单词',
+      key: 'word',
+      width: 150,
+      render(row) {
+        return h('span', { class: 'text-lg font-bold text-primary' }, row.word);
+      }
+    },
     {
       title: '发音',
       key: 'play',
@@ -52,20 +61,33 @@ const columns = computed<DataTableColumns<any>>(() => {
     {
       title: '操作',
       key: 'actions',
-      width: 100,
+      width: 150,
       fixed: 'right',
       render(row) {
-        return h(
-          NPopconfirm,
-          {
-            onPositiveClick: () => handleDelete(row.id),
-            trigger: 'click'
-          },
-          {
-            trigger: () => h(NButton, { size: 'small', type: 'error', quaternary: true }, { default: () => '删除' }),
-            default: () => '确定删除此单词吗？'
-          }
-        );
+        const actions = [
+          h(
+            NButton,
+            {
+              size: 'small',
+              type: activeTab.value === 'new' ? 'success' : 'warning',
+              quaternary: true,
+              onClick: () => handleToggleMastered(row)
+            },
+            { default: () => (activeTab.value === 'new' ? '掌握' : '移回') }
+          ),
+          h(
+            NPopconfirm,
+            {
+              onPositiveClick: () => handleDelete(row.id),
+              trigger: 'click'
+            },
+            {
+              trigger: () => h(NButton, { size: 'small', type: 'error', quaternary: true }, { default: () => '删除' }),
+              default: () => '确定删除此单词吗？'
+            }
+          )
+        ];
+        return h('div', { class: 'flex gap-1' }, actions);
       }
     }
   ];
@@ -80,7 +102,10 @@ const columns = computed<DataTableColumns<any>>(() => {
 const loadData = async () => {
   loading.value = true;
   try {
-    const { data: res } = await fetchGetVocabularyList({ keyword: keyword.value });
+    const { data: res } = await fetchGetVocabularyList({
+      keyword: keyword.value,
+      isMastered: activeTab.value === 'mastered'
+    });
     if (res) {
       data.value = res;
     }
@@ -100,6 +125,40 @@ const handleDelete = async (id: number) => {
     message.error(`删除失败: ${err?.message || '未知错误'}`);
   }
 };
+
+const handleToggleMastered = async (row: any) => {
+  try {
+    const newStatus = !row.isMastered;
+    await fetchUpdateVocabulary(row.id, { isMastered: newStatus });
+    message.success(newStatus ? '已移至掌握列表' : '已移回生词本');
+    loadData();
+  } catch (err: any) {
+    message.error(`操作失败: ${err?.message || '未知错误'}`);
+  }
+};
+
+const handleBatchMastered = async () => {
+  if (checkedRowKeys.value.length === 0) {
+    message.warning('请先选择单词');
+    return;
+  }
+  try {
+    const isToMastered = activeTab.value === 'new';
+    await Promise.all(checkedRowKeys.value.map(id => fetchUpdateVocabulary(id as number, { isMastered: isToMastered })));
+    message.success(isToMastered ? '批量标记成功' : '批量还原成功');
+    checkedRowKeys.value = [];
+    loadData();
+  } catch (err: any) {
+    message.error(`批量操作失败: ${err?.message || '未知错误'}`);
+  }
+};
+
+onKeyStroke(['m', 'M'], (e) => {
+  if (e.ctrlKey) {
+    e.preventDefault();
+    handleBatchMastered();
+  }
+});
 
 const handlePlay = (text: string) => {
   if (!window.speechSynthesis) {
@@ -140,7 +199,26 @@ onMounted(() => {
 
 <template>
   <div class="h-full flex-col flex gap-4 p-4">
-    <NCard title="生词本管理" :bordered="false" shadow="sm" class="flex-1">
+    <NCard :bordered="false" shadow="sm" class="flex-1">
+      <template #header>
+        <div class="flex items-center gap-4">
+          <span class="text-18px font-bold">词汇管理</span>
+          <NTabs v-model:value="activeTab" type="segment" style="width: 280px" @update:value="loadData">
+            <NTab name="new">
+              <div class="flex items-center gap-2">
+                <icon-mdi-book-open-variant class="text-lg" />
+                <span>生词本</span>
+              </div>
+            </NTab>
+            <NTab name="mastered">
+              <div class="flex items-center gap-2">
+                <icon-mdi-check-decagram class="text-lg text-success" />
+                <span>掌握列表</span>
+              </div>
+            </NTab>
+          </NTabs>
+        </div>
+      </template>
       <div class="flex flex-col h-full gap-4">
         <div class="flex justify-between items-center">
           <div class="flex gap-4 items-center">

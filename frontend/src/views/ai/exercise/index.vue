@@ -54,14 +54,19 @@ const progress = computed(() => {
 const loadData = async () => {
   loading.value = true;
   try {
-    const { data: res } = await fetchGetVocabularyList();
+    const { data: res } = await fetchGetVocabularyList({ isMastered: false });
     if (res) {
       const { ids, mode } = route.query;
       if (mode === 'all') {
         rawWords.value = res.filter(item => item.example);
       } else if (ids) {
-        const idList = (ids as string).split(',').map(Number);
-        rawWords.value = res.filter(item => idList.includes(item.id) && item.example);
+        // 如果指定了 ID，则需要重新获取完整列表（或者单独获取这些 ID），因为上面的请求只拿了未掌握的
+        // 为了简单起见，如果传了 ids，我们重新请求一次不带过滤的列表
+        const { data: allRes } = await fetchGetVocabularyList();
+        if (allRes) {
+          const idList = (ids as string).split(',').map(Number);
+          rawWords.value = allRes.filter(item => idList.includes(item.id) && item.example);
+        }
       } else {
         rawWords.value = res.filter(item => item.example);
       }

@@ -38,8 +38,17 @@ func (h *VocabularyHandler) HandleAddWord(c *gin.Context) {
 func (h *VocabularyHandler) HandleListWords(c *gin.Context) {
 	userId := GetUserID(c)
 	keyword := c.Query("keyword")
+	isMasteredStr := c.Query("isMastered")
 
-	list, err := h.svc.GetUserVocabulary(userId, keyword)
+	var isMastered *bool
+	if isMasteredStr != "" {
+		b, err := strconv.ParseBool(isMasteredStr)
+		if err == nil {
+			isMastered = &b
+		}
+	}
+
+	list, err := h.svc.GetUserVocabulary(userId, keyword, isMastered)
 	if err != nil {
 		SendError(c, "500", "获取列表失败: "+err.Error())
 		return

@@ -29,11 +29,14 @@ func (s *VocabularyService) AddWord(userID uint, req model.CreateVocabularyReque
 }
 
 // GetUserVocabulary 获取用户生词列表
-func (s *VocabularyService) GetUserVocabulary(userID uint, keyword string) ([]model.Vocabulary, error) {
+func (s *VocabularyService) GetUserVocabulary(userID uint, keyword string, isMastered *bool) ([]model.Vocabulary, error) {
 	var list []model.Vocabulary
 	query := DB.Where("user_id = ?", userID)
 	if keyword != "" {
 		query = query.Where("word LIKE ?", "%"+keyword+"%")
+	}
+	if isMastered != nil {
+		query = query.Where("is_mastered = ?", *isMastered)
 	}
 	if err := query.Order("created_at DESC").Find(&list).Error; err != nil {
 		return nil, err
@@ -48,12 +51,24 @@ func (s *VocabularyService) DeleteWord(userID, id uint) error {
 
 // UpdateWord 更新生词
 func (s *VocabularyService) UpdateWord(userID, id uint, req model.UpdateVocabularyRequest) error {
+	updates := map[string]interface{}{}
+	if req.Phonetic != "" {
+		updates["phonetic"] = req.Phonetic
+	}
+	if req.Definition != "" {
+		updates["definition"] = req.Definition
+	}
+	if req.Example != "" {
+		updates["example"] = req.Example
+	}
+	if req.ConfusingWords != "" {
+		updates["confusing_words"] = req.ConfusingWords
+	}
+	if req.IsMastered != nil {
+		updates["is_mastered"] = *req.IsMastered
+	}
+
 	return DB.Model(&model.Vocabulary{}).
 		Where("id = ? AND user_id = ?", id, userID).
-		Updates(map[string]interface{}{
-			"phonetic":        req.Phonetic,
-			"definition":      req.Definition,
-			"example":         req.Example,
-			"confusing_words": req.ConfusingWords,
-		}).Error
+		Updates(updates).Error
 }

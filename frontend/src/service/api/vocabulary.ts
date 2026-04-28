@@ -22,7 +22,7 @@ export function fetchAddVocabulary(data: {
  * 获取生词列表
  * @param params 查询参数
  */
-export function fetchGetVocabularyList(params?: { keyword?: string }) {
+export function fetchGetVocabularyList(params?: { keyword?: string; isMastered?: boolean }) {
   return request<any[]>({
     url: '/api/vocabulary',
     method: 'get',
@@ -50,6 +50,7 @@ export function fetchUpdateVocabulary(id: number, data: {
   phonetic?: string;
   definition?: string;
   example?: string;
+  isMastered?: boolean;
 }) {
   return request({
     url: `/api/vocabulary/${id}`,
