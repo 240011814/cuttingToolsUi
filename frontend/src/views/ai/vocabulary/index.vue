@@ -5,6 +5,7 @@ import type { DataTableColumns, DataTableRowKey } from 'naive-ui';
 import { useRouterPush } from '@/hooks/common/router';
 import { fetchDeleteVocabulary, fetchGetVocabularyList, fetchUpdateVocabulary } from '@/service/api';
 import { onKeyStroke } from '@vueuse/core';
+import { speak } from '@/utils/tts';
 
 const message = useMessage();
 const dialog = useDialog();
@@ -161,17 +162,13 @@ onKeyStroke(['m', 'M'], (e) => {
 });
 
 const handlePlay = (text: string) => {
-  if (!window.speechSynthesis) {
-    message.error('您的浏览器不支持语音播放');
-    return;
-  }
-  // 停止之前的播放
-  window.speechSynthesis.cancel();
-
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = 'en-US';
-  utterance.rate = 0.9; // 稍微放慢一点点，方便听清
-  window.speechSynthesis.speak(utterance);
+  speak(text, {
+    lang: 'en-US',
+    rate: 0.9,
+  }).catch((err) => {
+    message.error('语音播放失败');
+    console.error(err);
+  });
 };
 
 const handleStartExercise = () => {
