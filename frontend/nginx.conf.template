@@ -26,25 +26,24 @@ http {
       try_files $uri $uri/ /index.html;
     }
 
-    # 处理认证接口：将 /api/auth/xxx 转发到 /auth/xxx
+    # 处理认证接口：自动将 /api/auth/xxx 替换为 /auth/xxx
     location /api/auth/ {
       add_header X-Nginx-Debug "Matched Auth Location" always;
-      proxy_set_header X-Real-IP $remote_addr;
       proxy_set_header Host $host;
+      proxy_set_header X-Real-IP $remote_addr;
       proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
 
-      # 使用 rewrite 抹除 /api
-      rewrite ^/api/(.*)$ /$1 break;
-      proxy_pass ${BACKEND_URL};
+      # 当 proxy_pass 带有 URI 部分（即末尾带 /auth/）时，Nginx 会执行路径替换
+      proxy_pass ${BACKEND_URL}/auth/;
     }
 
-    # 处理其他 API 接口
+    # 处理其他 API 接口：将 /api/xxx 映射到 /api/xxx
     location /api/ {
-      proxy_set_header X-Real-IP $remote_addr;
       proxy_set_header Host $host;
+      proxy_set_header X-Real-IP $remote_addr;
       proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
 
-      proxy_pass ${BACKEND_URL};
+      proxy_pass ${BACKEND_URL}/api/;
     }
 
     error_page 500 502 503 504 /50x.html;
@@ -65,20 +64,19 @@ http {
 
     location /api/auth/ {
       add_header X-Nginx-Debug "Matched Auth Location" always;
-      proxy_set_header X-Real-IP $remote_addr;
       proxy_set_header Host $host;
+      proxy_set_header X-Real-IP $remote_addr;
       proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
 
-      rewrite ^/api/(.*)$ /$1 break;
-      proxy_pass ${BACKEND_URL};
+      proxy_pass ${BACKEND_URL}/auth/;
     }
 
     location /api/ {
-      proxy_set_header X-Real-IP $remote_addr;
       proxy_set_header Host $host;
+      proxy_set_header X-Real-IP $remote_addr;
       proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
 
-      proxy_pass ${BACKEND_URL};
+      proxy_pass ${BACKEND_URL}/api/;
     }
 
     error_page 500 502 503 504 /50x.html;
