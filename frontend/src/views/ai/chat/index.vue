@@ -116,8 +116,9 @@ const sendMessage = async () => {
   scrollToBottom();
   isGenerating.value = true;
   const _authStore = useAuthStore();
-  const { baseURL } = getServiceBaseURL(import.meta.env, import.meta.env.DEV && import.meta.env.VITE_HTTP_PROXY === 'Y');
 
+  const isHttpProxy = import.meta.env.DEV && import.meta.env.VITE_HTTP_PROXY === 'Y';
+  const { baseURL } = getServiceBaseURL(import.meta.env, isHttpProxy);
   try {
     const history = messages.value.slice(0, -1).filter(m => m.content && m.content.trim() !== '');
     const response = await fetch(`${baseURL}/api/chat`, {
