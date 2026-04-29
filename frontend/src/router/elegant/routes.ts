@@ -141,5 +141,41 @@ export const generatedRoutes: GeneratedRoute[] = [
       constant: true,
       hideInMenu: true
     }
+  },
+  {
+    name: 'system',
+    path: '/system',
+    component: 'layout.base',
+    meta: {
+      title: 'system',
+      i18nKey: 'route.system',
+      icon: 'mdi:cog-outline',
+      order: 3,
+      roles: ['R_SUPER']
+    },
+    children: [
+      {
+        name: 'system_permission',
+        path: '/system/permission',
+        component: 'view.system_permission',
+        meta: {
+          title: 'system_permission',
+          i18nKey: 'route.system_permission',
+          icon: 'mdi:shield-key-outline',
+          roles: ['R_SUPER']
+        }
+      },
+      {
+        name: 'system_user',
+        path: '/system/user',
+        component: 'view.system_user',
+        meta: {
+          title: 'system_user',
+          i18nKey: 'route.system_user',
+          icon: 'mdi:account-cog-outline',
+          roles: ['R_SUPER']
+        }
+      }
+    ]
   }
 ];

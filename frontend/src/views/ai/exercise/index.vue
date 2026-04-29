@@ -326,22 +326,22 @@ watch(isFinished, (val) => {
               class="relative border-b-4 pb-3 transition-all duration-300 flex justify-center items-end cursor-pointer group whitespace-nowrap"
               :style="{ minWidth: (word.length || 1) + 'ch' }"
               :class="[
-                activeWordIndex === idx ? 'border-primary scale-105' :
-                wordResults[idx].status === 'error' ? 'border-red-500' :
-                wordResults[idx].status === 'correct' ? 'border-transparent' : 'border-gray-100 dark:border-gray-800'
+                activeWordIndex === Number(idx) ? 'border-primary scale-105' :
+                wordResults[Number(idx)].status === 'error' ? 'border-red-500' :
+                wordResults[Number(idx)].status === 'correct' ? 'border-transparent' : 'border-gray-100 dark:border-gray-800'
               ]"
-              @click="selectWord(idx)"
+              @click="selectWord(Number(idx))"
             >
-              <span v-if="activeWordIndex === idx" class="text-primary">
+              <span v-if="activeWordIndex === Number(idx)" class="text-primary">
                 {{ currentInput }}
                 <span class="animate-pulse border-r-3 border-primary ml-1 h-10"></span>
               </span>
               <span
                 v-else
                 class="transition-all duration-300"
-                :class="wordResults[idx].status === 'error' ? 'text-red-500' : 'text-gray-800 dark:text-gray-100'"
+                :class="wordResults[Number(idx)].status === 'error' ? 'text-red-500' : 'text-gray-800 dark:text-gray-100'"
               >
-                {{ wordResults[idx].typed || '&nbsp;' }}
+                {{ wordResults[Number(idx)].typed || '&nbsp;' }}
               </span>
             </div>
           </div>

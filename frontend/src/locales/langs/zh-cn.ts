@@ -231,7 +231,10 @@ const local: App.I18n.Schema = {
     ai_decision: '决策训练',
     ai_social: '社交训练',
     ai_vocabulary: '生词本',
-    ai_exercise: '练习'
+    ai_exercise: '练习',
+    system: '系统管理',
+    system_user: '用户管理',
+    system_permission: '权限管理'
   },
   page: {
     login: {

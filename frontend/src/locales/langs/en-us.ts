@@ -235,7 +235,10 @@ const local: App.I18n.Schema = {
     ai_decision: 'Decision Training',
     ai_social: 'Social Training',
     ai_vocabulary: 'Vocabulary Book',
-    ai_exercise: 'Exercise'
+    ai_exercise: 'Exercise',
+    system: 'System',
+    system_user: 'User Management',
+    system_permission: 'Permission Management'
   },
   page: {
     login: {

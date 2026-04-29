@@ -174,7 +174,10 @@ const routeMap: RouteMap = {
   "ai_vocabulary": "/ai/vocabulary",
   "home": "/home",
   "iframe-page": "/iframe-page/:url",
-  "login": "/login/:module(pwd-login|code-login|register|reset-pwd|bind-wechat)?"
+  "login": "/login/:module(pwd-login|code-login|register|reset-pwd|bind-wechat)?",
+  "system": "/system",
+  "system_permission": "/system/permission",
+  "system_user": "/system/user"
 };
 
 /**

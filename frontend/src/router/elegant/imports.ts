@@ -26,4 +26,6 @@ export const views: Record<LastLevelRouteKey, RouteComponent | (() => Promise<Ro
   ai_social: () => import("@/views/ai/social/index.vue"),
   ai_vocabulary: () => import("@/views/ai/vocabulary/index.vue"),
   home: () => import("@/views/home/index.vue"),
+  system_permission: () => import("@/views/system/permission/index.vue"),
+  system_user: () => import("@/views/system/user/index.vue"),
 };

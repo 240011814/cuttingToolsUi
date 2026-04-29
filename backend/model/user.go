@@ -39,3 +39,25 @@ type UserInfoResponseData struct {
 	Roles    []string `json:"roles"`
 	Buttons  []string `json:"buttons"`
 }
+
+type UserListItem struct {
+	UserId    uint      `json:"userId"`
+	UserName  string    `json:"userName"`
+	Nickname  string    `json:"nickname"`
+	Role      string    `json:"role"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+
+type CreateUserRequest struct {
+	UserName string `json:"userName" binding:"required"`
+	Password string `json:"password" binding:"required"`
+	Nickname string `json:"nickname"`
+	Role     string `json:"role" binding:"required"`
+}
+
+type UpdateUserRequest struct {
+	Password string `json:"password"`
+	Nickname string `json:"nickname"`
+	Role     string `json:"role" binding:"required"`
+}
