@@ -74,9 +74,14 @@ const loadData = async () => {
       if (rawWords.value.length === 0) {
         message.warning('没找到含有例句的可练习单词');
         router.push({ name: 'ai_vocabulary' });
+      }else{
+        rawWords.value.forEach(item => {
+          item.example = item.example.replace(/\s*\([^)]*[\u4e00-\u9fa5][^)]*\)\s*$/, '')
+        });
       }
     }
   } catch (err: any) {
+    console.log(err);
     message.error('加载数据失败');
   } finally {
     loading.value = false;
@@ -94,7 +99,7 @@ const initSentence = () => {
 const playCurrent = (times = 3) => {
   if (!targetSentence.value || isPlaying.value) return;
   window.speechSynthesis.cancel();
-  
+
   const voices = window.speechSynthesis.getVoices();
   const englishVoice = voices.find(v => v.lang.startsWith('en')) || null;
 
@@ -125,10 +130,10 @@ const playCurrent = (times = 3) => {
 const selectWord = (index: number) => {
   if (activeWordIndex.value === index) return;
   playClick();
-  
+
   // 离开当前单词前进行校验
   validateWord(activeWordIndex.value, currentInput.value);
-  
+
   // 切换到目标单词
   activeWordIndex.value = index;
   currentInput.value = wordResults.value[index].typed;
@@ -173,7 +178,7 @@ const handleGlobalKeydown = (e: KeyboardEvent) => {
     e.preventDefault();
     const oldIndex = activeWordIndex.value;
     validateWord(oldIndex, currentInput.value);
-    
+
     // 如果还没全对，且刚才校验的是当前焦点词，则移动到下一个
     if (!wordResults.value.every(r => r.status === 'correct') && oldIndex < targetWords.value.length - 1) {
       activeWordIndex.value = oldIndex + 1;
@@ -206,7 +211,7 @@ const validateWord = (index: number, typedValue: string) => {
 
   const target = targetWords.value[index];
   const typed = typedValue.trim();
-  
+
   const normalize = (s: string) => s.toLowerCase().replace(/[.,!?;:]/g, '');
   const isCorrect = normalize(target) === normalize(typed);
 
@@ -315,14 +320,14 @@ watch(isFinished, (val) => {
         <!-- Word Blocks -->
         <div class="w-full px-8">
           <div class="flex flex-wrap justify-center gap-x-8 gap-y-16 font-mono text-4xl leading-none text-center min-h-[240px]">
-            <div 
-              v-for="(word, idx) in targetWords" 
+            <div
+              v-for="(word, idx) in targetWords"
               :key="idx"
               class="relative border-b-4 pb-3 transition-all duration-300 flex justify-center items-end cursor-pointer group whitespace-nowrap"
               :style="{ minWidth: (word.length || 1) + 'ch' }"
               :class="[
-                activeWordIndex === idx ? 'border-primary scale-105' : 
-                wordResults[idx].status === 'error' ? 'border-red-500' : 
+                activeWordIndex === idx ? 'border-primary scale-105' :
+                wordResults[idx].status === 'error' ? 'border-red-500' :
                 wordResults[idx].status === 'correct' ? 'border-transparent' : 'border-gray-100 dark:border-gray-800'
               ]"
               @click="selectWord(idx)"
@@ -331,7 +336,8 @@ watch(isFinished, (val) => {
                 {{ currentInput }}
                 <span class="animate-pulse border-r-3 border-primary ml-1 h-10"></span>
               </span>
-              <span v-else 
+              <span
+                v-else
                 class="transition-all duration-300"
                 :class="wordResults[idx].status === 'error' ? 'text-red-500' : 'text-gray-800 dark:text-gray-100'"
               >
