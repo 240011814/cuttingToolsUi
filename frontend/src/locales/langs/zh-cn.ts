@@ -228,6 +228,8 @@ const local: App.I18n.Schema = {
     home: '首页',
     ai: 'AI训练',
     ai_chat: '英语训练',
+    ai_decision: '决策训练',
+    ai_social: '社交训练',
     ai_vocabulary: '生词本',
     ai_exercise: '练习'
   },

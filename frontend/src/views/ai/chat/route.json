@@ -1,0 +1,8 @@
+{
+  "meta": {
+    "title": "ai_chat",
+    "i18nKey": "route.ai_chat",
+    "icon": "mdi:translate-variant",
+    "keepAlive": true
+  }
+}

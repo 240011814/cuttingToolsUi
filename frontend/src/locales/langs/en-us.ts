@@ -232,6 +232,8 @@ const local: App.I18n.Schema = {
     home: 'Home',
     ai: 'AI Training',
     ai_chat: 'Simulation Training',
+    ai_decision: 'Decision Training',
+    ai_social: 'Social Training',
     ai_vocabulary: 'Vocabulary Book',
     ai_exercise: 'Exercise'
   },

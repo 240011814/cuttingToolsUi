@@ -57,6 +57,18 @@ export const generatedRoutes: GeneratedRoute[] = [
         meta: {
           title: 'ai_chat',
           i18nKey: 'route.ai_chat',
+          icon: 'mdi:translate-variant',
+          keepAlive: true
+        }
+      },
+      {
+        name: 'ai_decision',
+        path: '/ai/decision',
+        component: 'view.ai_decision',
+        meta: {
+          title: 'ai_decision',
+          i18nKey: 'route.ai_decision',
+          icon: 'mdi:scale-balance',
           keepAlive: true
         }
       },
@@ -68,6 +80,17 @@ export const generatedRoutes: GeneratedRoute[] = [
           title: 'ai_exercise',
           i18nKey: 'route.ai_exercise',
           hideInMenu: true,
+          keepAlive: true
+        }
+      },
+      {
+        name: 'ai_social',
+        path: '/ai/social',
+        component: 'view.ai_social',
+        meta: {
+          title: 'ai_social',
+          i18nKey: 'route.ai_social',
+          icon: 'mdi:account-group-outline',
           keepAlive: true
         }
       },

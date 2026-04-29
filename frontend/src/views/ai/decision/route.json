@@ -1,0 +1,8 @@
+{
+  "meta": {
+    "title": "ai_decision",
+    "i18nKey": "route.ai_decision",
+    "icon": "mdi:scale-balance",
+    "keepAlive": true
+  }
+}

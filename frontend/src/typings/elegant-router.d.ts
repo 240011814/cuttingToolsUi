@@ -22,7 +22,9 @@ declare module "@elegant-router/types" {
     "500": "/500";
     "ai": "/ai";
     "ai_chat": "/ai/chat";
+    "ai_decision": "/ai/decision";
     "ai_exercise": "/ai/exercise";
+    "ai_social": "/ai/social";
     "ai_vocabulary": "/ai/vocabulary";
     "home": "/home";
     "iframe-page": "/iframe-page/:url";
@@ -87,7 +89,9 @@ declare module "@elegant-router/types" {
     | "iframe-page"
     | "login"
     | "ai_chat"
+    | "ai_decision"
     | "ai_exercise"
+    | "ai_social"
     | "ai_vocabulary"
     | "home"
   >;
