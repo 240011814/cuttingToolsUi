@@ -197,7 +197,11 @@ export const useRouteStore = defineStore(SetupStoreId.Route, () => {
     if (authStore.isStaticSuper) {
       addAuthRoutes(staticAuthRoutes);
     } else {
-      const filteredAuthRoutes = filterAuthRoutesByRoles(staticAuthRoutes, authStore.userInfo.roles);
+      let roles: string[] = authStore.userInfo.roles;
+      if (authStore.userInfo.permissions) {
+        roles = roles.concat(authStore.userInfo.permissions);
+      }
+      const filteredAuthRoutes = filterAuthRoutesByRoles(staticAuthRoutes, roles);
 
       addAuthRoutes(filteredAuthRoutes);
     }
@@ -231,7 +235,7 @@ export const useRouteStore = defineStore(SetupStoreId.Route, () => {
 
   /** handle constant and auth routes */
   function handleConstantAndAuthRoutes() {
-    const allRoutes = [...constantRoutes.value, ...authRoutes.value];
+    const allRoutes = [ ...constantRoutes.value, ...authRoutes.value ];
 
     const sortRoutes = sortRoutesByOrder(allRoutes);
 
@@ -280,7 +284,7 @@ export const useRouteStore = defineStore(SetupStoreId.Route, () => {
 
       router.removeRoute(rootRoute.name);
 
-      const [rootVueRoute] = getAuthVueRoutes([rootRoute]);
+      const [ rootVueRoute ] = getAuthVueRoutes([ rootRoute ]);
 
       router.addRoute(rootVueRoute);
     }
@@ -291,7 +295,7 @@ export const useRouteStore = defineStore(SetupStoreId.Route, () => {
    *
    * @param routePath Route path
    */
-  async function getIsAuthRouteExist(routePath: RouteMap[RouteKey]) {
+  async function getIsAuthRouteExist(routePath: RouteMap[ RouteKey ]) {
     const routeName = getRouteName(routePath);
 
     if (!routeName) {

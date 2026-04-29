@@ -20,7 +20,7 @@ export function filterAuthRoutesByRoles(routes: ElegantConstRoute[], roles: stri
  * @param roles Roles
  */
 function filterAuthRouteByRoles(route: ElegantConstRoute, roles: string[]): ElegantConstRoute[] {
-  const routeRoles = (route.meta && route.meta.roles) || [];
+  const routeRoles = (route.meta && route.meta.roles || route.meta && route.meta.permissions) || [];
 
   // if the route's "roles" is empty, then it is allowed to access
   const isEmptyRoles = !routeRoles.length;
@@ -39,7 +39,7 @@ function filterAuthRouteByRoles(route: ElegantConstRoute, roles: string[]): Eleg
     return [];
   }
 
-  return hasPermission || isEmptyRoles ? [filterRoute] : [];
+  return hasPermission || isEmptyRoles ? [ filterRoute ] : [];
 }
 
 /**
@@ -137,7 +137,7 @@ function getGlobalMenuByBaseRoute(route: RouteLocationNormalizedLoaded | Elegant
     label,
     i18nKey,
     routeKey: name as RouteKey,
-    routePath: path as RouteMap[RouteKey],
+    routePath: path as RouteMap[ RouteKey ],
     icon: SvgIconVNode({ icon, localIcon, fontSize: iconFontSize || 20 })
   };
 
@@ -288,7 +288,7 @@ export function getBreadcrumbsByRoute(
 
   for (const menu of menus) {
     if (menu.key === key) {
-      return [transformMenuToBreadcrumb(menu)];
+      return [ transformMenuToBreadcrumb(menu) ];
     }
 
     if (menu.key === activeKey) {
@@ -298,16 +298,16 @@ export function getBreadcrumbsByRoute(
 
       const breadcrumbMenu = getGlobalMenuByBaseRoute(route);
       if (parentKey !== activeKey) {
-        return [transformMenuToBreadcrumb(breadcrumbMenu)];
+        return [ transformMenuToBreadcrumb(breadcrumbMenu) ];
       }
 
-      return [transformMenuToBreadcrumb(menu), transformMenuToBreadcrumb(breadcrumbMenu)];
+      return [ transformMenuToBreadcrumb(menu), transformMenuToBreadcrumb(breadcrumbMenu) ];
     }
 
     if (menu.children?.length) {
       const result = getBreadcrumbsByRoute(route, menu.children);
       if (result.length > 0) {
-        return [transformMenuToBreadcrumb(menu), ...result];
+        return [ transformMenuToBreadcrumb(menu), ...result ];
       }
     }
   }
