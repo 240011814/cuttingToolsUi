@@ -27,9 +27,12 @@ export function createRouteGuard(router: Router) {
     const isLogin = Boolean(localStg.get('token'));
     const needLogin = !to.meta.constant;
     const routeRoles = to.meta.roles || [];
+    const routePermissions = to.meta.permissions || [];
+    const userPermissions = authStore.userInfo.permissions || authStore.userInfo.buttons || [];
 
-    const hasRole = authStore.userInfo.roles.some(role => routeRoles.includes(role));
-    const hasAuth = authStore.isStaticSuper || !routeRoles.length || hasRole;
+    const hasRole = routeRoles.length === 0 || authStore.userInfo.roles.some(role => routeRoles.includes(role));
+    const hasPermission = routePermissions.length === 0 || routePermissions.some(perm => userPermissions.includes(perm));
+    const hasAuth = authStore.isStaticSuper || (hasRole && hasPermission);
 
     // if it is login route when logged in, then switch to the root page
     if (to.name === loginRoute && isLogin) {

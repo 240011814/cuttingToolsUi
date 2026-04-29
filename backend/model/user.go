@@ -34,10 +34,11 @@ type LoginResponseData struct {
 
 // UserInfoResponse 用户信息响应数据
 type UserInfoResponseData struct {
-	UserId   string   `json:"userId"`
-	UserName string   `json:"userName"`
-	Roles    []string `json:"roles"`
-	Buttons  []string `json:"buttons"`
+	UserId      string   `json:"userId"`
+	UserName    string   `json:"userName"`
+	Roles       []string `json:"roles"`
+	Buttons     []string `json:"buttons"`
+	Permissions []string `json:"permissions"`
 }
 
 type UserListItem struct {

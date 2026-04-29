@@ -64,16 +64,17 @@ func (s *AuthService) GetUserInfo(userId uint) (*model.UserInfoResponseData, err
 		return nil, errors.New("用户不存在")
 	}
 
-	buttons, err := s.getPermissionsByRole(user.Role)
+	permissions, err := s.getPermissionsByRole(user.Role)
 	if err != nil {
 		return nil, err
 	}
 
 	return &model.UserInfoResponseData{
-		UserId:   fmt.Sprintf("%d", user.ID),
-		UserName: user.Username,
-		Roles:    []string{user.Role},
-		Buttons:  buttons,
+		UserId:      fmt.Sprintf("%d", user.ID),
+		UserName:    user.Username,
+		Roles:       []string{user.Role},
+		Buttons:     permissions,
+		Permissions: permissions,
 	}, nil
 }
 
