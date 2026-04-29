@@ -105,8 +105,7 @@ export const generatedRoutes: GeneratedRoute[] = [
         meta: {
           title: 'ai_vocabulary',
           i18nKey: 'route.ai_vocabulary',
-          icon: 'mdi:book-open-outline',
-          permissions: [ 'ai:vocabulary:view' ]
+          icon: 'mdi:book-open-outline'
         }
       }
     ]
