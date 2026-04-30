@@ -4,7 +4,7 @@ import { useMessage } from "naive-ui";
 import { fetchAddVocabulary } from "@/service/api";
 import { getAuthorization } from "@/service/request/shared";
 import { getServiceBaseURL } from "@/utils/service";
-
+import MarkdownIt from "markdown-it";
 interface VocabSuggestion {
   word?: string;
   phonetic?: string;
@@ -37,6 +37,16 @@ const props = withDefaults(
     speechRate: 0.9,
   }
 );
+
+const md = new MarkdownIt({
+  html: true,
+  linkify: true,
+  typographer: true,
+});
+
+const renderMarkdown = (content: string) => {
+  return md.render(content);
+};
 
 const systemMessage: ChatMessage = {
   role: "system",
@@ -305,7 +315,7 @@ const handlePlay = (text: string) => {
                 "
                 @mouseup="msg.role === 'assistant' ? handleSelectText() : undefined"
               >
-                {{ formatDisplayContent(msg.content) }}
+                <div v-html="renderMarkdown(formatDisplayContent(msg.content))"></div>
                 <span
                   v-if="
                     isGenerating && index === messages.length - 1 && msg.content === ''
@@ -437,9 +447,9 @@ const handlePlay = (text: string) => {
       <template #footer>
         <div class="flex justify-end gap-3">
           <NButton @click="showVocabModal = false">取消</NButton>
-          <NButton type="primary" :loading="vocabLoading" @click="submitVocab"
-            >确认添加</NButton
-          >
+          <NButton type="primary" :loading="vocabLoading" @click="submitVocab">
+            确认添加
+          </NButton>
         </div>
       </template>
     </NModal>
