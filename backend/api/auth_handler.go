@@ -73,7 +73,7 @@ func HandleGetUserInfo(authService *service.AuthService, jwtSecret string) gin.H
 
 		claims, ok := token.Claims.(jwt.MapClaims)
 		if !ok {
-			SendError(c, "401", "无效的 Token Claims")
+			SendError(c, "9999", "无效的 Token Claims")
 			return
 		}
 
