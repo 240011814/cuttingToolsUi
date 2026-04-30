@@ -58,7 +58,7 @@ export const generatedRoutes: GeneratedRoute[] = [
           title: 'ai_chat',
           i18nKey: 'route.ai_chat',
           icon: 'mdi:translate-variant',
-          permissions: ['ai:chat:view'],
+          permissions: [ 'ai:chat:view' ],
           keepAlive: true
         }
       },
@@ -70,7 +70,7 @@ export const generatedRoutes: GeneratedRoute[] = [
           title: 'ai_decision',
           i18nKey: 'route.ai_decision',
           icon: 'mdi:scale-balance',
-          permissions: ['ai:decision:view'],
+          permissions: [ 'ai:decision:view' ],
           keepAlive: true
         }
       },
@@ -81,7 +81,6 @@ export const generatedRoutes: GeneratedRoute[] = [
         meta: {
           title: 'ai_exercise',
           i18nKey: 'route.ai_exercise',
-          permissions: ['ai:exercise:view'],
           hideInMenu: true,
           keepAlive: true
         }
@@ -94,7 +93,7 @@ export const generatedRoutes: GeneratedRoute[] = [
           title: 'ai_social',
           i18nKey: 'route.ai_social',
           icon: 'mdi:account-group-outline',
-          permissions: ['ai:social:view'],
+          permissions: [ 'ai:social:view' ],
           keepAlive: true
         }
       },
@@ -155,7 +154,7 @@ export const generatedRoutes: GeneratedRoute[] = [
       i18nKey: 'route.system',
       icon: 'mdi:cog-outline',
       order: 3,
-      roles: ['R_SUPER']
+      roles: [ 'R_SUPER' ]
     },
     children: [
       {
@@ -166,7 +165,7 @@ export const generatedRoutes: GeneratedRoute[] = [
           title: 'system_permission',
           i18nKey: 'route.system_permission',
           icon: 'mdi:shield-key-outline',
-          roles: ['R_SUPER']
+          roles: [ 'R_SUPER' ]
         }
       },
       {
@@ -177,7 +176,7 @@ export const generatedRoutes: GeneratedRoute[] = [
           title: 'system_user',
           i18nKey: 'route.system_user',
           icon: 'mdi:account-cog-outline',
-          roles: ['R_SUPER']
+          roles: [ 'R_SUPER' ]
         }
       }
     ]
