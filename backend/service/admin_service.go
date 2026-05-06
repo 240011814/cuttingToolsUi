@@ -256,11 +256,30 @@ func (s *AdminService) ListAIProviders() ([]model.AIProvider, error) {
 }
 
 func (s *AdminService) CreateAIProvider(provider model.AIProvider) error {
-	return DB.Create(&provider).Error
+	return DB.Transaction(func(tx *gorm.DB) error {
+		if provider.IsActive {
+			// 如果当前要启用，则将其他所有提供商设为禁用
+			if err := tx.Model(&model.AIProvider{}).Where("id > 0").Update("is_active", false).Error; err != nil {
+				return err
+			}
+		}
+		return tx.Create(&provider).Error
+	})
 }
 
 func (s *AdminService) UpdateAIProvider(id int, provider model.AIProvider) error {
-	return DB.Model(&model.AIProvider{}).Where("id = ?", id).Updates(provider).Error
+	return DB.Transaction(func(tx *gorm.DB) error {
+		if provider.IsActive {
+			// 如果当前设为启用，则将其他所有提供商设为禁用
+			if err := tx.Model(&model.AIProvider{}).Where("id != ?", id).Update("is_active", false).Error; err != nil {
+				return err
+			}
+		}
+		// 使用 Select 强制更新 is_active 字段，解决 GORM 忽略 false 的问题
+		return tx.Model(&model.AIProvider{}).Where("id = ?", id).
+			Select("name", "api_key", "base_url", "is_active").
+			Updates(provider).Error
+	})
 }
 
 func (s *AdminService) DeleteAIProvider(id int) error {
@@ -288,11 +307,14 @@ func (s *AdminService) CreateAIModel(m model.AIModel) error {
 func (s *AdminService) UpdateAIModel(id int, m model.AIModel) error {
 	return DB.Transaction(func(tx *gorm.DB) error {
 		if m.IsDefault {
-			if err := tx.Model(&model.AIModel{}).Where("provider_id = ?", m.ProviderID).Update("is_default", false).Error; err != nil {
+			if err := tx.Model(&model.AIModel{}).Where("provider_id = ? AND id != ?", m.ProviderID, id).Update("is_default", false).Error; err != nil {
 				return err
 			}
 		}
-		return tx.Model(&model.AIModel{}).Where("id = ?", id).Updates(m).Error
+		// 显式指定字段以包含 bool 类型的 false
+		return tx.Model(&model.AIModel{}).Where("id = ?", id).
+			Select("model_code", "display_name", "is_default", "config_json").
+			Updates(m).Error
 	})
 }
 
