@@ -85,7 +85,6 @@ export const generatedRoutes: GeneratedRoute[] = [
           keepAlive: true,
         },
       },
-
       {
         name: "ai_social",
         path: "/ai/social",
