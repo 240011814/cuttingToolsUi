@@ -17,6 +17,7 @@ func NewNoteService() *NoteService {
 func (s *NoteService) CreateNote(userID uint, req *model.CreateNoteRequest) (*model.Note, error) {
 	note := &model.Note{
 		UserID:   userID,
+		Title:    req.Title,
 		Category: req.Category,
 		Content:  req.Content,
 	}
@@ -38,7 +39,7 @@ func (s *NoteService) ListNotes(userID uint, page, pageSize int, category, conte
 		query = query.Where("category LIKE ?", "%"+category+"%")
 	}
 	if content != "" {
-		query = query.Where("content LIKE ?", "%"+content+"%")
+		query = query.Where("content LIKE ? OR title LIKE ?", "%"+content+"%", "%"+content+"%")
 	}
 
 	if err := query.Count(&total).Error; err != nil {
@@ -63,6 +64,9 @@ func (s *NoteService) UpdateNote(userID uint, noteID uint, req *model.UpdateNote
 	}
 
 	updates := map[string]interface{}{}
+	if req.Title != "" {
+		updates["title"] = req.Title
+	}
 	if req.Category != "" {
 		updates["category"] = req.Category
 	}

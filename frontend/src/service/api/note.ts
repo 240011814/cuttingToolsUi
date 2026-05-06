@@ -1,6 +1,7 @@
 import { request } from '../request';
 
 export function fetchAddNote(data: {
+  title: string;
   category: string;
   content: string;
 }) {
@@ -27,6 +28,7 @@ export function fetchDeleteNote(id: number) {
 }
 
 export function fetchUpdateNote(id: number, data: {
+  title?: string;
   category?: string;
   content?: string;
 }) {

@@ -35,9 +35,17 @@ const pagination = ref({
 const columns = computed<DataTableColumns<any>>(() => {
   return [
     {
+      title: '标题',
+      key: 'title',
+      width: 200,
+      render(row) {
+        return h('span', { class: 'font-bold' }, row.title || '无标题');
+      }
+    },
+    {
       title: '分类',
       key: 'category',
-      width: 150,
+      width: 120,
       render(row) {
         return h(NTag, { type: 'info', bordered: false }, { default: () => row.category });
       }
@@ -125,8 +133,15 @@ const showViewModal = ref(false);
 const currentNoteContent = ref('');
 
 const showEditModal = ref(false);
+const isEdit = ref(false);
 const editLoading = ref(false);
-const editForm = ref({ id: 0, category: '', content: '' });
+const editForm = ref({ id: 0, title: '', category: '', content: '' });
+
+const handleAdd = () => {
+  isEdit.value = false;
+  editForm.value = { id: 0, title: '', category: '', content: '' };
+  showEditModal.value = true;
+};
 
 const handleView = (row: any) => {
   currentNoteContent.value = row.content || '';
@@ -134,26 +149,38 @@ const handleView = (row: any) => {
 };
 
 const handleEdit = (row: any) => {
-  editForm.value = { id: row.id, category: row.category, content: row.content };
+  isEdit.value = true;
+  editForm.value = { id: row.id, title: row.title, category: row.category, content: row.content };
   showEditModal.value = true;
 };
 
 const submitEdit = async () => {
-  if (!editForm.value.category.trim() || !editForm.value.content.trim()) {
-    message.warning('分类和内容不能为空');
+  if (!editForm.value.title.trim() || !editForm.value.category.trim() || !editForm.value.content.trim()) {
+    message.warning('标题、分类和内容不能为空');
     return;
   }
   editLoading.value = true;
   try {
-    await fetchUpdateNote(editForm.value.id, {
-      category: editForm.value.category,
-      content: editForm.value.content
-    });
-    message.success('修改成功');
+    if (isEdit.value) {
+      await fetchUpdateNote(editForm.value.id, {
+        title: editForm.value.title,
+        category: editForm.value.category,
+        content: editForm.value.content
+      });
+      message.success('修改成功');
+    } else {
+      const { fetchAddNote } = await import('@/service/api');
+      await fetchAddNote({
+        title: editForm.value.title,
+        category: editForm.value.category,
+        content: editForm.value.content
+      });
+      message.success('添加成功');
+    }
     showEditModal.value = false;
     loadData();
   } catch (err: any) {
-    message.error(`修改失败: ${err?.message || '未知错误'}`);
+    message.error(`${isEdit.value ? '修改' : '添加'}失败: ${err?.message || '未知错误'}`);
   } finally {
     editLoading.value = false;
   }
@@ -177,7 +204,7 @@ onMounted(() => {
           <div class="flex gap-4 items-center">
             <NInput
               v-model:value="keyword"
-              placeholder="搜索内容..."
+              placeholder="搜索标题或内容..."
               clearable
               style="width: 260px"
               @keyup.enter="loadData"
@@ -202,6 +229,12 @@ onMounted(() => {
               tooltip-content="刷新"
               @click="loadData"
             />
+            <NButton type="primary" @click="handleAdd">
+              <template #icon>
+                <icon-mdi-plus class="text-icon" />
+              </template>
+              新增笔记
+            </NButton>
           </div>
         </div>
 
@@ -237,14 +270,19 @@ onMounted(() => {
     <NModal
       v-model:show="showEditModal"
       preset="card"
-      title="编辑笔记"
+      :title="isEdit ? '编辑笔记' : '新增笔记'"
       style="width: 800px; max-width: 95vw;"
       :segmented="{ content: 'soft' }"
     >
       <NForm :model="editForm" label-placement="left" label-width="80">
-        <NFormItem label="分类" path="category">
-          <NInput v-model:value="editForm.category" placeholder="输入笔记分类" style="width: 200px" />
-        </NFormItem>
+        <div class="flex gap-4">
+          <NFormItem label="标题" path="title" class="flex-1">
+            <NInput v-model:value="editForm.title" placeholder="输入笔记标题" />
+          </NFormItem>
+          <NFormItem label="分类" path="category" style="width: 240px">
+            <NInput v-model:value="editForm.category" placeholder="输入笔记分类" />
+          </NFormItem>
+        </div>
         <NFormItem label="内容" path="content">
           <div class="grid grid-cols-2 gap-4 w-full">
             <NInput

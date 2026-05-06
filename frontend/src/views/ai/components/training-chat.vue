@@ -83,6 +83,7 @@ const vocabForm = ref({
 const showNoteModal = ref(false);
 const noteLoading = ref(false);
 const noteForm = ref({
+  title: "",
   category: "",
   content: "",
 });
@@ -99,7 +100,13 @@ const routeTitleMap: Record<string, string> = {
 const openNoteModal = (content: string) => {
   const routeName = (route.name as string) || "";
   const defaultCategory = (routeTitleMap[routeName] || "未分类").replace("训练", "");
+  
+  // 提取前20个字符作为默认标题
+  let defaultTitle = content.trim().slice(0, 20);
+  if (content.trim().length > 20) defaultTitle += "...";
+  
   noteForm.value = {
+    title: defaultTitle,
     category: defaultCategory,
     content: formatDisplayContent(content),
   };
@@ -107,6 +114,10 @@ const openNoteModal = (content: string) => {
 };
 
 const submitNote = async () => {
+  if (!noteForm.value.title.trim()) {
+    message.warning("请输入标题");
+    return;
+  }
   if (!noteForm.value.category.trim()) {
     message.warning("请输入分类");
     return;
@@ -596,9 +607,14 @@ const handlePlay = (text: string) => {
       :segmented="{ content: 'soft' }"
     >
       <NForm :model="noteForm" label-placement="left" label-width="80">
-        <NFormItem label="分类" path="category">
-          <NInput v-model:value="noteForm.category" placeholder="输入笔记分类" />
-        </NFormItem>
+        <div class="flex gap-4">
+          <NFormItem label="标题" path="title" class="flex-1">
+            <NInput v-model:value="noteForm.title" placeholder="输入笔记标题" />
+          </NFormItem>
+          <NFormItem label="分类" path="category" style="width: 240px">
+            <NInput v-model:value="noteForm.category" placeholder="输入笔记分类" />
+          </NFormItem>
+        </div>
         <NFormItem label="内容" path="content">
           <div class="grid grid-cols-2 gap-4 w-full">
             <NInput
