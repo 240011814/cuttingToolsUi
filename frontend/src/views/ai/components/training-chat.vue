@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { nextTick, ref } from "vue";
+import { nextTick, ref, onMounted } from "vue";
 import { useMessage, NPopconfirm } from "naive-ui";
 import { fetchAddVocabulary, fetchAddNote, fetchArchiveHistory } from "@/service/api";
 import { getAuthorization } from "@/service/request/shared";
 import { getServiceBaseURL } from "@/utils/service";
+import { fetchGetAIModels } from "@/service/api/ai";
 import MarkdownIt from "markdown-it";
 import { useRoute } from "vue-router";
 
@@ -64,11 +65,21 @@ const isGenerating = ref(false);
 const scrollbarRef = ref<any>(null);
 const message = useMessage();
 
-const modelOptions = [
-  { label: "快速模式 (Flash)", value: "deepseek-v4-flash" },
-  { label: "专家模式 (Pro)", value: "deepseek-v4-pro" },
-];
-const selectedModel = ref("deepseek-v4-flash");
+const modelOptions = ref<{ label: string; value: string }[]>([]);
+const selectedModel = ref("");
+
+async function loadModels() {
+  const { data } = await fetchGetAIModels();
+  if (data && data.length > 0) {
+    modelOptions.value = data.map(m => ({
+      label: m.display_name,
+      value: m.model_code
+    }));
+    // 默认选择第一个模型（或标记为 default 的模型）
+    const defaultModel = data.find(m => m.is_default) || data[0];
+    selectedModel.value = defaultModel.model_code;
+  }
+}
 
 const showVocabModal = ref(false);
 const vocabLoading = ref(false);
@@ -388,6 +399,13 @@ const handlePlay = (text: string) => {
   utterance.rate = props.speechRate;
   window.speechSynthesis.speak(utterance);
 };
+
+onMounted(() => {
+  loadModels();
+  if (scrollbarRef.value) {
+    scrollbarRef.value.scrollTo({ top: 999999, behavior: "smooth" });
+  }
+});
 </script>
 
 <template>

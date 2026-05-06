@@ -237,7 +237,8 @@ const local: App.I18n.Schema = {
     ai_exercise: '练习',
     system: '系统管理',
     system_user: '用户管理',
-    system_permission: '权限管理'
+    system_permission: '权限管理',
+    'system_ai-config': 'AI 配置管理'
   },
   page: {
     login: {

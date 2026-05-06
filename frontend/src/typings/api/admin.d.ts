@@ -40,5 +40,27 @@ declare namespace Api {
       name: string;
       groupName: string;
     }
+
+    interface AIProvider {
+      id: number;
+      name: string;
+      api_key: string;
+      base_url: string;
+      is_active: boolean;
+      created_at: string;
+      updated_at: string;
+      models?: AIModel[];
+    }
+
+    interface AIModel {
+      id: number;
+      provider_id: number;
+      model_code: string;
+      display_name: string;
+      is_default: boolean;
+      config_json: string;
+      created_at: string;
+      updated_at: string;
+    }
   }
 }

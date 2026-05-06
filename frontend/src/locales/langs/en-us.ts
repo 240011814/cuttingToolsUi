@@ -241,7 +241,8 @@ const local: App.I18n.Schema = {
     ai_exercise: 'Exercise',
     system: 'System',
     system_user: 'User Management',
-    system_permission: 'Permission Management'
+    system_permission: 'Permission Management',
+    'system_ai-config': 'AI Config Management'
   },
   page: {
     login: {

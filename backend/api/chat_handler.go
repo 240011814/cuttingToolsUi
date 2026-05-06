@@ -101,3 +101,15 @@ func HandleChatStream(aiService *service.AIService, historyService *service.Hist
 		})
 	}
 }
+
+// HandleListModels 返回所有已启用的模型列表
+func HandleListModels(aiService *service.AIService) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		models, err := aiService.ListEnabledModels()
+		if err != nil {
+			SendError(c, "500", "获取模型列表失败: "+err.Error())
+			return
+		}
+		SendSuccess(c, models)
+	}
+}

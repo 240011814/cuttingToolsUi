@@ -24,14 +24,14 @@ func main() {
 		log.Fatalf("Failed to initialize Database: %v", err)
 	}
 
-	aiService, err := service.NewAIService(cfg)
+	aiService, err := service.NewAIService()
 	if err != nil {
 		log.Fatalf("Failed to initialize AI Service: %v", err)
 	}
 
 	authService := service.NewAuthService(cfg)
 	adminService := service.NewAdminService()
-	adminHandler := api.NewAdminHandler(adminService)
+	adminHandler := api.NewAdminHandler(adminService, aiService)
 
 	vocabService := service.NewVocabularyService()
 	vocabHandler := api.NewVocabularyHandler(vocabService)
@@ -58,6 +58,7 @@ func main() {
 		historyService := service.NewHistoryService()
 		historyHandler := api.NewHistoryHandler(historyService)
 
+		apiGroup.GET("/ai/models", api.HandleListModels(aiService))
 		apiGroup.POST("/chat", api.HandleChatStream(aiService, historyService))
 
 		vocabGroup := apiGroup.Group("/vocabulary")
@@ -98,6 +99,17 @@ func main() {
 			adminGroup.DELETE("/permissions/:id", adminHandler.HandleDeletePermission)
 			adminGroup.GET("/roles/:roleCode/permissions", adminHandler.HandleGetRolePermissions)
 			adminGroup.PUT("/roles/:roleCode/permissions", adminHandler.HandleUpdateRolePermissions)
+
+			// AI Config Management
+			adminGroup.GET("/ai-providers", adminHandler.HandleListAIProviders)
+			adminGroup.POST("/ai-providers", adminHandler.HandleCreateAIProvider)
+			adminGroup.PUT("/ai-providers/:id", adminHandler.HandleUpdateAIProvider)
+			adminGroup.DELETE("/ai-providers/:id", adminHandler.HandleDeleteAIProvider)
+
+			adminGroup.GET("/ai-models", adminHandler.HandleListAIModels)
+			adminGroup.POST("/ai-models", adminHandler.HandleCreateAIModel)
+			adminGroup.PUT("/ai-models/:id", adminHandler.HandleUpdateAIModel)
+			adminGroup.DELETE("/ai-models/:id", adminHandler.HandleDeleteAIModel)
 		}
 	}
 

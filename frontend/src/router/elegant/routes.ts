@@ -7,219 +7,230 @@ import type { GeneratedRoute } from '@elegant-router/types';
 
 export const generatedRoutes: GeneratedRoute[] = [
   {
-    name: '403',
-    path: '/403',
-    component: 'layout.blank$view.403',
+    name: "403",
+    path: "/403",
+    component: "layout.blank$view.403",
     meta: {
-      title: '403',
-      i18nKey: 'route.403',
-      constant: true,
-      hideInMenu: true
-    }
-  },
-  {
-    name: '404',
-    path: '/404',
-    component: 'layout.blank$view.404',
-    meta: {
-      title: '404',
-      i18nKey: 'route.404',
-      constant: true,
-      hideInMenu: true
-    }
-  },
-  {
-    name: '500',
-    path: '/500',
-    component: 'layout.blank$view.500',
-    meta: {
-      title: '500',
-      i18nKey: 'route.500',
-      constant: true,
-      hideInMenu: true
-    }
-  },
-  {
-    name: 'ai',
-    path: '/ai',
-    component: 'layout.base',
-    meta: {
-      title: 'ai',
-      i18nKey: 'route.ai',
-      icon: 'mdi:robot-outline',
-      order: 2
-    },
-    children: [
-      {
-        name: 'ai_chat',
-        path: '/ai/chat',
-        component: 'view.ai_chat',
-        meta: {
-          title: 'ai_chat',
-          i18nKey: 'route.ai_chat',
-          icon: 'mdi:translate-variant',
-          permissions: ['ai:chat:view'],
-          keepAlive: true,
-          order: 1
-        }
-      },
-      {
-        name: 'ai_decision',
-        path: '/ai/decision',
-        component: 'view.ai_decision',
-        meta: {
-          title: 'ai_decision',
-          i18nKey: 'route.ai_decision',
-          icon: 'mdi:scale-balance',
-          permissions: ['ai:decision:view'],
-          keepAlive: true,
-          order: 2
-        }
-      },
-      {
-        name: 'ai_emergency',
-        path: '/ai/emergency',
-        component: 'view.ai_emergency',
-        meta: {
-          title: 'ai_emergency',
-          i18nKey: 'route.ai_emergency',
-          icon: 'mdi:incognito',
-          permissions: ['ai:emergency:view'],
-          keepAlive: true,
-          order: 4
-        }
-      },
-      {
-        name: 'ai_exercise',
-        path: '/ai/exercise',
-        component: 'view.ai_exercise',
-        meta: {
-          title: 'ai_exercise',
-          i18nKey: 'route.ai_exercise',
-          hideInMenu: true,
-          keepAlive: true
-        }
-      },
-      {
-        name: 'ai_history',
-        path: '/ai/history',
-        component: 'view.ai_history',
-        meta: {
-          title: 'ai_history',
-          i18nKey: 'route.ai_history',
-          icon: 'mdi:history',
-          permissions: ['ai:history:view'],
-          order: 7
-        }
-      },
-      {
-        name: 'ai_note',
-        path: '/ai/note',
-        component: 'view.ai_note',
-        meta: {
-          title: 'ai_note',
-          i18nKey: 'route.ai_note',
-          icon: 'mdi:notebook-outline',
-          permissions: ['ai:note:view'],
-          order: 6
-        }
-      },
-      {
-        name: 'ai_social',
-        path: '/ai/social',
-        component: 'view.ai_social',
-        meta: {
-          title: 'ai_social',
-          i18nKey: 'route.ai_social',
-          icon: 'mdi:account-group-outline',
-          permissions: ['ai:social:view'],
-          keepAlive: true,
-          order: 3
-        }
-      },
-      {
-        name: 'ai_vocabulary',
-        path: '/ai/vocabulary',
-        component: 'view.ai_vocabulary',
-        meta: {
-          title: 'ai_vocabulary',
-          i18nKey: 'route.ai_vocabulary',
-          icon: 'mdi:book-open-outline',
-          order: 5
-        }
-      }
-    ]
-  },
-  {
-    name: 'home',
-    path: '/home',
-    component: 'layout.base$view.home',
-    meta: {
-      title: 'home',
-      i18nKey: 'route.home',
-      icon: 'mdi:monitor-dashboard',
-      order: 1
-    }
-  },
-  {
-    name: 'iframe-page',
-    path: '/iframe-page/:url',
-    component: 'layout.base$view.iframe-page',
-    props: true,
-    meta: {
-      title: 'iframe-page',
-      i18nKey: 'route.iframe-page',
+      title: "403",
+      i18nKey: "route.403",
       constant: true,
       hideInMenu: true,
-      keepAlive: true
-    }
+    },
   },
   {
-    name: 'login',
-    path: '/login/:module(pwd-login|code-login|register|reset-pwd|bind-wechat)?',
-    component: 'layout.blank$view.login',
-    props: true,
+    name: "404",
+    path: "/404",
+    component: "layout.blank$view.404",
     meta: {
-      title: 'login',
-      i18nKey: 'route.login',
+      title: "404",
+      i18nKey: "route.404",
       constant: true,
-      hideInMenu: true
-    }
+      hideInMenu: true,
+    },
   },
   {
-    name: 'system',
-    path: '/system',
-    component: 'layout.base',
+    name: "500",
+    path: "/500",
+    component: "layout.blank$view.500",
     meta: {
-      title: 'system',
-      i18nKey: 'route.system',
-      icon: 'mdi:cog-outline',
-      order: 3,
-      roles: ['R_SUPER']
+      title: "500",
+      i18nKey: "route.500",
+      constant: true,
+      hideInMenu: true,
+    },
+  },
+  {
+    name: "ai",
+    path: "/ai",
+    component: "layout.base",
+    meta: {
+      title: "ai",
+      i18nKey: "route.ai",
+      icon: "mdi:robot-outline",
+      order: 2,
     },
     children: [
       {
-        name: 'system_permission',
-        path: '/system/permission',
-        component: 'view.system_permission',
+        name: "ai_chat",
+        path: "/ai/chat",
+        component: "view.ai_chat",
         meta: {
-          title: 'system_permission',
-          i18nKey: 'route.system_permission',
-          icon: 'mdi:shield-key-outline',
-          roles: ['R_SUPER']
-        }
+          title: "ai_chat",
+          i18nKey: "route.ai_chat",
+          icon: "mdi:translate-variant",
+          permissions: ["ai:chat:view"],
+          keepAlive: true,
+          order: 1,
+        },
       },
       {
-        name: 'system_user',
-        path: '/system/user',
-        component: 'view.system_user',
+        name: "ai_decision",
+        path: "/ai/decision",
+        component: "view.ai_decision",
         meta: {
-          title: 'system_user',
-          i18nKey: 'route.system_user',
-          icon: 'mdi:account-cog-outline',
-          roles: ['R_SUPER']
-        }
-      }
-    ]
-  }
+          title: "ai_decision",
+          i18nKey: "route.ai_decision",
+          icon: "mdi:scale-balance",
+          permissions: ["ai:decision:view"],
+          keepAlive: true,
+          order: 2,
+        },
+      },
+      {
+        name: "ai_emergency",
+        path: "/ai/emergency",
+        component: "view.ai_emergency",
+        meta: {
+          title: "ai_emergency",
+          i18nKey: "route.ai_emergency",
+          icon: "mdi:incognito",
+          permissions: ["ai:emergency:view"],
+          keepAlive: true,
+          order: 4,
+        },
+      },
+      {
+        name: "ai_exercise",
+        path: "/ai/exercise",
+        component: "view.ai_exercise",
+        meta: {
+          title: "ai_exercise",
+          i18nKey: "route.ai_exercise",
+          hideInMenu: true,
+          keepAlive: true,
+        },
+      },
+      {
+        name: "ai_history",
+        path: "/ai/history",
+        component: "view.ai_history",
+        meta: {
+          title: "ai_history",
+          i18nKey: "route.ai_history",
+          icon: "mdi:history",
+          permissions: ["ai:history:view"],
+          order: 7,
+        },
+      },
+      {
+        name: "ai_note",
+        path: "/ai/note",
+        component: "view.ai_note",
+        meta: {
+          title: "ai_note",
+          i18nKey: "route.ai_note",
+          icon: "mdi:notebook-outline",
+          permissions: ["ai:note:view"],
+          order: 6,
+        },
+      },
+      {
+        name: "ai_social",
+        path: "/ai/social",
+        component: "view.ai_social",
+        meta: {
+          title: "ai_social",
+          i18nKey: "route.ai_social",
+          icon: "mdi:account-group-outline",
+          permissions: ["ai:social:view"],
+          keepAlive: true,
+          order: 3,
+        },
+      },
+      {
+        name: "ai_vocabulary",
+        path: "/ai/vocabulary",
+        component: "view.ai_vocabulary",
+        meta: {
+          title: "ai_vocabulary",
+          i18nKey: "route.ai_vocabulary",
+          icon: "mdi:book-open-outline",
+          order: 5,
+        },
+      },
+    ],
+  },
+  {
+    name: "home",
+    path: "/home",
+    component: "layout.base$view.home",
+    meta: {
+      title: "home",
+      i18nKey: "route.home",
+      icon: "mdi:monitor-dashboard",
+      order: 1,
+    },
+  },
+  {
+    name: "iframe-page",
+    path: "/iframe-page/:url",
+    component: "layout.base$view.iframe-page",
+    props: true,
+    meta: {
+      title: "iframe-page",
+      i18nKey: "route.iframe-page",
+      constant: true,
+      hideInMenu: true,
+      keepAlive: true,
+    },
+  },
+  {
+    name: "login",
+    path: "/login/:module(pwd-login|code-login|register|reset-pwd|bind-wechat)?",
+    component: "layout.blank$view.login",
+    props: true,
+    meta: {
+      title: "login",
+      i18nKey: "route.login",
+      constant: true,
+      hideInMenu: true,
+    },
+  },
+  {
+    name: "system",
+    path: "/system",
+    component: "layout.base",
+    meta: {
+      title: "system",
+      i18nKey: "route.system",
+      icon: "mdi:cog-outline",
+      order: 3,
+      roles: ["R_SUPER"],
+    },
+    children: [
+      {
+        name: "system_ai-config",
+        path: "/system/ai-config",
+        component: "view.system_ai-config",
+        meta: {
+          title: "system_ai-config",
+          i18nKey: "route.system_ai-config",
+          roles: ["R_SUPER"],
+          icon: "mdi:robot-confused-outline",
+        },
+      },
+      {
+        name: "system_permission",
+        path: "/system/permission",
+        component: "view.system_permission",
+        meta: {
+          title: "system_permission",
+          i18nKey: "route.system_permission",
+          icon: "mdi:shield-key-outline",
+          roles: ["R_SUPER"],
+        },
+      },
+      {
+        name: "system_user",
+        path: "/system/user",
+        component: "view.system_user",
+        meta: {
+          title: "system_user",
+          i18nKey: "route.system_user",
+          icon: "mdi:account-cog-outline",
+          roles: ["R_SUPER"],
+        },
+      },
+    ],
+  },
 ];

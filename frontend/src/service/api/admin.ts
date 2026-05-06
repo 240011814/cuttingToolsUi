@@ -51,3 +51,35 @@ export function fetchUpdatePermission(id: number, data: Partial<Api.Admin.Permis
 export function fetchDeletePermission(id: number) {
   return request({ url: `/api/admin/permissions/${id}`, method: 'delete' });
 }
+
+export function fetchGetAIProviders() {
+  return request<Api.Admin.AIProvider[]>({ url: '/api/admin/ai-providers' });
+}
+
+export function fetchCreateAIProvider(data: Partial<Api.Admin.AIProvider>) {
+  return request({ url: '/api/admin/ai-providers', method: 'post', data });
+}
+
+export function fetchUpdateAIProvider(id: number, data: Partial<Api.Admin.AIProvider>) {
+  return request({ url: `/api/admin/ai-providers/${id}`, method: 'put', data });
+}
+
+export function fetchDeleteAIProvider(id: number) {
+  return request({ url: `/api/admin/ai-providers/${id}`, method: 'delete' });
+}
+
+export function fetchGetAIModels() {
+  return request<Api.Admin.AIModel[]>({ url: '/api/admin/ai-models' });
+}
+
+export function fetchCreateAIModel(data: Partial<Api.Admin.AIModel>) {
+  return request({ url: '/api/admin/ai-models', method: 'post', data });
+}
+
+export function fetchUpdateAIModel(id: number, data: Partial<Api.Admin.AIModel>) {
+  return request({ url: `/api/admin/ai-models/${id}`, method: 'put', data });
+}
+
+export function fetchDeleteAIModel(id: number) {
+  return request({ url: `/api/admin/ai-models/${id}`, method: 'delete' });
+}

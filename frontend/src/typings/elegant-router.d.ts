@@ -33,6 +33,7 @@ declare module "@elegant-router/types" {
     "iframe-page": "/iframe-page/:url";
     "login": "/login/:module(pwd-login|code-login|register|reset-pwd|bind-wechat)?";
     "system": "/system";
+    "system_ai-config": "/system/ai-config";
     "system_permission": "/system/permission";
     "system_user": "/system/user";
   };
@@ -104,6 +105,7 @@ declare module "@elegant-router/types" {
     | "ai_social"
     | "ai_vocabulary"
     | "home"
+    | "system_ai-config"
     | "system_permission"
     | "system_user"
   >;

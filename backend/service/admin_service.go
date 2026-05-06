@@ -246,3 +246,56 @@ func (s *AdminService) ensureRoleExists(roleCode string) error {
 	}
 	return nil
 }
+
+// AI Config Management
+
+func (s *AdminService) ListAIProviders() ([]model.AIProvider, error) {
+	var providers []model.AIProvider
+	err := DB.Preload("Models").Find(&providers).Error
+	return providers, err
+}
+
+func (s *AdminService) CreateAIProvider(provider model.AIProvider) error {
+	return DB.Create(&provider).Error
+}
+
+func (s *AdminService) UpdateAIProvider(id int, provider model.AIProvider) error {
+	return DB.Model(&model.AIProvider{}).Where("id = ?", id).Updates(provider).Error
+}
+
+func (s *AdminService) DeleteAIProvider(id int) error {
+	return DB.Delete(&model.AIProvider{}, id).Error
+}
+
+func (s *AdminService) ListAIModels() ([]model.AIModel, error) {
+	var models []model.AIModel
+	err := DB.Find(&models).Error
+	return models, err
+}
+
+func (s *AdminService) CreateAIModel(m model.AIModel) error {
+	return DB.Transaction(func(tx *gorm.DB) error {
+		if m.IsDefault {
+			// 将同一 provider 下的其他模型设为非默认
+			if err := tx.Model(&model.AIModel{}).Where("provider_id = ?", m.ProviderID).Update("is_default", false).Error; err != nil {
+				return err
+			}
+		}
+		return tx.Create(&m).Error
+	})
+}
+
+func (s *AdminService) UpdateAIModel(id int, m model.AIModel) error {
+	return DB.Transaction(func(tx *gorm.DB) error {
+		if m.IsDefault {
+			if err := tx.Model(&model.AIModel{}).Where("provider_id = ?", m.ProviderID).Update("is_default", false).Error; err != nil {
+				return err
+			}
+		}
+		return tx.Model(&model.AIModel{}).Where("id = ?", id).Updates(m).Error
+	})
+}
+
+func (s *AdminService) DeleteAIModel(id int) error {
+	return DB.Delete(&model.AIModel{}, id).Error
+}

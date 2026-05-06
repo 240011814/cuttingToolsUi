@@ -9,11 +9,12 @@ import (
 )
 
 type AdminHandler struct {
-	svc *service.AdminService
+	svc   *service.AdminService
+	aiSvc *service.AIService
 }
 
-func NewAdminHandler(svc *service.AdminService) *AdminHandler {
-	return &AdminHandler{svc: svc}
+func NewAdminHandler(svc *service.AdminService, aiSvc *service.AIService) *AdminHandler {
+	return &AdminHandler{svc: svc, aiSvc: aiSvc}
 }
 
 func (h *AdminHandler) HandleListUsers(c *gin.Context) {
@@ -174,5 +175,103 @@ func (h *AdminHandler) HandleUpdateRolePermissions(c *gin.Context) {
 		SendError(c, "500", "更新角色权限失败: "+err.Error())
 		return
 	}
+	SendSuccess(c, nil)
+}
+
+// AI Config Handlers
+
+func (h *AdminHandler) HandleListAIProviders(c *gin.Context) {
+	list, err := h.svc.ListAIProviders()
+	if err != nil {
+		SendError(c, "500", "获取 AI 提供商列表失败: "+err.Error())
+		return
+	}
+	SendSuccess(c, list)
+}
+
+func (h *AdminHandler) HandleCreateAIProvider(c *gin.Context) {
+	var req model.AIProvider
+	if err := c.ShouldBindJSON(&req); err != nil {
+		SendError(c, "400", "请求参数错误: "+err.Error())
+		return
+	}
+	if err := h.svc.CreateAIProvider(req); err != nil {
+		SendError(c, "500", "创建 AI 提供商失败: "+err.Error())
+		return
+	}
+	h.aiSvc.ReloadConfig()
+	SendSuccess(c, nil)
+}
+
+func (h *AdminHandler) HandleUpdateAIProvider(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
+	var req model.AIProvider
+	if err := c.ShouldBindJSON(&req); err != nil {
+		SendError(c, "400", "请求参数错误: "+err.Error())
+		return
+	}
+	if err := h.svc.UpdateAIProvider(id, req); err != nil {
+		SendError(c, "500", "更新 AI 提供商失败: "+err.Error())
+		return
+	}
+	h.aiSvc.ReloadConfig()
+	SendSuccess(c, nil)
+}
+
+func (h *AdminHandler) HandleDeleteAIProvider(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
+	if err := h.svc.DeleteAIProvider(id); err != nil {
+		SendError(c, "500", "删除 AI 提供商失败: "+err.Error())
+		return
+	}
+	h.aiSvc.ReloadConfig()
+	SendSuccess(c, nil)
+}
+
+func (h *AdminHandler) HandleListAIModels(c *gin.Context) {
+	list, err := h.svc.ListAIModels()
+	if err != nil {
+		SendError(c, "500", "获取 AI 模型列表失败: "+err.Error())
+		return
+	}
+	SendSuccess(c, list)
+}
+
+func (h *AdminHandler) HandleCreateAIModel(c *gin.Context) {
+	var req model.AIModel
+	if err := c.ShouldBindJSON(&req); err != nil {
+		SendError(c, "400", "请求参数错误: "+err.Error())
+		return
+	}
+	if err := h.svc.CreateAIModel(req); err != nil {
+		SendError(c, "500", "创建 AI 模型失败: "+err.Error())
+		return
+	}
+	h.aiSvc.ReloadConfig()
+	SendSuccess(c, nil)
+}
+
+func (h *AdminHandler) HandleUpdateAIModel(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
+	var req model.AIModel
+	if err := c.ShouldBindJSON(&req); err != nil {
+		SendError(c, "400", "请求参数错误: "+err.Error())
+		return
+	}
+	if err := h.svc.UpdateAIModel(id, req); err != nil {
+		SendError(c, "500", "更新 AI 模型失败: "+err.Error())
+		return
+	}
+	h.aiSvc.ReloadConfig()
+	SendSuccess(c, nil)
+}
+
+func (h *AdminHandler) HandleDeleteAIModel(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
+	if err := h.svc.DeleteAIModel(id); err != nil {
+		SendError(c, "500", "删除 AI 模型失败: "+err.Error())
+		return
+	}
+	h.aiSvc.ReloadConfig()
 	SendSuccess(c, nil)
 }
