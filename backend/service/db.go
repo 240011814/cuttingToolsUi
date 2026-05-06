@@ -4,12 +4,15 @@ import (
 	"embed"
 	"fmt"
 	"log"
+	"os"
+	"time"
 
 	"backend/config"
 
 	"github.com/pressly/goose/v3"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 var DB *gorm.DB
@@ -33,7 +36,19 @@ func InitDB(cfg *config.Config) (*gorm.DB, error) {
 		tls,
 	)
 
-	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	newLogger := logger.New(
+		log.New(os.Stdout, "\r\n", log.LstdFlags), // io writer
+		logger.Config{
+			SlowThreshold:             500 * time.Millisecond, // 慢 SQL 阈值调高到 500ms
+			LogLevel:                  logger.Warn,            // 只记录警告和错误
+			IgnoreRecordNotFoundError: true,                   // 忽略未找到记录的错误
+			Colorful:                  true,                   // 彩色打印
+		},
+	)
+
+	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
+		Logger: newLogger,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to database: %v", err)
 	}

@@ -73,10 +73,20 @@ func HandleChatStream(aiService *service.AIService, historyService *service.Hist
 						title = title[:20] + "..."
 					}
 				}
-				historyID, saveErr := historyService.SaveHistory(userID.(uint), req.HistoryID, req.TrainingType, title, string(messagesBytes), "auto")
-				if saveErr == nil && req.HistoryID == 0 {
-					// 可以在流结束前或第一条消息时把新生成的 HistoryID 传给前端，这里放在最后发送一个额外的自定义事件
-					c.SSEvent("history_id", gin.H{"history_id": historyID})
+				// 提取保存逻辑
+				saveFunc := func() {
+					historyID, saveErr := historyService.SaveHistory(userID.(uint), req.HistoryID, req.TrainingType, title, string(messagesBytes), "auto")
+					if saveErr == nil && req.HistoryID == 0 {
+						c.SSEvent("history_id", gin.H{"history_id": historyID})
+					}
+				}
+
+				if req.HistoryID == 0 {
+					// 首次对话：同步保存以获取 ID
+					saveFunc()
+				} else {
+					// 后续对话：异步保存，不阻塞连接关闭
+					go saveFunc()
 				}
 				
 				return false // 结束 stream
