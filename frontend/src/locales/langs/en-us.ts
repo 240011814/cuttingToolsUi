@@ -237,6 +237,7 @@ const local: App.I18n.Schema = {
     ai_social: 'Social Training',
     ai_vocabulary: 'Vocabulary Book',
     ai_note: 'Note Book',
+    ai_emergency: 'Emergency',
     ai_exercise: 'Exercise',
     system: 'System',
     system_user: 'User Management',

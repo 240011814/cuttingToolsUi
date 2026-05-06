@@ -1,0 +1,10 @@
+{
+  "meta": {
+    "title": "ai_emergency",
+    "i18nKey": "route.ai_emergency",
+    "icon": "mdi:incognito",
+    "keepAlive": true,
+    "permissions": ["ai:emergency:view"],
+    "order": 4
+  }
+}

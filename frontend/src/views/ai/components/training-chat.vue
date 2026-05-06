@@ -92,6 +92,7 @@ const routeTitleMap: Record<string, string> = {
   ai_chat: "英语训练",
   ai_decision: "决策训练",
   ai_social: "社交训练",
+  ai_emergency: "应急训练",
   ai_exercise: "练习",
 };
 

@@ -233,6 +233,7 @@ const local: App.I18n.Schema = {
     ai_social: '社交训练',
     ai_vocabulary: '生词本',
     ai_note: '笔记本',
+    ai_emergency: '应急训练',
     ai_exercise: '练习',
     system: '系统管理',
     system_user: '用户管理',

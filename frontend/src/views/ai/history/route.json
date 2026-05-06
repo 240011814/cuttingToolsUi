@@ -3,6 +3,6 @@
     "title": "ai_history",
     "i18nKey": "route.ai_history",
     "icon": "mdi:history",
-    "order": 6
+    "order": 7
   }
 }

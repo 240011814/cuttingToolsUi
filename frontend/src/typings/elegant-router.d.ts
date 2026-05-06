@@ -23,6 +23,7 @@ declare module "@elegant-router/types" {
     "ai": "/ai";
     "ai_chat": "/ai/chat";
     "ai_decision": "/ai/decision";
+    "ai_emergency": "/ai/emergency";
     "ai_exercise": "/ai/exercise";
     "ai_history": "/ai/history";
     "ai_note": "/ai/note";
@@ -96,6 +97,7 @@ declare module "@elegant-router/types" {
     | "login"
     | "ai_chat"
     | "ai_decision"
+    | "ai_emergency"
     | "ai_exercise"
     | "ai_history"
     | "ai_note"

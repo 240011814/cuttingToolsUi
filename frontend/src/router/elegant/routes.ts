@@ -77,6 +77,19 @@ export const generatedRoutes: GeneratedRoute[] = [
         }
       },
       {
+        name: 'ai_emergency',
+        path: '/ai/emergency',
+        component: 'view.ai_emergency',
+        meta: {
+          title: 'ai_emergency',
+          i18nKey: 'route.ai_emergency',
+          icon: 'mdi:incognito',
+          permissions: ['ai:emergency:view'],
+          keepAlive: true,
+          order: 4
+        }
+      },
+      {
         name: 'ai_exercise',
         path: '/ai/exercise',
         component: 'view.ai_exercise',
@@ -85,6 +98,30 @@ export const generatedRoutes: GeneratedRoute[] = [
           i18nKey: 'route.ai_exercise',
           hideInMenu: true,
           keepAlive: true
+        }
+      },
+      {
+        name: 'ai_history',
+        path: '/ai/history',
+        component: 'view.ai_history',
+        meta: {
+          title: 'ai_history',
+          i18nKey: 'route.ai_history',
+          icon: 'mdi:history',
+          permissions: ['ai:history:view'],
+          order: 7
+        }
+      },
+      {
+        name: 'ai_note',
+        path: '/ai/note',
+        component: 'view.ai_note',
+        meta: {
+          title: 'ai_note',
+          i18nKey: 'route.ai_note',
+          icon: 'mdi:notebook-outline',
+          permissions: ['ai:note:view'],
+          order: 6
         }
       },
       {
@@ -108,31 +145,7 @@ export const generatedRoutes: GeneratedRoute[] = [
           title: 'ai_vocabulary',
           i18nKey: 'route.ai_vocabulary',
           icon: 'mdi:book-open-outline',
-          order: 4
-        }
-      },
-      {
-        name: 'ai_note',
-        path: '/ai/note',
-        component: 'view.ai_note',
-        meta: {
-          title: 'ai_note',
-          i18nKey: 'route.ai_note',
-          icon: 'mdi:notebook-outline',
-          permissions: ['ai:note:view'],
           order: 5
-        }
-      },
-      {
-        name: 'ai_history',
-        path: '/ai/history',
-        component: 'view.ai_history',
-        meta: {
-          title: 'ai_history',
-          i18nKey: 'route.ai_history',
-          icon: 'mdi:history',
-          permissions: ['ai:history:view'],
-          order: 6
         }
       }
     ]
