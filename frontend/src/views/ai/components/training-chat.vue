@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { nextTick, ref } from "vue";
-import { useMessage } from "naive-ui";
-import { fetchAddVocabulary } from "@/service/api";
+import { useMessage, NPopconfirm } from "naive-ui";
+import { fetchAddVocabulary, fetchAddNote, fetchArchiveHistory } from "@/service/api";
 import { getAuthorization } from "@/service/request/shared";
 import { getServiceBaseURL } from "@/utils/service";
 import MarkdownIt from "markdown-it";
+import { useRoute } from "vue-router";
+
 interface VocabSuggestion {
   word?: string;
   phonetic?: string;
@@ -56,10 +58,17 @@ const systemMessage: ChatMessage = {
 const messages = ref<ChatMessage[]>([
   { role: "assistant", content: props.initialMessage },
 ]);
+const historyId = ref<number>(0);
 const inputMessage = ref("");
 const isGenerating = ref(false);
 const scrollbarRef = ref<any>(null);
 const message = useMessage();
+
+const modelOptions = [
+  { label: "快速模式 (Flash)", value: "deepseek-v4-flash" },
+  { label: "专家模式 (Pro)", value: "deepseek-v4-pro" },
+];
+const selectedModel = ref("deepseek-v4-flash");
 
 const showVocabModal = ref(false);
 const vocabLoading = ref(false);
@@ -70,6 +79,53 @@ const vocabForm = ref({
   example: "",
   confusingWords: "",
 });
+
+const showNoteModal = ref(false);
+const noteLoading = ref(false);
+const noteForm = ref({
+  category: "",
+  content: "",
+});
+
+const route = useRoute();
+const routeTitleMap: Record<string, string> = {
+  ai_chat: "英语训练",
+  ai_decision: "决策训练",
+  ai_social: "社交训练",
+  ai_exercise: "练习",
+};
+
+const openNoteModal = (content: string) => {
+  const routeName = (route.name as string) || "";
+  const defaultCategory = (routeTitleMap[routeName] || "未分类").replace("训练", "");
+  noteForm.value = {
+    category: defaultCategory,
+    content: formatDisplayContent(content),
+  };
+  showNoteModal.value = true;
+};
+
+const submitNote = async () => {
+  if (!noteForm.value.category.trim()) {
+    message.warning("请输入分类");
+    return;
+  }
+  if (!noteForm.value.content.trim()) {
+    message.warning("请输入内容");
+    return;
+  }
+
+  noteLoading.value = true;
+  try {
+    await fetchAddNote(noteForm.value);
+    message.success("笔记添加成功");
+    showNoteModal.value = false;
+  } catch (err: any) {
+    message.error(`添加失败: ${err?.message || "未知错误"}`);
+  } finally {
+    noteLoading.value = false;
+  }
+};
 
 const resetVocabForm = () => {
   vocabForm.value = {
@@ -174,6 +230,7 @@ const sendMessage = async () => {
 
   try {
     const history = messages.value.slice(0, -1).filter((item) => item.content.trim());
+    const routeName = (route.name as string) || "ai_chat";
     const response = await fetch(`${baseURL}/api/chat`, {
       method: "POST",
       headers: {
@@ -181,6 +238,9 @@ const sendMessage = async () => {
         Authorization: getAuthorization() || "",
       },
       body: JSON.stringify({
+        history_id: historyId.value,
+        training_type: routeName,
+        model: selectedModel.value,
         messages: [systemMessage, ...history],
       }),
     });
@@ -209,13 +269,23 @@ const sendMessage = async () => {
 
       for (let line of lines) {
         line = line.trim();
-        if (!line || !line.startsWith("data:")) continue;
+        if (!line || (!line.startsWith("data:") && !line.startsWith("event:"))) continue;
+
+        let eventType = "message";
+        if (line.startsWith("event:")) {
+          eventType = line.replace(/^event:\s*/, "").trim();
+          continue;
+        }
 
         const dataStr = line.replace(/^data:\s*/, "").trim();
         if (dataStr === "[DONE]" || dataStr === '"[DONE]"') break;
 
         try {
           const dataObj = JSON.parse(dataStr);
+
+          if (dataObj.history_id) {
+            historyId.value = dataObj.history_id;
+          }
 
           if (dataObj.error) {
             setAssistantError(`AI 服务错误: ${dataObj.error}`);
@@ -248,6 +318,32 @@ const handleEnter = (event: KeyboardEvent) => {
   if (event.key === "Enter" && !event.shiftKey) {
     event.preventDefault();
     sendMessage();
+  }
+};
+
+const handleArchive = async () => {
+  if (messages.value.length <= 1) return;
+  
+  try {
+    const routeName = (route.name as string) || "ai_chat";
+    const history = messages.value.filter((item) => item.content.trim());
+    
+    let title = "手动归档对话";
+    const firstUserMsg = history.find(m => m.role === 'user');
+    if (firstUserMsg) {
+      title = firstUserMsg.content.slice(0, 20);
+      if (firstUserMsg.content.length > 20) title += "...";
+    }
+
+    await fetchArchiveHistory({
+      training_type: routeName,
+      messages: JSON.stringify([systemMessage, ...history]),
+      title
+    });
+    
+    message.success("归档成功，可在历史记录中查看");
+  } catch (err: any) {
+    message.error(`归档失败: ${err?.message || "未知错误"}`);
   }
 };
 
@@ -286,10 +382,24 @@ const handlePlay = (text: string) => {
   <div class="h-full flex-col flex gap-4 p-4 overflow-hidden">
     <NCard
       class="flex-1 overflow-hidden"
-      content-class="p-0 flex flex-col h-full"
+      content-class="p-0 flex flex-col overflow-hidden"
       :bordered="false"
       shadow="sm"
     >
+      <!-- Header inside content to avoid NCard layout issues in flex-1 -->
+      <div class="p-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
+        <span class="font-bold text-gray-600 dark:text-gray-300">AI 训练对话</span>
+        <div class="flex items-center gap-2">
+          <span class="text-xs text-gray-400 font-bold">模式</span>
+          <NSelect
+            v-model:value="selectedModel"
+            :options="modelOptions"
+            size="small"
+            class="w-[140px] shadow-sm"
+          />
+        </div>
+      </div>
+
       <NScrollbar ref="scrollbarRef" class="flex-1 p-4 bg-gray-50/50 dark:bg-dark">
         <div class="flex flex-col gap-6 pb-4">
           <div
@@ -338,6 +448,13 @@ const handlePlay = (text: string) => {
                       @click.stop="openVocabModal()"
                     />
                   </template>
+                  <div class="w-[1px] h-4 bg-gray-200 dark:bg-gray-600 self-center" />
+                  <ButtonIcon
+                    icon="mdi:notebook-edit-outline"
+                    class="text-18px text-info"
+                    tooltip-content="添加笔记"
+                    @click.stop="openNoteModal(msg.content)"
+                  />
                 </div>
               </div>
 
@@ -379,17 +496,33 @@ const handlePlay = (text: string) => {
           size="large"
           @keydown="handleEnter"
         />
-        <NButton
-          type="primary"
-          size="large"
-          :loading="isGenerating"
-          :disabled="!inputMessage.trim()"
-          class="px-8 rounded-lg"
-          style="align-self: stretch; height: auto"
-          @click="sendMessage"
-        >
-          发送
-        </NButton>
+        <div class="flex flex-col gap-2">
+          <NPopconfirm @positive-click="handleArchive">
+            <template #trigger>
+              <NButton
+                secondary
+                type="warning"
+                size="large"
+                :disabled="messages.length <= 1 || isGenerating"
+                class="px-4 rounded-lg flex-1"
+              >
+                归档
+              </NButton>
+            </template>
+            确定要手动归档当前的对话记录吗？
+          </NPopconfirm>
+          <NButton
+            type="primary"
+            size="large"
+            :loading="isGenerating"
+            :disabled="!inputMessage.trim()"
+            class="px-8 rounded-lg flex-1"
+            style="align-self: stretch; height: auto"
+            @click="sendMessage"
+          >
+            发送
+          </NButton>
+        </div>
       </div>
     </NCard>
 
@@ -448,6 +581,43 @@ const handlePlay = (text: string) => {
         <div class="flex justify-end gap-3">
           <NButton @click="showVocabModal = false">取消</NButton>
           <NButton type="primary" :loading="vocabLoading" @click="submitVocab">
+            确认添加
+          </NButton>
+        </div>
+      </template>
+    </NModal>
+
+    <NModal
+      v-model:show="showNoteModal"
+      preset="card"
+      title="添加笔记"
+      style="width: 800px; max-width: 95vw"
+      :segmented="{ content: 'soft' }"
+    >
+      <NForm :model="noteForm" label-placement="left" label-width="80">
+        <NFormItem label="分类" path="category">
+          <NInput v-model:value="noteForm.category" placeholder="输入笔记分类" />
+        </NFormItem>
+        <NFormItem label="内容" path="content">
+          <div class="grid grid-cols-2 gap-4 w-full">
+            <NInput
+              v-model:value="noteForm.content"
+              type="textarea"
+              :autosize="{ minRows: 12, maxRows: 15 }"
+              placeholder="输入笔记内容"
+            />
+            <div
+              class="prose dark:prose-invert max-w-none overflow-y-auto p-4 border border-gray-200 dark:border-gray-700 rounded-md bg-gray-50/50 dark:bg-dark-100 text-sm leading-relaxed"
+              style="height: 100%; max-height: 350px;"
+              v-html="renderMarkdown(noteForm.content)"
+            ></div>
+          </div>
+        </NFormItem>
+      </NForm>
+      <template #footer>
+        <div class="flex justify-end gap-3">
+          <NButton @click="showNoteModal = false">取消</NButton>
+          <NButton type="primary" :loading="noteLoading" @click="submitNote">
             确认添加
           </NButton>
         </div>

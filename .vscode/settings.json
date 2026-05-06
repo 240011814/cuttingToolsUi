@@ -16,5 +16,10 @@
     "moduleResolution": "node"
   },
   "oxc.fmt.configPath": ".oxfmtrc.json",
-  "unocss.root": ["./"]
+  "unocss.root": [
+    "./"
+  ],
+  "[typescript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  }
 }

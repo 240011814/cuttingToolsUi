@@ -116,10 +116,87 @@ func (s *AdminService) ListRoles() ([]model.Role, error) {
 	return roles, err
 }
 
+func (s *AdminService) CreateRole(role model.Role) error {
+	var count int64
+	if err := DB.Model(&model.Role{}).Where("code = ?", role.Code).Count(&count).Error; err != nil {
+		return err
+	}
+	if count > 0 {
+		return errors.New("角色编码已存在")
+	}
+	return DB.Create(&role).Error
+}
+
+func (s *AdminService) DeleteRole(roleCode string) error {
+	if roleCode == "R_SUPER" || roleCode == "R_ADMIN" || roleCode == "R_USER" {
+		return errors.New("内置角色不可删除")
+	}
+
+	return DB.Transaction(func(tx *gorm.DB) error {
+		// 删除角色权限关联
+		if err := tx.Where("role_code = ?", roleCode).Delete(&model.RolePermission{}).Error; err != nil {
+			return err
+		}
+		// 删除角色
+		result := tx.Where("code = ?", roleCode).Delete(&model.Role{})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return errors.New("角色不存在")
+		}
+		return nil
+	})
+}
+
 func (s *AdminService) ListPermissions() ([]model.Permission, error) {
 	var permissions []model.Permission
 	err := DB.Order("group_name ASC, id ASC").Find(&permissions).Error
 	return permissions, err
+}
+
+func (s *AdminService) CreatePermission(p model.Permission) error {
+	var count int64
+	if err := DB.Model(&model.Permission{}).Where("code = ?", p.Code).Count(&count).Error; err != nil {
+		return err
+	}
+	if count > 0 {
+		return errors.New("权限编码已存在")
+	}
+	return DB.Create(&p).Error
+}
+
+func (s *AdminService) UpdatePermission(id uint, p model.Permission) error {
+	updates := map[string]interface{}{
+		"name":       p.Name,
+		"group_name": p.GroupName,
+	}
+	// Note: Usually we don't allow updating the code as it's used as a key in many places
+	result := DB.Model(&model.Permission{}).Where("id = ?", id).Updates(updates)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return errors.New("权限点不存在")
+	}
+	return nil
+}
+
+func (s *AdminService) DeletePermission(id uint) error {
+	return DB.Transaction(func(tx *gorm.DB) error {
+		var p model.Permission
+		if err := tx.First(&p, id).Error; err != nil {
+			return err
+		}
+
+		// 删除关联
+		if err := tx.Where("permission_code = ?", p.Code).Delete(&model.RolePermission{}).Error; err != nil {
+			return err
+		}
+
+		// 删除权限点
+		return tx.Delete(&model.Permission{}, id).Error
+	})
 }
 
 func (s *AdminService) GetRolePermissions(roleCode string) ([]string, error) {

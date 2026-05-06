@@ -31,3 +31,23 @@ export function fetchGetRolePermissions(roleCode: string) {
 export function fetchUpdateRolePermissions(roleCode: string, permissions: string[]) {
   return request({ url: `/api/admin/roles/${roleCode}/permissions`, method: 'put', data: { permissions } });
 }
+
+export function fetchCreateRole(data: Partial<Api.Admin.Role>) {
+  return request({ url: '/api/admin/roles', method: 'post', data });
+}
+
+export function fetchDeleteRole(roleCode: string) {
+  return request({ url: `/api/admin/roles/${roleCode}`, method: 'delete' });
+}
+
+export function fetchCreatePermission(data: Partial<Api.Admin.Permission>) {
+  return request({ url: '/api/admin/permissions', method: 'post', data });
+}
+
+export function fetchUpdatePermission(id: number, data: Partial<Api.Admin.Permission>) {
+  return request({ url: `/api/admin/permissions/${id}`, method: 'put', data });
+}
+
+export function fetchDeletePermission(id: number) {
+  return request({ url: `/api/admin/permissions/${id}`, method: 'delete' });
+}

@@ -43,13 +43,18 @@ func NewAIService(cfg *config.Config) (*AIService, error) {
 }
 
 // ChatStream 向 DeepSeek 发起请求并返回流
-func (s *AIService) ChatStream(ctx context.Context, messages []openai.ChatCompletionMessage) (*openai.ChatCompletionStream, error) {
+func (s *AIService) ChatStream(ctx context.Context, messages []openai.ChatCompletionMessage, model string) (*openai.ChatCompletionStream, error) {
 	if s.client == nil {
 		return nil, errors.New("AI Client is not initialized")
 	}
 
+	selectedModel := s.model
+	if model != "" {
+		selectedModel = model
+	}
+
 	req := openai.ChatCompletionRequest{
-		Model:    s.model,
+		Model:    selectedModel,
 		Messages: messages,
 		Stream:   true,
 	}

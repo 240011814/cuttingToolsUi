@@ -79,6 +79,28 @@ func (h *AdminHandler) HandleListRoles(c *gin.Context) {
 	SendSuccess(c, roles)
 }
 
+func (h *AdminHandler) HandleCreateRole(c *gin.Context) {
+	var role model.Role
+	if err := c.ShouldBindJSON(&role); err != nil {
+		SendError(c, "400", "请求参数错误: "+err.Error())
+		return
+	}
+	if err := h.svc.CreateRole(role); err != nil {
+		SendError(c, "500", "创建角色失败: "+err.Error())
+		return
+	}
+	SendSuccess(c, nil)
+}
+
+func (h *AdminHandler) HandleDeleteRole(c *gin.Context) {
+	roleCode := c.Param("roleCode")
+	if err := h.svc.DeleteRole(roleCode); err != nil {
+		SendError(c, "500", "删除角色失败: "+err.Error())
+		return
+	}
+	SendSuccess(c, nil)
+}
+
 func (h *AdminHandler) HandleListPermissions(c *gin.Context) {
 	permissions, err := h.svc.ListPermissions()
 	if err != nil {
@@ -86,6 +108,51 @@ func (h *AdminHandler) HandleListPermissions(c *gin.Context) {
 		return
 	}
 	SendSuccess(c, permissions)
+}
+
+func (h *AdminHandler) HandleCreatePermission(c *gin.Context) {
+	var p model.Permission
+	if err := c.ShouldBindJSON(&p); err != nil {
+		SendError(c, "400", "请求参数错误: "+err.Error())
+		return
+	}
+	if err := h.svc.CreatePermission(p); err != nil {
+		SendError(c, "500", "创建权限点失败: "+err.Error())
+		return
+	}
+	SendSuccess(c, nil)
+}
+
+func (h *AdminHandler) HandleUpdatePermission(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		SendError(c, "400", "权限 ID 不合法")
+		return
+	}
+
+	var p model.Permission
+	if err := c.ShouldBindJSON(&p); err != nil {
+		SendError(c, "400", "请求参数错误: "+err.Error())
+		return
+	}
+	if err := h.svc.UpdatePermission(uint(id), p); err != nil {
+		SendError(c, "500", "更新权限点失败: "+err.Error())
+		return
+	}
+	SendSuccess(c, nil)
+}
+
+func (h *AdminHandler) HandleDeletePermission(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		SendError(c, "400", "权限 ID 不合法")
+		return
+	}
+	if err := h.svc.DeletePermission(uint(id)); err != nil {
+		SendError(c, "500", "删除权限点失败: "+err.Error())
+		return
+	}
+	SendSuccess(c, nil)
 }
 
 func (h *AdminHandler) HandleGetRolePermissions(c *gin.Context) {

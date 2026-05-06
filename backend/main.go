@@ -36,6 +36,9 @@ func main() {
 	vocabService := service.NewVocabularyService()
 	vocabHandler := api.NewVocabularyHandler(vocabService)
 
+	noteService := service.NewNoteService()
+	noteHandler := api.NewNoteHandler(noteService)
+
 	r.GET("/api/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"status":  "ok",
@@ -52,7 +55,10 @@ func main() {
 	apiGroup := r.Group("/api")
 	apiGroup.Use(api.AuthMiddleware(cfg.Auth.JWTSecret))
 	{
-		apiGroup.POST("/chat", api.HandleChatStream(aiService))
+		historyService := service.NewHistoryService()
+		historyHandler := api.NewHistoryHandler(historyService)
+
+		apiGroup.POST("/chat", api.HandleChatStream(aiService, historyService))
 
 		vocabGroup := apiGroup.Group("/vocabulary")
 		{
@@ -60,6 +66,20 @@ func main() {
 			vocabGroup.GET("", vocabHandler.HandleListWords)
 			vocabGroup.PUT("/:id", vocabHandler.HandleUpdateWord)
 			vocabGroup.DELETE("/:id", vocabHandler.HandleDeleteWord)
+		}
+
+		noteGroup := apiGroup.Group("/notes")
+		{
+			noteGroup.POST("", noteHandler.HandleCreateNote)
+			noteGroup.GET("", noteHandler.HandleListNotes)
+			noteGroup.PUT("/:id", noteHandler.HandleUpdateNote)
+			noteGroup.DELETE("/:id", noteHandler.HandleDeleteNote)
+		}
+
+		historyGroup := apiGroup.Group("/histories")
+		{
+			historyGroup.GET("", historyHandler.ListHistory)
+			historyGroup.POST("/archive", historyHandler.ArchiveHistory)
 		}
 
 		adminGroup := apiGroup.Group("/admin")
@@ -70,7 +90,12 @@ func main() {
 			adminGroup.PUT("/users/:id", adminHandler.HandleUpdateUser)
 			adminGroup.DELETE("/users/:id", adminHandler.HandleDeleteUser)
 			adminGroup.GET("/roles", adminHandler.HandleListRoles)
+			adminGroup.POST("/roles", adminHandler.HandleCreateRole)
+			adminGroup.DELETE("/roles/:roleCode", adminHandler.HandleDeleteRole)
 			adminGroup.GET("/permissions", adminHandler.HandleListPermissions)
+			adminGroup.POST("/permissions", adminHandler.HandleCreatePermission)
+			adminGroup.PUT("/permissions/:id", adminHandler.HandleUpdatePermission)
+			adminGroup.DELETE("/permissions/:id", adminHandler.HandleDeletePermission)
 			adminGroup.GET("/roles/:roleCode/permissions", adminHandler.HandleGetRolePermissions)
 			adminGroup.PUT("/roles/:roleCode/permissions", adminHandler.HandleUpdateRolePermissions)
 		}
