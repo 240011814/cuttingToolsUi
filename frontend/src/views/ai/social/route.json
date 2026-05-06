@@ -3,6 +3,7 @@
     "title": "ai_social",
     "i18nKey": "route.ai_social",
     "icon": "mdi:account-group-outline",
-    "keepAlive": true
+    "keepAlive": true,
+    "order": 3
   }
 }
