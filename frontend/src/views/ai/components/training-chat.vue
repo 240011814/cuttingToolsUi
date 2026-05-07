@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { nextTick, ref, onMounted } from "vue";
+import { nextTick, ref, onBeforeUnmount, onMounted } from "vue";
 import { useMessage, NPopconfirm, NDrawer, NDrawerContent } from "naive-ui";
 import { fetchAddVocabulary, fetchAddNote, fetchArchiveHistory } from "@/service/api";
 import { getAuthorization } from "@/service/request/shared";
@@ -20,6 +20,7 @@ interface VocabSuggestion {
 interface ChatMessage {
   role: "user" | "assistant" | "system";
   content: string;
+  renderedContent?: string;
   suggestions?: VocabSuggestion[];
 }
 
@@ -53,13 +54,35 @@ const renderMarkdown = (content: string) => {
   return md.render(content);
 };
 
+function formatDisplayContent(content: string) {
+  if (!props.enableVocabulary) return content;
+
+  return content.replace(/<vocabs>[\s\S]*?<\/vocabs>/g, "").trim();
+}
+
+const renderMessageContent = (content: string) => {
+  return renderMarkdown(formatDisplayContent(content));
+};
+
+const createChatMessage = (role: ChatMessage["role"], content: string): ChatMessage => {
+  return {
+    role,
+    content,
+    renderedContent: renderMessageContent(content),
+  };
+};
+
+const toApiMessages = (items: ChatMessage[]) => {
+  return items.map(({ role, content }) => ({ role, content }));
+};
+
 const systemMessage = ref<ChatMessage>({
   role: "system",
   content: props.systemPrompt,
 });
 
 const messages = ref<ChatMessage[]>([
-  { role: "assistant", content: props.initialMessage },
+  createChatMessage("assistant", props.initialMessage),
 ]);
 
 const showPromptEditor = ref(false);
@@ -67,7 +90,7 @@ const showPromptEditor = ref(false);
 async function refreshPrompt() {
   const { data } = await fetchGetUserPrompt(props.moduleKey);
   if (data) {
-    systemMessage.value.content = data.effective_prompt;
+    systemMessage.value.content = data.effective_prompt || props.systemPrompt;
   }
 }
 const historyId = ref<number>(0);
@@ -75,6 +98,7 @@ const inputMessage = ref("");
 const isGenerating = ref(false);
 const scrollbarRef = ref<any>(null);
 const message = useMessage();
+let scrollFrame = 0;
 
 const modelOptions = ref<{ label: string; value: string }[]>([]);
 const selectedModel = ref("");
@@ -203,16 +227,27 @@ const submitVocab = async () => {
   }
 };
 
-const scrollToBottom = async () => {
+const scrollToBottom = async (behavior: ScrollBehavior = "auto") => {
   await nextTick();
-  scrollbarRef.value?.scrollTo({ position: "bottom", behavior: "smooth" });
+  scrollbarRef.value?.scrollTo({ position: "bottom", behavior });
+};
+
+const scheduleScrollToBottom = () => {
+  if (scrollFrame) return;
+
+  scrollFrame = window.requestAnimationFrame(() => {
+    scrollFrame = 0;
+    scrollToBottom();
+  });
 };
 
 const appendAssistantContent = (content: string) => {
   const lastIdx = messages.value.length - 1;
+  const nextContent = messages.value[lastIdx].content + content;
   messages.value[lastIdx] = {
     ...messages.value[lastIdx],
-    content: messages.value[lastIdx].content + content,
+    content: nextContent,
+    renderedContent: renderMessageContent(nextContent),
   };
 };
 
@@ -221,30 +256,45 @@ const setAssistantError = (content: string) => {
   messages.value[lastIdx] = {
     ...messages.value[lastIdx],
     content,
+    renderedContent: renderMessageContent(content),
   };
 };
 
 const parseVocabSuggestions = () => {
-  if (!props.enableVocabulary) return;
-
   const lastIdx = messages.value.length - 1;
   const lastMsg = messages.value[lastIdx];
   if (lastMsg.role !== "assistant") return;
 
+  const nextMessage: ChatMessage = {
+    ...lastMsg,
+    renderedContent: renderMessageContent(lastMsg.content),
+  };
+
+  if (!props.enableVocabulary) {
+    messages.value[lastIdx] = nextMessage;
+    return;
+  }
+
   const match = lastMsg.content.match(/<vocabs>([\s\S]*?)<\/vocabs>/);
-  if (!match?.[1]) return;
+  if (!match?.[1]) {
+    messages.value[lastIdx] = nextMessage;
+    return;
+  }
 
   try {
     const vocabs = JSON.parse(match[1]);
     if (Array.isArray(vocabs) && vocabs.length > 0) {
       messages.value[lastIdx] = {
-        ...lastMsg,
+        ...nextMessage,
         suggestions: vocabs,
       };
+      return;
     }
   } catch (error) {
     console.error("Failed to parse suggested vocabs:", error);
   }
+
+  messages.value[lastIdx] = nextMessage;
 };
 
 const sendMessage = async () => {
@@ -253,8 +303,8 @@ const sendMessage = async () => {
   const userText = inputMessage.value;
   inputMessage.value = "";
 
-  messages.value.push({ role: "user", content: userText });
-  messages.value.push({ role: "assistant", content: "" });
+  messages.value.push(createChatMessage("user", userText));
+  messages.value.push(createChatMessage("assistant", ""));
 
   scrollToBottom();
   isGenerating.value = true;
@@ -275,7 +325,7 @@ const sendMessage = async () => {
         history_id: historyId.value,
         training_type: routeName,
         model: selectedModel.value,
-        messages: [systemMessage.value, ...history],
+        messages: toApiMessages([systemMessage.value, ...history]),
       }),
     });
 
@@ -328,7 +378,7 @@ const sendMessage = async () => {
 
           if (dataObj.content) {
             appendAssistantContent(dataObj.content);
-            scrollToBottom();
+            scheduleScrollToBottom();
           }
         } catch {
           // Ignore incomplete streaming JSON chunks.
@@ -371,7 +421,7 @@ const handleArchive = async () => {
 
     await fetchArchiveHistory({
       training_type: routeName,
-      messages: JSON.stringify([systemMessage.value, ...history]),
+      messages: JSON.stringify(toApiMessages([systemMessage.value, ...history])),
       title
     });
     
@@ -392,12 +442,6 @@ const handleApplySuggestion = (vocab: VocabSuggestion) => {
   showVocabModal.value = true;
 };
 
-const formatDisplayContent = (content: string) => {
-  if (!props.enableVocabulary) return content;
-
-  return content.replace(/<vocabs>[\s\S]*?<\/vocabs>/g, "").trim();
-};
-
 const handlePlay = (text: string) => {
   if (!window.speechSynthesis) {
     message.error("您的浏览器不支持语音播放");
@@ -415,7 +459,14 @@ onMounted(() => {
   loadModels();
   refreshPrompt();
   if (scrollbarRef.value) {
-    scrollbarRef.value.scrollTo({ top: 999999, behavior: "smooth" });
+    scrollbarRef.value.scrollTo({ top: 999999 });
+  }
+});
+
+onBeforeUnmount(() => {
+  if (scrollFrame) {
+    window.cancelAnimationFrame(scrollFrame);
+    scrollFrame = 0;
   }
 });
 </script>
@@ -480,7 +531,7 @@ onMounted(() => {
                 "
                 @mouseup="msg.role === 'assistant' ? handleSelectText() : undefined"
               >
-                <div v-html="renderMarkdown(formatDisplayContent(msg.content))"></div>
+                <div v-html="msg.renderedContent"></div>
                 <span
                   v-if="
                     isGenerating && index === messages.length - 1 && msg.content === ''
@@ -690,25 +741,13 @@ onMounted(() => {
         closable
         body-content-style="padding: 0; display: flex; flex-direction: column; height: 100%;"
       >
-        <PromptEditor :module-key="moduleKey" :module-name="routeTitleMap[route.name as string]" @updated="refreshPrompt" />
+        <PromptEditor
+          :module-key="moduleKey"
+          :module-name="routeTitleMap[route.name as string]"
+          :default-prompt="props.systemPrompt"
+          @updated="refreshPrompt"
+        />
       </NDrawerContent>
     </NDrawer>
   </div>
 </template>
-
-<style scoped>
-.flex-col > .flex {
-  animation: slideIn 0.3s ease-out forwards;
-}
-
-@keyframes slideIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-</style>

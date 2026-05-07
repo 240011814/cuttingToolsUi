@@ -33,11 +33,9 @@ func (h *PromptHandler) GetUserPrompt(c *gin.Context) {
 		return
 	}
 
-	defaultValue := h.promptSvc.GetDefaultPrompt(moduleKey)
-
 	SendSuccess(c, gin.H{
 		"effective_prompt": effectivePrompt,
-		"default_prompt":   defaultValue,
+		"default_prompt":   "",
 		"versions":         versions,
 		"is_customized":    len(versions) > 0,
 	})
@@ -69,7 +67,7 @@ func (h *PromptHandler) SaveUserPrompt(c *gin.Context) {
 func (h *PromptHandler) SwitchUserPrompt(c *gin.Context) {
 	userID := GetUserID(c)
 	moduleKey := c.Param("moduleKey")
-	
+
 	var req struct {
 		VersionID uint `json:"version_id" binding:"required"`
 	}
@@ -90,7 +88,7 @@ func (h *PromptHandler) SwitchUserPrompt(c *gin.Context) {
 func (h *PromptHandler) HandleDeleteVersion(c *gin.Context) {
 	userID := GetUserID(c)
 	moduleKey := c.Param("moduleKey")
-	
+
 	versionID, err := strconv.ParseUint(c.Param("versionId"), 10, 32)
 	if err != nil {
 		SendError(c, "400", "无效的版本 ID")
@@ -104,6 +102,7 @@ func (h *PromptHandler) HandleDeleteVersion(c *gin.Context) {
 
 	SendSuccess(c, nil)
 }
+
 // ResetUserPrompt 重置提示词到系统默认
 func (h *PromptHandler) ResetUserPrompt(c *gin.Context) {
 	userID := GetUserID(c)
