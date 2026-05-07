@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { h, onMounted, ref } from 'vue';
+import { computed, h, onMounted, ref } from 'vue';
 import { NButton, NCard, NDataTable, NForm, NFormItem, NInput, NModal, NPopconfirm, NSpace, NSwitch, NTag, useMessage } from 'naive-ui';
 import type { DataTableColumns } from 'naive-ui';
 import { fetchCreateAIModel, fetchCreateAIProvider, fetchDeleteAIModel, fetchDeleteAIProvider, fetchGetAIProviders, fetchUpdateAIModel, fetchUpdateAIProvider } from '@/service/api/admin';
@@ -21,6 +21,8 @@ const providerForm = ref<Partial<Api.Admin.AIProvider>>({
 // Model Modal
 const showModelModal = ref(false);
 const modelModalTitle = ref('');
+const modelModalMode = ref<'list' | 'form'>('list');
+const modelDialogTitle = computed(() => (modelModalMode.value === 'list' ? '模型管理' : modelModalTitle.value));
 const currentProviderId = ref<number | null>(null);
 const modelForm = ref<Partial<Api.Admin.AIModel>>({
   model_code: '',
@@ -145,6 +147,7 @@ const modelColumns: DataTableColumns<Api.Admin.AIModel> = [
 function handleManageModels(row: Api.Admin.AIProvider) {
   currentProviderId.value = row.id;
   activeModels.value = row.models || [];
+  modelModalMode.value = 'list';
   showModelModal.value = true;
 }
 
@@ -157,16 +160,20 @@ function handleAddModel() {
     is_default: activeModels.value.length === 0,
     config_json: '{}' 
   };
-  showInnerModelModal.value = true;
+  modelModalMode.value = 'form';
+  showModelModal.value = true;
 }
 
 function handleEditModel(row: Api.Admin.AIModel) {
   modelModalTitle.value = '编辑模型';
   modelForm.value = { ...row };
-  showInnerModelModal.value = true;
+  modelModalMode.value = 'form';
+  showModelModal.value = true;
 }
 
-const showInnerModelModal = ref(false);
+function closeModelForm() {
+  modelModalMode.value = 'list';
+}
 
 async function handleSaveModel() {
   if (modelForm.value.id) {
@@ -176,7 +183,6 @@ async function handleSaveModel() {
     await fetchCreateAIModel(modelForm.value as Api.Admin.AIModel);
     message.success('创建成功');
   }
-  showInnerModelModal.value = false;
   // Refresh data
   const { data } = await fetchGetAIProviders();
   if (data) {
@@ -186,6 +192,7 @@ async function handleSaveModel() {
       activeModels.value = current.models || [];
     }
   }
+  modelModalMode.value = 'list';
 }
 
 async function handleDeleteModel(row: Api.Admin.AIModel) {
@@ -238,17 +245,16 @@ onMounted(() => {
       </NForm>
     </NModal>
 
-    <!-- Models List Modal -->
-    <NModal v-model:show="showModelModal" title="模型管理" preset="card" class="w-800px">
-      <div class="mb-4 flex justify-end">
-        <NButton type="primary" size="small" @click="handleAddModel">新增模型</NButton>
+    <!-- Models Modal -->
+    <NModal v-model:show="showModelModal" :title="modelDialogTitle" preset="card" :class="modelModalMode === 'list' ? 'w-800px' : 'w-500px'">
+      <div v-if="modelModalMode === 'list'">
+        <div class="mb-4 flex justify-end">
+          <NButton type="primary" size="small" @click="handleAddModel">新增模型</NButton>
+        </div>
+        <NDataTable :columns="modelColumns" :data="activeModels" />
       </div>
-      <NDataTable :columns="modelColumns" :data="activeModels" />
-    </NModal>
 
-    <!-- Model Edit Modal -->
-    <NModal v-model:show="showInnerModelModal" :title="modelModalTitle" preset="card" class="w-500px" :z-index="2001">
-      <NForm :model="modelForm" label-placement="left" :label-width="100">
+      <NForm v-else :model="modelForm" label-placement="left" :label-width="100">
         <NFormItem label="模型代码" path="model_code">
           <NInput v-model:value="modelForm.model_code" placeholder="如 deepseek-chat" />
         </NFormItem>
@@ -259,10 +265,10 @@ onMounted(() => {
           <NSwitch v-model:value="modelForm.is_default" />
         </NFormItem>
         <NFormItem label="运行参数 (JSON)" path="config_json">
-          <NInput v-model:value="modelForm.config_json" type="textarea" placeholder='{"temperature": 0.7}' />
+          <NInput v-model:value="modelForm.config_json" type="textarea" placeholder="{&quot;temperature&quot;: 0.7}" />
         </NFormItem>
         <div class="flex justify-end gap-2">
-          <NButton @click="showInnerModelModal = false">取消</NButton>
+          <NButton @click="closeModelForm">取消</NButton>
           <NButton type="primary" @click="handleSaveModel">确定</NButton>
         </div>
       </NForm>

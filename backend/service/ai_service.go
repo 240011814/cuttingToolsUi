@@ -146,8 +146,18 @@ func (s *AIService) ChatStream(ctx context.Context, messages []openai.ChatComple
 			if maxTokens, ok := configMap["max_tokens"].(float64); ok {
 				req.MaxTokens = int(maxTokens)
 			}
+		} else {
+			log.Printf("AI model config_json parse failed model=%s config_json=%s err=%v", selectedModel, m.ConfigJSON, err)
 		}
 	}
+
+	log.Printf(
+		"AI request params model=%s temperature=%v top_p=%v max_tokens=%d",
+		selectedModel,
+		req.Temperature,
+		req.TopP,
+		req.MaxTokens,
+	)
 
 	stream, err := client.CreateChatCompletionStream(ctx, req)
 	if err != nil {
