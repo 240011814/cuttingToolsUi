@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log"
 	"sync"
 
 	"github.com/sashabaranov/go-openai"
@@ -85,11 +86,14 @@ func (s *AIService) getActiveConfig() (*model.AIProvider, *model.AIModel, error)
 	defer s.mu.RUnlock()
 
 	if s.activeProvider == nil {
+		log.Printf("未找到启用的 AI 提供商配置，请联系管理员在后台配置")
 		return nil, nil, errors.New("未找到启用的 AI 提供商配置，请联系管理员在后台配置")
 	}
 	if s.activeModel == nil {
+		log.Printf("该 AI 提供商下未配置任何模型")
 		return s.activeProvider, nil, errors.New("该 AI 提供商下未配置任何模型")
 	}
+	log.Printf("s.activeProviderURL: %s, model_code: %s", s.activeProvider.BaseURL, s.activeModel.ModelCode)
 
 	return s.activeProvider, s.activeModel, nil
 }
