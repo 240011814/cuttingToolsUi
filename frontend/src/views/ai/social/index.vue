@@ -144,6 +144,7 @@ Rules:
 
 <template>
   <TrainingChat
+    module-key="ai_social"
     :system-prompt="systemPrompt"
     initial-message="你好，我是你的 AI 社交训练教练。我们可以练习聊天破冰、安慰、拒绝、赞扬、被夸回应、道歉、求助、提建议、临时发言、尴尬应对或职场沟通。你想先练哪个场景？"
     input-placeholder="输入你的回答... (回车发送，Shift + 回车换行)"

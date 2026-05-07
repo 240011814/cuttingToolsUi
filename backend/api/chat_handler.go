@@ -1,12 +1,12 @@
 package api
 
 import (
+	"backend/service"
 	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
 
-	"backend/service"
 	"github.com/gin-gonic/gin"
 	"github.com/sashabaranov/go-openai"
 )

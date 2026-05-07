@@ -195,6 +195,7 @@ Rules:
 
 <template>
   <TrainingChat
+    module-key="ai_decision"
     :system-prompt="systemPrompt"
     initial-message="你好，我是你的 AI 决策训练教练。我们可以练习如何在工作、学习、职业、关系、金钱、时间安排或人生选择里做决定。你现在面对的一个选择是什么？"
     input-placeholder="描述你的选择、选项和顾虑... (回车发送，Shift + 回车换行)"

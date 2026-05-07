@@ -39,6 +39,9 @@ func main() {
 	noteService := service.NewNoteService()
 	noteHandler := api.NewNoteHandler(noteService)
 
+	promptService := service.NewPromptService(service.DB)
+	promptHandler := api.NewPromptHandler(promptService)
+
 	r.GET("/api/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"status":  "ok",
@@ -60,6 +63,13 @@ func main() {
 
 		apiGroup.GET("/ai/models", api.HandleListModels(aiService))
 		apiGroup.POST("/chat", api.HandleChatStream(aiService, historyService))
+
+		// User specific AI prompt management
+		apiGroup.GET("/user-prompts/:moduleKey", promptHandler.GetUserPrompt)
+		apiGroup.POST("/user-prompts/:moduleKey", promptHandler.SaveUserPrompt)
+		apiGroup.PUT("/user-prompts/:moduleKey/switch", promptHandler.SwitchUserPrompt)
+		apiGroup.DELETE("/user-prompts/:moduleKey/versions/:versionId", promptHandler.HandleDeleteVersion)
+		apiGroup.DELETE("/user-prompts/:moduleKey", promptHandler.ResetUserPrompt)
 
 		vocabGroup := apiGroup.Group("/vocabulary")
 		{

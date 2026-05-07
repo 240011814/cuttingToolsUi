@@ -29,6 +29,7 @@ If no new words, you can omit it, but if you taught anything, it MUST be there.`
 
 <template>
   <TrainingChat
+    module-key="ai_chat"
     :system-prompt="systemPrompt"
     initial-message="Hello! 我是你的 AI 英语口语老师。我们可以通过模拟真实生活场景来练习地道表达。你想从哪个场景开始？比如：“咖啡店点单”、“酒店入住”或者“入职第一天”。"
     input-placeholder="输入消息... (回车发送，Shift + 回车换行)"

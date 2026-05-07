@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { nextTick, ref, onMounted } from "vue";
-import { useMessage, NPopconfirm } from "naive-ui";
+import { useMessage, NPopconfirm, NDrawer, NDrawerContent } from "naive-ui";
 import { fetchAddVocabulary, fetchAddNote, fetchArchiveHistory } from "@/service/api";
 import { getAuthorization } from "@/service/request/shared";
 import { getServiceBaseURL } from "@/utils/service";
-import { fetchGetAIModels } from "@/service/api/ai";
+import { fetchGetAIModels, fetchGetUserPrompt } from "@/service/api/ai";
 import MarkdownIt from "markdown-it";
 import { useRoute } from "vue-router";
+import PromptEditor from "./prompt-editor.vue";
 
 interface VocabSuggestion {
   word?: string;
@@ -26,6 +27,7 @@ const props = withDefaults(
   defineProps<{
     systemPrompt: string;
     initialMessage: string;
+    moduleKey: string;
     inputPlaceholder?: string;
     assistantColor?: string;
     enableVocabulary?: boolean;
@@ -51,14 +53,23 @@ const renderMarkdown = (content: string) => {
   return md.render(content);
 };
 
-const systemMessage: ChatMessage = {
+const systemMessage = ref<ChatMessage>({
   role: "system",
   content: props.systemPrompt,
-};
+});
 
 const messages = ref<ChatMessage[]>([
   { role: "assistant", content: props.initialMessage },
 ]);
+
+const showPromptEditor = ref(false);
+
+async function refreshPrompt() {
+  const { data } = await fetchGetUserPrompt(props.moduleKey);
+  if (data) {
+    systemMessage.value.content = data.effective_prompt;
+  }
+}
 const historyId = ref<number>(0);
 const inputMessage = ref("");
 const isGenerating = ref(false);
@@ -264,7 +275,7 @@ const sendMessage = async () => {
         history_id: historyId.value,
         training_type: routeName,
         model: selectedModel.value,
-        messages: [systemMessage, ...history],
+        messages: [systemMessage.value, ...history],
       }),
     });
 
@@ -360,7 +371,7 @@ const handleArchive = async () => {
 
     await fetchArchiveHistory({
       training_type: routeName,
-      messages: JSON.stringify([systemMessage, ...history]),
+      messages: JSON.stringify([systemMessage.value, ...history]),
       title
     });
     
@@ -402,6 +413,7 @@ const handlePlay = (text: string) => {
 
 onMounted(() => {
   loadModels();
+  refreshPrompt();
   if (scrollbarRef.value) {
     scrollbarRef.value.scrollTo({ top: 999999, behavior: "smooth" });
   }
@@ -419,14 +431,27 @@ onMounted(() => {
       <!-- Header inside content to avoid NCard layout issues in flex-1 -->
       <div class="p-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
         <span class="font-bold text-gray-600 dark:text-gray-300">AI 训练对话</span>
-        <div class="flex items-center gap-2">
-          <span class="text-xs text-gray-400 font-bold">模式</span>
-          <NSelect
-            v-model:value="selectedModel"
-            :options="modelOptions"
-            size="small"
-            class="w-[140px] shadow-sm"
-          />
+        <div class="flex items-center gap-4">
+          <NButton 
+            type="primary" 
+            size="small" 
+            class="rounded-lg shadow-sm"
+            @click="showPromptEditor = true"
+          >
+            <div class="flex items-center gap-1 px-1">
+              <div class="i-mdi:cog-outline" />
+              <span>设置</span>
+            </div>
+          </NButton>
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-gray-400 font-bold">模式</span>
+            <NSelect
+              v-model:value="selectedModel"
+              :options="modelOptions"
+              size="small"
+              class="w-[140px] shadow-sm"
+            />
+          </div>
         </div>
       </div>
 
@@ -658,6 +683,16 @@ onMounted(() => {
         </div>
       </template>
     </NModal>
+
+    <NDrawer v-model:show="showPromptEditor" :width="600" placement="right">
+      <NDrawerContent 
+        :title="`设置 - ${routeTitleMap[route.name as string] || 'AI 助手'}`" 
+        closable
+        body-content-style="padding: 0; display: flex; flex-direction: column; height: 100%;"
+      >
+        <PromptEditor :module-key="moduleKey" :module-name="routeTitleMap[route.name as string]" @updated="refreshPrompt" />
+      </NDrawerContent>
+    </NDrawer>
   </div>
 </template>
 
