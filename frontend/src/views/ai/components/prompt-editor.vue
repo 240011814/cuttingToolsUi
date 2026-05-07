@@ -694,7 +694,7 @@ function getDiffLineClass(line: DiffLine) {
   display: flex;
   flex: 1;
   height: 100%;
-  min-height: 220px;
+  min-height: 540px;
   max-height: 100%;
   overflow: hidden;
 }

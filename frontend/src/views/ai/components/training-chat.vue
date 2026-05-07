@@ -5,6 +5,7 @@ import { fetchAddVocabulary, fetchAddNote, fetchArchiveHistory } from "@/service
 import { getAuthorization } from "@/service/request/shared";
 import { getServiceBaseURL } from "@/utils/service";
 import { fetchGetAIModels, fetchGetUserPrompt } from "@/service/api/ai";
+import { useAuth } from "@/hooks/business/auth";
 import MarkdownIt from "markdown-it";
 import { useRoute } from "vue-router";
 import PromptEditor from "./prompt-editor.vue";
@@ -49,6 +50,7 @@ const md = new MarkdownIt({
   linkify: true,
   typographer: true,
 });
+const { hasAuth } = useAuth();
 
 const renderMarkdown = (content: string) => {
   return md.render(content);
@@ -146,11 +148,11 @@ const routeTitleMap: Record<string, string> = {
 const openNoteModal = (content: string) => {
   const routeName = (route.name as string) || "";
   const defaultCategory = (routeTitleMap[routeName] || "未分类").replace("训练", "");
-  
+
   // 提取前20个字符作为默认标题
   let defaultTitle = content.trim().slice(0, 20);
   if (content.trim().length > 20) defaultTitle += "...";
-  
+
   noteForm.value = {
     title: defaultTitle,
     category: defaultCategory,
@@ -407,11 +409,11 @@ const handleEnter = (event: KeyboardEvent) => {
 
 const handleArchive = async () => {
   if (messages.value.length <= 1) return;
-  
+
   try {
     const routeName = (route.name as string) || "ai_chat";
     const history = messages.value.filter((item) => item.content.trim());
-    
+
     let title = "手动归档对话";
     const firstUserMsg = history.find(m => m.role === 'user');
     if (firstUserMsg) {
@@ -424,7 +426,7 @@ const handleArchive = async () => {
       messages: JSON.stringify(toApiMessages([systemMessage.value, ...history])),
       title
     });
-    
+
     message.success("归档成功，可在历史记录中查看");
   } catch (err: any) {
     message.error(`归档失败: ${err?.message || "未知错误"}`);
@@ -483,9 +485,10 @@ onBeforeUnmount(() => {
       <div class="p-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
         <span class="font-bold text-gray-600 dark:text-gray-300">AI 训练对话</span>
         <div class="flex items-center gap-4">
-          <NButton 
-            type="primary" 
-            size="small" 
+          <NButton
+            v-if="hasAuth('ai:prompt:manage')"
+            type="primary"
+            size="small"
             class="rounded-lg shadow-sm"
             @click="showPromptEditor = true"
           >
@@ -736,8 +739,8 @@ onBeforeUnmount(() => {
     </NModal>
 
     <NDrawer v-model:show="showPromptEditor" :width="600" placement="right">
-      <NDrawerContent 
-        :title="`设置 - ${routeTitleMap[route.name as string] || 'AI 助手'}`" 
+      <NDrawerContent
+        :title="`设置 - ${routeTitleMap[route.name as string] || 'AI 助手'}`"
         closable
         body-content-style="padding: 0; display: flex; flex-direction: column; height: 100%;"
       >
