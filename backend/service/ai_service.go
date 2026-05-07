@@ -146,17 +146,25 @@ func (s *AIService) ChatStream(ctx context.Context, messages []openai.ChatComple
 			if maxTokens, ok := configMap["max_tokens"].(float64); ok {
 				req.MaxTokens = int(maxTokens)
 			}
+			if frequencyPenalty, ok := configMap["frequency_penalty"].(float64); ok {
+				req.FrequencyPenalty = float32(frequencyPenalty)
+			}
+			if presencePenalty, ok := configMap["presence_penalty"].(float64); ok {
+				req.PresencePenalty = float32(presencePenalty)
+			}
 		} else {
 			log.Printf("AI model config_json parse failed model=%s config_json=%s err=%v", selectedModel, m.ConfigJSON, err)
 		}
 	}
 
 	log.Printf(
-		"AI request params model=%s temperature=%v top_p=%v max_tokens=%d",
+		"AI request params model=%s temperature=%v top_p=%v max_tokens=%d frequency_penalty=%v presence_penalty=%v",
 		selectedModel,
 		req.Temperature,
 		req.TopP,
 		req.MaxTokens,
+		req.FrequencyPenalty,
+		req.PresencePenalty,
 	)
 
 	stream, err := client.CreateChatCompletionStream(ctx, req)
