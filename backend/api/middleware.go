@@ -21,7 +21,7 @@ func AuthMiddleware(jwtSecret string) gin.HandlerFunc {
 			return []byte(jwtSecret), nil
 		})
 		if err != nil || !token.Valid {
-			SendError(c, "401", "无效的 Token")
+			SendError(c, "9999", "无效的 Token")
 			c.Abort()
 			return
 		}
