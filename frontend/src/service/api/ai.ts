@@ -89,15 +89,7 @@ export async function fetchChatStream(data: {
         // Just return the response as-is for streaming
         return response;
       }
-    } catch {
-      // Continue normally if checking fails
-    }
-  }
 
-  // If not ok, check for token expiration
-  if (!response.ok) {
-    try {
-      const contentType = response.headers.get("content-type");
       if (contentType?.includes("application/json")) {
         const errorData = await response.json();
         const expiredTokenCodes =
@@ -120,8 +112,8 @@ export async function fetchChatStream(data: {
           }
         }
       }
-    } catch (error) {
-      // If we can't parse error, just return the response
+    } catch {
+      // Continue normally if checking fails
     }
   }
 
