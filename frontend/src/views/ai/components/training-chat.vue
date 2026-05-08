@@ -377,11 +377,7 @@ const sendMessage = async () => {
       }
     }
   } catch (err: any) {
-    setAssistantError(
-      `连接 AI 服务失败: ${
-        err?.message || "未知错误"
-      }。\n请确认后端服务正常运行且已正确配置 API_KEY。`
-    );
+    setAssistantError(`连接 AI 服务失败: ${err?.message || "未知错误"}。`);
   } finally {
     isGenerating.value = false;
     await scrollToBottom();
