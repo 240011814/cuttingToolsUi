@@ -108,7 +108,7 @@ const playCurrent = (times = 3) => {
         lang: "en-US",
         rate: 0.9,
       }).catch((err) => {
-        message.error("语音播放失败");
+        message.error("语音播放失败 ");
         console.error(err);
       });
       count++;
