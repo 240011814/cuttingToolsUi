@@ -7,6 +7,7 @@ import (
 
 	"backend/config"
 	"backend/model"
+
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -75,6 +76,52 @@ func (s *AuthService) GetUserInfo(userId uint) (*model.UserInfoResponseData, err
 		Roles:       []string{user.Role},
 		Buttons:     permissions,
 		Permissions: permissions,
+	}, nil
+}
+
+func (s *AuthService) RefreshToken(refreshTokenStr string) (*model.LoginResponseData, error) {
+	// 验证 refreshToken 是否有效
+	token, err := jwt.Parse(refreshTokenStr, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, errors.New("unexpected signing method")
+		}
+		return []byte(s.cfg.Auth.JWTSecret), nil
+	})
+
+	if err != nil || !token.Valid {
+		return nil, errors.New("刷新令牌无效或已过期")
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return nil, errors.New("无效的令牌声明")
+	}
+
+	userId, ok := claims["userId"].(float64)
+	if !ok {
+		return nil, errors.New("无法获取用户ID")
+	}
+
+	// 查询用户信息
+	var user model.User
+	if err := DB.First(&user, uint(userId)).Error; err != nil {
+		return nil, errors.New("用户不存在")
+	}
+
+	// 生成新的 token 和 refreshToken
+	newToken, err := s.generateToken(user, 2*time.Hour)
+	if err != nil {
+		return nil, err
+	}
+
+	newRefreshToken, err := s.generateToken(user, 7*24*time.Hour)
+	if err != nil {
+		return nil, err
+	}
+
+	return &model.LoginResponseData{
+		Token:        newToken,
+		RefreshToken: newRefreshToken,
 	}, nil
 }
 

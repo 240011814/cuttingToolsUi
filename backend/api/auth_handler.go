@@ -6,6 +6,7 @@ import (
 
 	"backend/model"
 	"backend/service"
+
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 )
@@ -85,5 +86,26 @@ func HandleGetUserInfo(authService *service.AuthService, jwtSecret string) gin.H
 		}
 
 		SendSuccess(c, userInfo)
+	}
+}
+
+// HandleRefreshToken 刷新令牌
+func HandleRefreshToken(authService *service.AuthService) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req struct {
+			RefreshToken string `json:"refreshToken" binding:"required"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			SendError(c, "400", "请求参数错误: "+err.Error())
+			return
+		}
+
+		res, err := authService.RefreshToken(req.RefreshToken)
+		if err != nil {
+			SendError(c, "1001", err.Error())
+			return
+		}
+
+		SendSuccess(c, res)
 	}
 }

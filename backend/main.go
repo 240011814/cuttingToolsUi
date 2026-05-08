@@ -7,6 +7,7 @@ import (
 	"backend/api"
 	"backend/config"
 	"backend/service"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -53,6 +54,7 @@ func main() {
 	{
 		authGroup.POST("/login", api.HandleLogin(authService))
 		authGroup.GET("/getUserInfo", api.HandleGetUserInfo(authService, cfg.Auth.JWTSecret))
+		authGroup.POST("/refreshToken", api.HandleRefreshToken(authService))
 	}
 
 	apiGroup := r.Group("/api")

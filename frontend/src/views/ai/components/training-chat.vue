@@ -2,9 +2,7 @@
 import { nextTick, ref, onBeforeUnmount, onMounted } from "vue";
 import { useMessage, NPopconfirm, NDrawer, NDrawerContent } from "naive-ui";
 import { fetchAddVocabulary, fetchAddNote, fetchArchiveHistory } from "@/service/api";
-import { getAuthorization } from "@/service/request/shared";
-import { getServiceBaseURL } from "@/utils/service";
-import { fetchGetAIModels, fetchGetUserPrompt } from "@/service/api/ai";
+import { fetchGetAIModels, fetchGetUserPrompt, fetchChatStream } from "@/service/api/ai";
 import { useAuth } from "@/hooks/business/auth";
 import MarkdownIt from "markdown-it";
 import { useRoute } from "vue-router";
@@ -108,12 +106,12 @@ const selectedModel = ref("");
 async function loadModels() {
   const { data } = await fetchGetAIModels();
   if (data && data.length > 0) {
-    modelOptions.value = data.map(m => ({
+    modelOptions.value = data.map((m) => ({
       label: m.display_name,
-      value: m.model_code
+      value: m.model_code,
     }));
     // 默认选择第一个模型（或标记为 default 的模型）
-    const defaultModel = data.find(m => m.is_default) || data[0];
+    const defaultModel = data.find((m) => m.is_default) || data[0];
     selectedModel.value = defaultModel.model_code;
   }
 }
@@ -311,24 +309,15 @@ const sendMessage = async () => {
   scrollToBottom();
   isGenerating.value = true;
 
-  const isHttpProxy = import.meta.env.DEV && import.meta.env.VITE_HTTP_PROXY === "Y";
-  const { baseURL } = getServiceBaseURL(import.meta.env, isHttpProxy);
-
   try {
     const history = messages.value.slice(0, -1).filter((item) => item.content.trim());
     const routeName = (route.name as string) || "ai_chat";
-    const response = await fetch(`${baseURL}/api/chat`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: getAuthorization() || "",
-      },
-      body: JSON.stringify({
-        history_id: historyId.value,
-        training_type: routeName,
-        model: selectedModel.value,
-        messages: toApiMessages([systemMessage.value, ...history]),
-      }),
+
+    const response = await fetchChatStream({
+      history_id: historyId.value,
+      training_type: routeName,
+      model: selectedModel.value,
+      messages: toApiMessages([systemMessage.value, ...history]),
     });
 
     if (!response.ok) {
@@ -391,7 +380,7 @@ const sendMessage = async () => {
     setAssistantError(
       `连接 AI 服务失败: ${
         err?.message || "未知错误"
-      }。\n请确认后端服务正常运行且已正确配置 DEEPSEEK_API_KEY。`
+      }。\n请确认后端服务正常运行且已正确配置 API_KEY。`
     );
   } finally {
     isGenerating.value = false;
@@ -415,7 +404,7 @@ const handleArchive = async () => {
     const history = messages.value.filter((item) => item.content.trim());
 
     let title = "手动归档对话";
-    const firstUserMsg = history.find(m => m.role === 'user');
+    const firstUserMsg = history.find((m) => m.role === "user");
     if (firstUserMsg) {
       title = firstUserMsg.content.slice(0, 20);
       if (firstUserMsg.content.length > 20) title += "...";
@@ -424,7 +413,7 @@ const handleArchive = async () => {
     await fetchArchiveHistory({
       training_type: routeName,
       messages: JSON.stringify(toApiMessages([systemMessage.value, ...history])),
-      title
+      title,
     });
 
     message.success("归档成功，可在历史记录中查看");
@@ -482,7 +471,9 @@ onBeforeUnmount(() => {
       shadow="sm"
     >
       <!-- Header inside content to avoid NCard layout issues in flex-1 -->
-      <div class="p-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
+      <div
+        class="p-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between"
+      >
         <span class="font-bold text-gray-600 dark:text-gray-300">AI 训练对话</span>
         <div class="flex items-center gap-4">
           <NButton
@@ -722,7 +713,7 @@ onBeforeUnmount(() => {
             />
             <div
               class="prose dark:prose-invert max-w-none overflow-y-auto p-4 border border-gray-200 dark:border-gray-700 rounded-md bg-gray-50/50 dark:bg-dark-100 text-sm leading-relaxed"
-              style="height: 100%; max-height: 350px;"
+              style="height: 100%; max-height: 350px"
               v-html="renderMarkdown(noteForm.content)"
             ></div>
           </div>
