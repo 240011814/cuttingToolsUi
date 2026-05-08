@@ -29,7 +29,6 @@ jobs:
 
       - name: Enable pnpm build scripts
         run: |
-          pnpm config set allow-scripts true
           pnpm config set ignore-scripts false
 
       - name: Install and Build
