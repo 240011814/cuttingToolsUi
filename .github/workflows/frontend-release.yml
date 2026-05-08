@@ -28,6 +28,8 @@ jobs:
         run: npm install -g pnpm@latest
 
       - name: Install and Build
+        env:
+          PNPM_ONLY_BUILT_DEPENDENCIES_IGNORE_SCRIPTS: true
         run: |
           cd frontend
           pnpm install
