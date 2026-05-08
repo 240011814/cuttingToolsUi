@@ -195,7 +195,7 @@ export const generatedRoutes: GeneratedRoute[] = [
       i18nKey: "route.system",
       icon: "mdi:cog-outline",
       order: 3,
-      roles: ["R_SUPER", "R_ADMIN"],
+      permissions: ["sys:menu:view"],
     },
     children: [
       {
@@ -205,7 +205,6 @@ export const generatedRoutes: GeneratedRoute[] = [
         meta: {
           title: "system_ai-config",
           i18nKey: "route.system_ai-config",
-          roles: ["R_SUPER"],
           permissions: ["sys:ai:config:list"],
           icon: "mdi:robot-confused-outline",
         },
