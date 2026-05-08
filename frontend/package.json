@@ -104,5 +104,13 @@
     "node": ">=20.19.0",
     "pnpm": ">=10.5.0"
   },
-  "website": "https://admin.soybeanjs.cn"
+  "website": "https://admin.soybeanjs.cn",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@parcel/watcher",
+      "esbuild",
+      "simple-git-hooks",
+      "vue-demi"
+    ]
+  }
 }
