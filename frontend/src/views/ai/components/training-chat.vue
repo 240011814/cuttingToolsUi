@@ -333,7 +333,10 @@ const sendMessage = async () => {
     const decoder = new TextDecoder("utf-8");
     if (!reader) throw new Error("无法获取响应流");
 
+
     let buffer = "";
+    let eventType = "message"; // 1. 移到循环外，持久化状态
+
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
@@ -344,35 +347,36 @@ const sendMessage = async () => {
 
       for (let line of lines) {
         line = line.trim();
-        if (!line || (!line.startsWith("data:") && !line.startsWith("event:"))) continue;
+        if (!line) continue;
 
-        let eventType = "message";
         if (line.startsWith("event:")) {
           eventType = line.replace(/^event:\s*/, "").trim();
           continue;
         }
 
-        const dataStr = line.replace(/^data:\s*/, "").trim();
-        if (dataStr === "[DONE]" || dataStr === '"[DONE]"') break;
 
-        try {
-          const dataObj = JSON.parse(dataStr);
+        if (line.startsWith("data:")) {
+          const dataStr = line.replace(/^data:\s*/, "").trim();
 
-          if (dataObj.history_id) {
-            historyId.value = dataObj.history_id;
+          try {
+            const dataObj = JSON.parse(dataStr);
+
+            if (eventType == "history_id") {
+              historyId.value = dataObj.history_id;
+            }
+
+            if (dataObj.error) {
+              setAssistantError(`AI 服务错误: ${dataObj.error}`);
+              return;
+            }
+
+            if (dataObj.content) {
+              appendAssistantContent(dataObj.content);
+              scheduleScrollToBottom();
+            }
+          } catch (e) {
+            console.warn("Parse error:", e);
           }
-
-          if (dataObj.error) {
-            setAssistantError(`AI 服务错误: ${dataObj.error}`);
-            break;
-          }
-
-          if (dataObj.content) {
-            appendAssistantContent(dataObj.content);
-            scheduleScrollToBottom();
-          }
-        } catch {
-          // Ignore incomplete streaming JSON chunks.
         }
       }
     }
