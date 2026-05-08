@@ -96,7 +96,7 @@ func main() {
 		}
 
 		adminGroup := apiGroup.Group("/admin")
-		adminGroup.Use(api.RequireRole("R_SUPER"))
+		adminGroup.Use(api.RequireRole("R_SUPER", "R_ADMIN"))
 		{
 			adminGroup.GET("/users", adminHandler.HandleListUsers)
 			adminGroup.POST("/users", adminHandler.HandleCreateUser)

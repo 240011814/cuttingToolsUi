@@ -217,7 +217,6 @@ export const generatedRoutes: GeneratedRoute[] = [
           title: "system_permission",
           i18nKey: "route.system_permission",
           icon: "mdi:shield-key-outline",
-          roles: ["R_SUPER"],
           permissions: ["system:permission:view"],
         },
       },
