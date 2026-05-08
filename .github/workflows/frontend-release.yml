@@ -24,15 +24,17 @@ jobs:
         with:
           node-version: '24.x'
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9
+      - name: Install latest pnpm globally
+        run: npm install -g pnpm@latest
+
+      - name: Enable pnpm build scripts
+        run: |
+          pnpm config set ignore-scripts false
 
       - name: Install and Build
         run: |
           cd frontend
-          pnpm install 
+          pnpm install --ignore-scripts=false
           pnpm build
 
       - name: Build Docker image
