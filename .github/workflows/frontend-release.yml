@@ -25,7 +25,7 @@ jobs:
           node-version: '24.x'
 
       - name: Install latest pnpm globally
-        run: npm install -g pnpm@latest
+        run: npm install -g pnpm@10.33.4
 
       - name: Install and Build
         env:
