@@ -100,10 +100,9 @@ const trainingTypeRouteMap: Record<string, string> = {
 };
 
 const handleContinue = (row: any) => {
-  const route = trainingTypeRouteMap[row.training_type];
+  let route = trainingTypeRouteMap[row.training_type];
   if (!route) {
-    message.error($t("page.ai.history.unknownType"));
-    return;
+    route = "/ai/custom-training";
   }
 
   router.push({

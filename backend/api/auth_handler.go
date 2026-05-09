@@ -89,6 +89,73 @@ func HandleGetUserInfo(authService *service.AuthService, jwtSecret string) gin.H
 	}
 }
 
+// HandleGetUserProfile 获取当前用户详细信息
+func HandleGetUserProfile(authService *service.AuthService) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID := GetUserID(c)
+		if userID == 0 {
+			SendError(c, "401", "未登录")
+			return
+		}
+
+		profile, err := authService.GetUserProfile(userID)
+		if err != nil {
+			SendError(c, "1002", err.Error())
+			return
+		}
+
+		SendSuccess(c, profile)
+	}
+}
+
+// HandleUpdateProfile 更新当前用户信息
+func HandleUpdateProfile(authService *service.AuthService) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID := GetUserID(c)
+		if userID == 0 {
+			SendError(c, "401", "未登录")
+			return
+		}
+
+		var req model.UpdateProfileRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			SendError(c, "400", "请求参数错误: "+err.Error())
+			return
+		}
+
+		if err := authService.UpdateProfile(userID, req.Nickname); err != nil {
+			SendError(c, "500", "更新用户信息失败: "+err.Error())
+			return
+		}
+
+		SendSuccess(c, nil)
+	}
+}
+
+// HandleChangePassword 修改密码
+func HandleChangePassword(authService *service.AuthService) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID := GetUserID(c)
+		if userID == 0 {
+			SendError(c, "401", "未登录")
+			return
+		}
+
+		var req model.ChangePasswordRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			SendError(c, "400", "请求参数错误: "+err.Error())
+			return
+		}
+
+		if err := authService.ChangePassword(userID, req.OldPassword, req.NewPassword); err != nil {
+			SendError(c, "500", err.Error())
+			return
+		}
+
+		SendSuccess(c, nil)
+	}
+}
+
 // HandleRefreshToken 刷新令牌
 func HandleRefreshToken(authService *service.AuthService) gin.HandlerFunc {
 	return func(c *gin.Context) {

@@ -125,6 +125,55 @@ func (s *AuthService) RefreshToken(refreshTokenStr string) (*model.LoginResponse
 	}, nil
 }
 
+func (s *AuthService) GetUserProfile(userId uint) (*model.UserProfileResponse, error) {
+	var user model.User
+	if err := DB.First(&user, userId).Error; err != nil {
+		return nil, errors.New("用户不存在")
+	}
+
+	return &model.UserProfileResponse{
+		UserId:    user.ID,
+		UserName:  user.Username,
+		Nickname:  user.Nickname,
+		Role:      user.Role,
+		CreatedAt: user.CreatedAt,
+		UpdatedAt: user.UpdatedAt,
+	}, nil
+}
+
+func (s *AuthService) UpdateProfile(userId uint, nickname string) error {
+	result := DB.Model(&model.User{}).Where("id = ?", userId).Update("nickname", nickname)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return errors.New("用户不存在")
+	}
+	return nil
+}
+
+func (s *AuthService) ChangePassword(userId uint, oldPassword, newPassword string) error {
+	var user model.User
+	if err := DB.First(&user, userId).Error; err != nil {
+		return errors.New("用户不存在")
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(oldPassword)); err != nil {
+		return errors.New("原密码错误")
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return errors.New("密码加密失败")
+	}
+
+	result := DB.Model(&user).Update("password_hash", string(hashedPassword))
+	if result.Error != nil {
+		return result.Error
+	}
+	return nil
+}
+
 func (s *AuthService) getPermissionsByRole(role string) ([]string, error) {
 	if role == "R_SUPER" {
 		var permissions []model.Permission

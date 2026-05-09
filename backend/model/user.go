@@ -62,3 +62,24 @@ type UpdateUserRequest struct {
 	Nickname string `json:"nickname"`
 	Role     string `json:"role" binding:"required"`
 }
+
+// UserProfileResponse 用户详细信息响应
+type UserProfileResponse struct {
+	UserId    uint      `json:"userId"`
+	UserName  string    `json:"userName"`
+	Nickname  string    `json:"nickname"`
+	Role      string    `json:"role"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+
+// UpdateProfileRequest 更新当前用户信息请求
+type UpdateProfileRequest struct {
+	Nickname string `json:"nickname" binding:"required"`
+}
+
+// ChangePasswordRequest 修改密码请求
+type ChangePasswordRequest struct {
+	OldPassword string `json:"oldPassword" binding:"required"`
+	NewPassword string `json:"newPassword" binding:"required,min=6"`
+}

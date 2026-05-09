@@ -66,6 +66,11 @@ func main() {
 	apiGroup := r.Group("/api")
 	apiGroup.Use(api.AuthMiddleware(cfg.Auth.JWTSecret))
 	{
+		// User Profile APIs
+		apiGroup.GET("/user/profile", api.HandleGetUserProfile(authService))
+		apiGroup.PUT("/user/profile", api.HandleUpdateProfile(authService))
+		apiGroup.PUT("/user/password", api.HandleChangePassword(authService))
+
 		historyService := service.NewHistoryService()
 		historyHandler := api.NewHistoryHandler(historyService)
 

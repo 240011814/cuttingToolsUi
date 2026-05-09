@@ -6,3 +6,4 @@ export * from './note';
 export * from './history';
 export * from './custom-training';
 export * from './dashboard';
+export * from './user-profile';

@@ -718,6 +718,32 @@ declare namespace App {
           };
           exercise: Record<string, string>;
         };
+        userProfile: {
+          title: string;
+          basicInfo: string;
+          editNickname: string;
+          changePassword: string;
+          userName: string;
+          nickname: string;
+          role: string;
+          createdAt: string;
+          updatedAt: string;
+          nicknamePlaceholder: string;
+          nicknameRequired: string;
+          oldPassword: string;
+          oldPasswordPlaceholder: string;
+          oldPasswordRequired: string;
+          newPassword: string;
+          newPasswordPlaceholder: string;
+          newPasswordRequired: string;
+          passwordMinLength: string;
+          confirmPassword: string;
+          confirmPasswordPlaceholder: string;
+          confirmPasswordRequired: string;
+          passwordMismatch: string;
+          updateSuccess: string;
+          passwordChangeSuccess: string;
+        };
       };
       form: {
         required: string;

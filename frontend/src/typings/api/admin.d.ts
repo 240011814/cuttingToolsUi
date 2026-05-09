@@ -27,6 +27,24 @@ declare namespace Api {
       role: string;
     }
 
+    interface UserProfile {
+      userId: number;
+      userName: string;
+      nickname: string;
+      role: string;
+      createdAt: string;
+      updatedAt: string;
+    }
+
+    interface UpdateProfileParams {
+      nickname: string;
+    }
+
+    interface ChangePasswordParams {
+      oldPassword: string;
+      newPassword: string;
+    }
+
     interface Role {
       id: number;
       code: string;
