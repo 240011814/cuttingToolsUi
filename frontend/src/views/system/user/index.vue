@@ -48,19 +48,21 @@ const rules: FormRules = {
   role: [{ required: true, message: '请选择角色', trigger: ['change', 'blur'] }]
 };
 
+const hasRolePermission = computed(() => hasAuth('system:role:list'));
+
 const columns: DataTableColumns<Api.Admin.User> = [
   { title: '用户名', key: 'userName', minWidth: 140 },
   { title: '昵称', key: 'nickname', minWidth: 140 },
-  {
+  ...(hasRolePermission.value ? [{
     title: '角色',
     key: 'role',
     width: 180,
-    render(row) {
+    render(row: Api.Admin.User) {
       return h(NTag, { type: row.role === 'R_SUPER' ? 'error' : 'info', bordered: false }, {
         default: () => roleNameMap.value.get(row.role) || row.role
       });
     }
-  },
+  }] : []),
   {
     title: '创建时间',
     key: 'createdAt',
@@ -151,7 +153,9 @@ async function handleDelete(userId: number) {
 }
 
 onMounted(async () => {
-  await loadRoles();
+  if (hasRolePermission.value) {
+    await loadRoles();
+  }
   loadUsers();
 });
 </script>
@@ -174,7 +178,7 @@ onMounted(async () => {
       <div class="flex flex-col h-full gap-4">
         <div class="flex flex-wrap gap-3 items-center">
           <NInput v-model:value="keyword" clearable placeholder="搜索用户名或昵称" style="width: 260px" @keyup.enter="loadUsers" />
-          <NSelect v-model:value="role" clearable :options="roleOptions" placeholder="角色" style="width: 220px" />
+          <NSelect v-if="hasRolePermission" v-model:value="role" clearable :options="roleOptions" placeholder="角色" style="width: 220px" />
           <NButton type="primary" @click="loadUsers">
             <template #icon>
               <SvgIcon icon="mdi:magnify" />
@@ -198,7 +202,7 @@ onMounted(async () => {
         <NFormItem label="昵称" path="nickname">
           <NInput v-model:value="form.nickname" placeholder="请输入昵称" />
         </NFormItem>
-        <NFormItem label="角色" path="role">
+        <NFormItem v-if="hasRolePermission" label="角色" path="role">
           <NSelect v-model:value="form.role" :options="roleOptions" />
         </NFormItem>
       </NForm>
