@@ -1,6 +1,7 @@
 package api
 
 import (
+	"backend/service"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -62,6 +63,41 @@ func RequireRole(roles ...string) gin.HandlerFunc {
 			c.Abort()
 			return
 		}
+		c.Next()
+	}
+}
+
+func RequirePermission(permissions ...string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		role, _ := c.Get("role")
+		roleValue, _ := role.(string)
+
+		// 超级管理员拥有所有权限
+		if roleValue == "R_SUPER" {
+			c.Next()
+			return
+		}
+
+		userID, exists := c.Get("userId")
+		if !exists {
+			SendError(c, "401", "未登录")
+			c.Abort()
+			return
+		}
+
+		hasPermission, err := service.CheckUserPermission(userID.(uint), permissions)
+		if err != nil {
+			SendError(c, "500", "权限检查失败")
+			c.Abort()
+			return
+		}
+
+		if !hasPermission {
+			SendError(c, "403", "无权限访问")
+			c.Abort()
+			return
+		}
+
 		c.Next()
 	}
 }

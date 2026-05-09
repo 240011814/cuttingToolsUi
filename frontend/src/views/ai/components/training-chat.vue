@@ -28,6 +28,7 @@ const props = withDefaults(
     systemPrompt: string;
     initialMessage: string;
     moduleKey: string;
+    trainingType?: string;
     inputPlaceholder?: string;
     assistantColor?: string;
     enableVocabulary?: boolean;
@@ -35,6 +36,7 @@ const props = withDefaults(
     speechRate?: number;
   }>(),
   {
+    trainingType: "",
     inputPlaceholder: "输入消息... (回车发送，Shift + 回车换行)",
     assistantColor: "#2080f0",
     enableVocabulary: false,
@@ -315,7 +317,7 @@ const sendMessage = async () => {
 
   try {
     const history = messages.value.slice(0, -1).filter((item) => item.content.trim());
-    const routeName = (route.name as string) || "ai_chat";
+    const routeName = props.trainingType || (route.name as string) || "ai_chat";
 
     const response = await fetchChatStream({
       history_id: historyId.value,

@@ -63,6 +63,17 @@ export const generatedRoutes: GeneratedRoute[] = [
         }
       },
       {
+        name: 'ai_custom-training',
+        path: '/ai/custom-training/:id',
+        component: 'view.ai_custom-training',
+        meta: {
+          title: 'ai_custom-training',
+          i18nKey: 'route.ai_custom-training',
+          permissions: ['ai:custom-training:view'],
+          hideInMenu: true
+        }
+      },
+      {
         name: 'ai_decision',
         path: '/ai/decision',
         component: 'view.ai_decision',
@@ -93,6 +104,7 @@ export const generatedRoutes: GeneratedRoute[] = [
         meta: {
           title: 'ai_exercise',
           i18nKey: 'route.ai_exercise',
+          permissions: ['ai:chat:view'],
           hideInMenu: true,
           keepAlive: true
         }
@@ -152,6 +164,7 @@ export const generatedRoutes: GeneratedRoute[] = [
           title: 'ai_vocabulary',
           i18nKey: 'route.ai_vocabulary',
           icon: 'mdi:book-open-outline',
+          permissions: ['ai:vocabulary:view'],
           order: 6
         }
       }
@@ -212,7 +225,7 @@ export const generatedRoutes: GeneratedRoute[] = [
         meta: {
           title: 'system_ai-config',
           i18nKey: 'route.system_ai-config',
-          permissions: ['sys:ai:config:list'],
+          permissions: ['system:ai-provider:view', 'system:ai-model:view'],
           icon: 'mdi:robot-confused-outline'
         }
       },
@@ -224,7 +237,7 @@ export const generatedRoutes: GeneratedRoute[] = [
           title: 'system_permission',
           i18nKey: 'route.system_permission',
           icon: 'mdi:shield-key-outline',
-          permissions: ['system:permission:view']
+          permissions: ['system:permission:view', 'system:role:list']
         }
       },
       {
@@ -235,7 +248,7 @@ export const generatedRoutes: GeneratedRoute[] = [
           title: 'system_user',
           i18nKey: 'route.system_user',
           icon: 'mdi:account-cog-outline',
-          roles: ['R_SUPER']
+          permissions: ['system:user:list']
         }
       }
     ]

@@ -168,6 +168,7 @@ const routeMap: RouteMap = {
   "500": "/500",
   "ai": "/ai",
   "ai_chat": "/ai/chat",
+  "ai_custom-training": "/ai/custom-training/:id",
   "ai_decision": "/ai/decision",
   "ai_emergency": "/ai/emergency",
   "ai_exercise": "/ai/exercise",

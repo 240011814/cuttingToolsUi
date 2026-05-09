@@ -43,6 +43,9 @@ func main() {
 	promptService := service.NewPromptService(service.DB)
 	promptHandler := api.NewPromptHandler(promptService)
 
+	customTrainingService := service.NewCustomTrainingService()
+	customTrainingHandler := api.NewCustomTrainingHandler(customTrainingService)
+
 	r.GET("/api/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"status":  "ok",
@@ -63,68 +66,90 @@ func main() {
 		historyService := service.NewHistoryService()
 		historyHandler := api.NewHistoryHandler(historyService)
 
-		apiGroup.GET("/ai/models", api.HandleListModels(aiService))
-		apiGroup.POST("/chat", api.HandleChatStream(aiService, historyService))
+		apiGroup.GET("/ai/models", api.RequirePermission("ai:model:view"), api.HandleListModels(aiService))
+		apiGroup.POST("/chat", api.RequirePermission("ai:chat:send"), api.HandleChatStream(aiService, historyService))
 
 		// User specific AI prompt management
-		apiGroup.GET("/user-prompts/:moduleKey", promptHandler.GetUserPrompt)
-		apiGroup.POST("/user-prompts/:moduleKey", promptHandler.SaveUserPrompt)
-		apiGroup.PUT("/user-prompts/:moduleKey/switch", promptHandler.SwitchUserPrompt)
-		apiGroup.DELETE("/user-prompts/:moduleKey/versions/:versionId", promptHandler.HandleDeleteVersion)
-		apiGroup.DELETE("/user-prompts/:moduleKey", promptHandler.ResetUserPrompt)
+		promptGroup := apiGroup.Group("/user-prompts")
+		{
+			promptGroup.GET("/:moduleKey", api.RequirePermission("ai:prompt:view"), promptHandler.GetUserPrompt)
+			promptGroup.POST("/:moduleKey", api.RequirePermission("ai:prompt:save"), promptHandler.SaveUserPrompt)
+			promptGroup.PUT("/:moduleKey/switch", api.RequirePermission("ai:prompt:switch"), promptHandler.SwitchUserPrompt)
+			promptGroup.DELETE("/:moduleKey/versions/:versionId", api.RequirePermission("ai:prompt:delete"), promptHandler.HandleDeleteVersion)
+			promptGroup.DELETE("/:moduleKey", api.RequirePermission("ai:prompt:reset"), promptHandler.ResetUserPrompt)
+		}
 
 		vocabGroup := apiGroup.Group("/vocabulary")
+		vocabGroup.Use(api.RequirePermission("ai:vocabulary:view"))
 		{
-			vocabGroup.POST("", vocabHandler.HandleAddWord)
+			vocabGroup.POST("", api.RequirePermission("ai:vocabulary:add"), vocabHandler.HandleAddWord)
 			vocabGroup.GET("", vocabHandler.HandleListWords)
-			vocabGroup.PUT("/:id", vocabHandler.HandleUpdateWord)
-			vocabGroup.DELETE("/:id", vocabHandler.HandleDeleteWord)
+			vocabGroup.PUT("/:id", api.RequirePermission("ai:vocabulary:edit"), vocabHandler.HandleUpdateWord)
+			vocabGroup.DELETE("/:id", api.RequirePermission("ai:vocabulary:delete"), vocabHandler.HandleDeleteWord)
 		}
 
 		noteGroup := apiGroup.Group("/notes")
+		noteGroup.Use(api.RequirePermission("ai:note:view"))
 		{
-			noteGroup.POST("", noteHandler.HandleCreateNote)
+			noteGroup.POST("", api.RequirePermission("ai:note:create"), noteHandler.HandleCreateNote)
 			noteGroup.GET("", noteHandler.HandleListNotes)
-			noteGroup.PUT("/:id", noteHandler.HandleUpdateNote)
-			noteGroup.DELETE("/:id", noteHandler.HandleDeleteNote)
+			noteGroup.PUT("/:id", api.RequirePermission("ai:note:edit"), noteHandler.HandleUpdateNote)
+			noteGroup.DELETE("/:id", api.RequirePermission("ai:note:delete"), noteHandler.HandleDeleteNote)
 		}
 
 		historyGroup := apiGroup.Group("/histories")
+		historyGroup.Use(api.RequirePermission("ai:history:view"))
 		{
 			historyGroup.GET("", historyHandler.ListHistory)
 			historyGroup.GET("/:id", historyHandler.GetHistory)
-			historyGroup.PUT("/:id/favorite", historyHandler.UpdateFavorite)
-			historyGroup.PUT("/:id/title", historyHandler.UpdateTitle)
-			historyGroup.DELETE("/:id", historyHandler.DeleteHistory)
+			historyGroup.PUT("/:id/favorite", api.RequirePermission("ai:history:favorite"), historyHandler.UpdateFavorite)
+			historyGroup.PUT("/:id/title", api.RequirePermission("ai:history:edit"), historyHandler.UpdateTitle)
+			historyGroup.DELETE("/:id", api.RequirePermission("ai:history:delete"), historyHandler.DeleteHistory)
+		}
+
+		customTrainingGroup := apiGroup.Group("/custom-trainings")
+		customTrainingGroup.Use(api.RequirePermission("ai:custom-training:view"))
+		{
+			customTrainingGroup.GET("", customTrainingHandler.ListCustomTrainings)
+			customTrainingGroup.GET("/:id", customTrainingHandler.GetCustomTraining)
+			customTrainingGroup.POST("", api.RequirePermission("ai:custom-training:create"), customTrainingHandler.CreateCustomTraining)
+			customTrainingGroup.PUT("/:id", api.RequirePermission("ai:custom-training:edit"), customTrainingHandler.UpdateCustomTraining)
+			customTrainingGroup.DELETE("/:id", api.RequirePermission("ai:custom-training:delete"), customTrainingHandler.DeleteCustomTraining)
 		}
 
 		adminGroup := apiGroup.Group("/admin")
-		adminGroup.Use(api.RequireRole("R_SUPER", "R_ADMIN"))
 		{
-			adminGroup.GET("/users", adminHandler.HandleListUsers)
-			adminGroup.POST("/users", adminHandler.HandleCreateUser)
-			adminGroup.PUT("/users/:id", adminHandler.HandleUpdateUser)
-			adminGroup.DELETE("/users/:id", adminHandler.HandleDeleteUser)
-			adminGroup.GET("/roles", adminHandler.HandleListRoles)
-			adminGroup.POST("/roles", adminHandler.HandleCreateRole)
-			adminGroup.DELETE("/roles/:roleCode", adminHandler.HandleDeleteRole)
-			adminGroup.GET("/permissions", adminHandler.HandleListPermissions)
-			adminGroup.POST("/permissions", adminHandler.HandleCreatePermission)
-			adminGroup.PUT("/permissions/:id", adminHandler.HandleUpdatePermission)
-			adminGroup.DELETE("/permissions/:id", adminHandler.HandleDeletePermission)
-			adminGroup.GET("/roles/:roleCode/permissions", adminHandler.HandleGetRolePermissions)
-			adminGroup.PUT("/roles/:roleCode/permissions", adminHandler.HandleUpdateRolePermissions)
+			// User Management
+			adminGroup.GET("/users", api.RequirePermission("system:user:list"), adminHandler.HandleListUsers)
+			adminGroup.POST("/users", api.RequirePermission("system:user:create"), adminHandler.HandleCreateUser)
+			adminGroup.PUT("/users/:id", api.RequirePermission("system:user:update"), adminHandler.HandleUpdateUser)
+			adminGroup.DELETE("/users/:id", api.RequirePermission("system:user:delete"), adminHandler.HandleDeleteUser)
+
+			// Role Management
+			adminGroup.GET("/roles", api.RequirePermission("system:role:list"), adminHandler.HandleListRoles)
+			adminGroup.POST("/roles", api.RequirePermission("system:role:create"), adminHandler.HandleCreateRole)
+			adminGroup.DELETE("/roles/:roleCode", api.RequirePermission("system:role:delete"), adminHandler.HandleDeleteRole)
+
+			// Permission Management
+			adminGroup.GET("/permissions", api.RequirePermission("system:permission:view"), adminHandler.HandleListPermissions)
+			adminGroup.POST("/permissions", api.RequirePermission("system:permission:create"), adminHandler.HandleCreatePermission)
+			adminGroup.PUT("/permissions/:id", api.RequirePermission("system:permission:update"), adminHandler.HandleUpdatePermission)
+			adminGroup.DELETE("/permissions/:id", api.RequirePermission("system:permission:delete"), adminHandler.HandleDeletePermission)
+
+			// Role Permission Management
+			adminGroup.GET("/roles/:roleCode/permissions", api.RequirePermission("system:role:permission:view"), adminHandler.HandleGetRolePermissions)
+			adminGroup.PUT("/roles/:roleCode/permissions", api.RequirePermission("system:role:permission:update"), adminHandler.HandleUpdateRolePermissions)
 
 			// AI Config Management
-			adminGroup.GET("/ai-providers", adminHandler.HandleListAIProviders)
-			adminGroup.POST("/ai-providers", adminHandler.HandleCreateAIProvider)
-			adminGroup.PUT("/ai-providers/:id", adminHandler.HandleUpdateAIProvider)
-			adminGroup.DELETE("/ai-providers/:id", adminHandler.HandleDeleteAIProvider)
+			adminGroup.GET("/ai-providers", api.RequirePermission("system:ai-provider:view"), adminHandler.HandleListAIProviders)
+			adminGroup.POST("/ai-providers", api.RequirePermission("system:ai-provider:create"), adminHandler.HandleCreateAIProvider)
+			adminGroup.PUT("/ai-providers/:id", api.RequirePermission("system:ai-provider:update"), adminHandler.HandleUpdateAIProvider)
+			adminGroup.DELETE("/ai-providers/:id", api.RequirePermission("system:ai-provider:delete"), adminHandler.HandleDeleteAIProvider)
 
-			adminGroup.GET("/ai-models", adminHandler.HandleListAIModels)
-			adminGroup.POST("/ai-models", adminHandler.HandleCreateAIModel)
-			adminGroup.PUT("/ai-models/:id", adminHandler.HandleUpdateAIModel)
-			adminGroup.DELETE("/ai-models/:id", adminHandler.HandleDeleteAIModel)
+			adminGroup.GET("/ai-models", api.RequirePermission("system:ai-model:view"), adminHandler.HandleListAIModels)
+			adminGroup.POST("/ai-models", api.RequirePermission("system:ai-model:create"), adminHandler.HandleCreateAIModel)
+			adminGroup.PUT("/ai-models/:id", api.RequirePermission("system:ai-model:update"), adminHandler.HandleUpdateAIModel)
+			adminGroup.DELETE("/ai-models/:id", api.RequirePermission("system:ai-model:delete"), adminHandler.HandleDeleteAIModel)
 		}
 	}
 
