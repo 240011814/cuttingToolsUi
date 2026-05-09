@@ -95,6 +95,7 @@ func main() {
 			historyGroup.GET("/:id", historyHandler.GetHistory)
 			historyGroup.PUT("/:id/favorite", historyHandler.UpdateFavorite)
 			historyGroup.PUT("/:id/title", historyHandler.UpdateTitle)
+			historyGroup.DELETE("/:id", historyHandler.DeleteHistory)
 		}
 
 		adminGroup := apiGroup.Group("/admin")

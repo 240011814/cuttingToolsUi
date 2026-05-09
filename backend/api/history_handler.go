@@ -121,3 +121,25 @@ func (h *HistoryHandler) UpdateTitle(c *gin.Context) {
 
 	SendSuccess(c, nil)
 }
+
+func (h *HistoryHandler) DeleteHistory(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		SendError(c, "400", "Invalid history ID")
+		return
+	}
+
+	userID, exists := c.Get("userId")
+	if !exists {
+		SendError(c, "401", "Unauthorized")
+		return
+	}
+
+	if err := h.historyService.DeleteHistory(userID.(uint), uint(id)); err != nil {
+		SendError(c, "500", "Failed to delete history")
+		return
+	}
+
+	SendSuccess(c, nil)
+}

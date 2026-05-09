@@ -52,6 +52,10 @@ func (s *HistoryService) UpdateTitle(userID uint, historyID uint, title string) 
 	return DB.Model(&model.TrainingHistory{}).Where("id = ? AND user_id = ?", historyID, userID).Update("title", title).Error
 }
 
+func (s *HistoryService) DeleteHistory(userID uint, historyID uint) error {
+	return DB.Where("id = ? AND user_id = ?", historyID, userID).Delete(&model.TrainingHistory{}).Error
+}
+
 func (s *HistoryService) SaveHistory(userID uint, historyID uint, trainingType string, title string, messages string, isFavorite bool) (uint, error) {
 	if historyID > 0 {
 		// Update existing

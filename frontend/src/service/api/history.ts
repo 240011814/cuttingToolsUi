@@ -53,3 +53,10 @@ export function fetchUpdateHistoryTitle(id: number, title: string) {
     data: { title }
   });
 }
+
+export function fetchDeleteHistory(id: number) {
+  return request({
+    url: `/api/histories/${id}`,
+    method: 'delete'
+  });
+}

@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { h, onMounted, ref, computed, resolveComponent } from 'vue';
 import { useRouter } from 'vue-router';
-import { useMessage, NTag, NButton, NDrawer, NDrawerContent, NAvatar, NSelect } from 'naive-ui';
+import { useMessage, NTag, NButton, NDrawer, NDrawerContent, NAvatar, NSelect, NPopconfirm } from 'naive-ui';
 import type { DataTableColumns } from 'naive-ui';
-import { fetchHistoryList, fetchUpdateFavorite } from '@/service/api';
+import { fetchHistoryList, fetchUpdateFavorite, fetchDeleteHistory } from '@/service/api';
 
 import MarkdownIt from 'markdown-it';
 
@@ -88,6 +88,16 @@ const handleToggleFavorite = async (row: any) => {
   }
 };
 
+const handleDelete = async (row: any) => {
+  try {
+    await fetchDeleteHistory(row.id);
+    message.success('删除成功');
+    loadData();
+  } catch (err: any) {
+    message.error(`删除失败: ${err?.message || '未知错误'}`);
+  }
+};
+
 const columns = computed<DataTableColumns<any>>(() => {
   return [
     {
@@ -158,12 +168,16 @@ const columns = computed<DataTableColumns<any>>(() => {
     {
       title: '操作',
       key: 'actions',
-      width: 160,
+      width: 200,
       fixed: 'right',
       render(row) {
         return h('div', { class: 'flex gap-2' }, [
           h(NButton, { size: 'small', type: 'primary', quaternary: true, onClick: () => handleView(row) }, { default: () => '查看' }),
-          h(NButton, { size: 'small', type: 'success', quaternary: true, onClick: () => handleContinue(row) }, { default: () => '继续训练' })
+          h(NButton, { size: 'small', type: 'success', quaternary: true, onClick: () => handleContinue(row) }, { default: () => '继续训练' }),
+          h(NPopconfirm, { onPositiveClick: () => handleDelete(row) }, {
+            trigger: () => h(NButton, { size: 'small', type: 'error', quaternary: true }, { default: () => '删除' }),
+            default: () => '确定删除这条记录吗？'
+          })
         ]);
       }
     }
