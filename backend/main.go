@@ -46,6 +46,9 @@ func main() {
 	customTrainingService := service.NewCustomTrainingService()
 	customTrainingHandler := api.NewCustomTrainingHandler(customTrainingService)
 
+	dashboardService := service.NewDashboardService()
+	dashboardHandler := api.NewDashboardHandler(dashboardService)
+
 	r.GET("/api/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"status":  "ok",
@@ -66,6 +69,7 @@ func main() {
 		historyService := service.NewHistoryService()
 		historyHandler := api.NewHistoryHandler(historyService)
 
+		apiGroup.GET("/dashboard/stats", dashboardHandler.GetStats)
 		apiGroup.GET("/ai/models", api.RequirePermission("ai:model:view"), api.HandleListModels(aiService))
 		apiGroup.POST("/chat", api.RequirePermission("ai:chat:send"), api.HandleChatStream(aiService, historyService))
 

@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router';
 import { useMessage, NTag, NButton, NDrawer, NDrawerContent, NAvatar, NSelect, NPopconfirm } from 'naive-ui';
 import type { DataTableColumns } from 'naive-ui';
 import { fetchHistoryList, fetchUpdateFavorite, fetchDeleteHistory } from '@/service/api';
+import { $t } from '@/locales';
 
 import MarkdownIt from 'markdown-it';
 
@@ -23,11 +24,11 @@ const loading = ref(false);
 const data = ref<any[]>([]);
 const title = ref('');
 const favoriteFilter = ref(null);
-const favoriteOptions = [
-  { label: '全部', value: null },
-  { label: '已收藏', value: true },
-  { label: '未收藏', value: false }
-];
+const favoriteOptions = computed(() => [
+  { label: $t('page.ai.history.all'), value: null },
+  { label: $t('page.ai.history.favorited'), value: true },
+  { label: $t('page.ai.history.unfavorited'), value: false }
+]);
 const total = ref(0);
 const pagination = ref({
   page: 1,
@@ -52,7 +53,7 @@ const handleView = (row: any) => {
     currentMessages.value = JSON.parse(row.messages || '[]');
     showDrawer.value = true;
   } catch (e) {
-    message.error('无法解析该记录的对话数据');
+    message.error($t('page.ai.history.parseFailed'));
   }
 };
 
@@ -66,7 +67,7 @@ const trainingTypeRouteMap: Record<string, string> = {
 const handleContinue = (row: any) => {
   const route = trainingTypeRouteMap[row.training_type];
   if (!route) {
-    message.error('未知的训练类型');
+    message.error($t('page.ai.history.unknownType'));
     return;
   }
   
@@ -82,52 +83,52 @@ const handleToggleFavorite = async (row: any) => {
   try {
     await fetchUpdateFavorite(row.id, !row.is_favorite);
     row.is_favorite = !row.is_favorite;
-    message.success(row.is_favorite ? '已收藏' : '已取消收藏');
+    message.success(row.is_favorite ? $t('page.ai.history.favoritedSuccess') : $t('page.ai.history.unfavoritedSuccess'));
   } catch (err: any) {
-    message.error(`操作失败: ${err?.message || '未知错误'}`);
+    message.error(`${$t('page.ai.history.operationFailed')}: ${err?.message || $t('common.error')}`);
   }
 };
 
 const handleDelete = async (row: any) => {
   try {
     await fetchDeleteHistory(row.id);
-    message.success('删除成功');
+    message.success($t('page.ai.history.deleteSuccess'));
     loadData();
   } catch (err: any) {
-    message.error(`删除失败: ${err?.message || '未知错误'}`);
+    message.error(`${$t('page.ai.history.deleteFailed')}: ${err?.message || $t('common.error')}`);
   }
 };
 
 const columns = computed<DataTableColumns<any>>(() => {
   return [
     {
-      title: '训练项目',
+      title: $t('page.ai.history.trainingProject'),
       key: 'training_type',
       width: 120,
       render(row) {
         const typeMap: Record<string, string> = {
-          ai_chat: '英语训练',
-          ai_decision: '决策训练',
-          ai_social: '社交训练',
-          ai_emergency: '应急训练'
+          ai_chat: $t('route.ai_chat'),
+          ai_decision: $t('route.ai_decision'),
+          ai_social: $t('route.ai_social'),
+          ai_emergency: $t('route.ai_emergency')
         };
         return h(NTag, { type: 'info', bordered: false }, { default: () => typeMap[row.training_type] || row.training_type });
       }
     },
     { 
-      title: '标题/内容', 
+      title: $t('page.ai.history.titleContent'), 
       key: 'title', 
       minWidth: 150
     },
     {
-      title: '最近对话',
+      title: $t('page.ai.history.recentChat'),
       key: 'last_message',
       minWidth: 200,
       render(row) {
         try {
           const msgs = JSON.parse(row.messages || '[]');
           const lastMsg = msgs[msgs.length - 1];
-          if (!lastMsg) return h('span', { class: 'text-gray-400' }, '无对话记录');
+          if (!lastMsg) return h('span', { class: 'text-gray-400' }, $t('page.ai.history.noChatRecord'));
           
           let content = lastMsg.content;
           content = content.replace(/<[^>]*>?/gm, '').replace(/[#*`]/g, '').trim();
@@ -138,12 +139,12 @@ const columns = computed<DataTableColumns<any>>(() => {
             h('span', content)
           ]);
         } catch (e) {
-          return h('span', { class: 'text-error' }, '解析失败');
+          return h('span', { class: 'text-error' }, $t('page.ai.history.parseFailed'));
         }
       }
     },
     {
-      title: '收藏',
+      title: $t('page.ai.history.favorite'),
       key: 'is_favorite',
       width: 80,
       align: 'center',
@@ -158,7 +159,7 @@ const columns = computed<DataTableColumns<any>>(() => {
       }
     },
     {
-      title: '训练时间',
+      title: $t('page.ai.history.trainingTime'),
       key: 'created_at',
       width: 160,
       render(row) {
@@ -166,17 +167,17 @@ const columns = computed<DataTableColumns<any>>(() => {
       }
     },
     {
-      title: '操作',
+      title: $t('page.ai.history.actions'),
       key: 'actions',
       width: 200,
       fixed: 'right',
       render(row) {
         return h('div', { class: 'flex gap-2' }, [
-          h(NButton, { size: 'small', type: 'primary', quaternary: true, onClick: () => handleView(row) }, { default: () => '查看' }),
-          h(NButton, { size: 'small', type: 'success', quaternary: true, onClick: () => handleContinue(row) }, { default: () => '继续训练' }),
+          h(NButton, { size: 'small', type: 'primary', quaternary: true, onClick: () => handleView(row) }, { default: () => $t('page.ai.history.view') }),
+          h(NButton, { size: 'small', type: 'success', quaternary: true, onClick: () => handleContinue(row) }, { default: () => $t('page.ai.history.continueTraining') }),
           h(NPopconfirm, { onPositiveClick: () => handleDelete(row) }, {
-            trigger: () => h(NButton, { size: 'small', type: 'error', quaternary: true }, { default: () => '删除' }),
-            default: () => '确定删除这条记录吗？'
+            trigger: () => h(NButton, { size: 'small', type: 'error', quaternary: true }, { default: () => $t('common.delete') }),
+            default: () => $t('page.ai.history.deleteConfirm')
           })
         ]);
       }
@@ -199,7 +200,7 @@ const loadData = async () => {
       pagination.value.itemCount = res.total;
     }
   } catch (err: any) {
-    message.error(`获取列表失败: ${err?.message || '未知错误'}`);
+    message.error(`${$t('page.ai.history.loadFailed')}: ${err?.message || $t('common.error')}`);
   } finally {
     loading.value = false;
   }
@@ -215,7 +216,7 @@ onMounted(() => {
     <NCard :bordered="false" shadow="sm" class="flex-1">
       <template #header>
         <div class="flex items-center gap-4">
-          <span class="text-18px font-bold">历史记录</span>
+          <span class="text-18px font-bold">{{ $t('page.ai.history.title') }}</span>
         </div>
       </template>
       <div class="flex flex-col h-full gap-4">
@@ -223,14 +224,14 @@ onMounted(() => {
           <div class="flex gap-4 items-center">
             <NInput
               v-model:value="title"
-              placeholder="搜索对话标题/内容..."
+              :placeholder="$t('page.ai.history.searchPlaceholder')"
               clearable
               style="width: 240px"
               @keyup.enter="loadData"
             />
             <NSelect
               v-model:value="favoriteFilter"
-              placeholder="收藏状态"
+              :placeholder="$t('page.ai.history.favoriteStatus')"
               clearable
               :options="favoriteOptions"
               style="width: 120px"
@@ -240,7 +241,7 @@ onMounted(() => {
               <template #icon>
                 <icon-mdi-magnify class="text-icon" />
               </template>
-              搜索
+              {{ $t('common.search') }}
             </NButton>
           </div>
           <div class="flex gap-2 items-center">
@@ -266,7 +267,7 @@ onMounted(() => {
     </NCard>
 
     <NDrawer v-model:show="showDrawer" width="600" placement="right">
-      <NDrawerContent title="对话详情">
+      <NDrawerContent :title="$t('page.ai.history.chatDetail')">
         <div class="flex flex-col gap-4">
           <div
             v-for="(msg, index) in currentMessages"

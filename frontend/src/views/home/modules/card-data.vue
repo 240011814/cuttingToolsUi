@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { createReusableTemplate } from '@vueuse/core';
 import { useThemeStore } from '@/store/modules/theme';
-import { $t } from '@/locales';
+import { fetchDashboardStats } from '@/service/api';
+import type { DashboardStats } from '@/service/api';
 
 defineOptions({
   name: 'CardData'
@@ -20,50 +21,59 @@ interface CardData {
   icon: string;
 }
 
+const stats = ref<DashboardStats | null>(null);
+
+const loadStats = async () => {
+  const { data, error } = await fetchDashboardStats();
+  if (!error) {
+    stats.value = data;
+  }
+};
+
 const cardData = computed<CardData[]>(() => [
   {
-    key: 'visitCount',
-    title: $t('page.home.visitCount'),
-    value: 9725,
+    key: 'todayTrainings',
+    title: '今日训练',
+    value: stats.value?.today_trainings || 0,
     unit: '',
     color: {
       start: '#ec4786',
       end: '#b955a4'
     },
-    icon: 'ant-design:bar-chart-outlined'
+    icon: 'mdi:calendar-check'
   },
   {
-    key: 'turnover',
-    title: $t('page.home.turnover'),
-    value: 1026,
-    unit: '$',
+    key: 'totalTrainings',
+    title: '累计训练',
+    value: stats.value?.total_trainings || 0,
+    unit: '',
     color: {
       start: '#865ec0',
       end: '#5144b4'
     },
-    icon: 'ant-design:money-collect-outlined'
+    icon: 'mdi:chart-line'
   },
   {
-    key: 'downloadCount',
-    title: $t('page.home.downloadCount'),
-    value: 970925,
+    key: 'totalVocabulary',
+    title: '生词本',
+    value: stats.value?.total_vocabulary || 0,
     unit: '',
     color: {
       start: '#56cdf3',
       end: '#719de3'
     },
-    icon: 'carbon:document-download'
+    icon: 'mdi:book-open-variant'
   },
   {
-    key: 'dealCount',
-    title: $t('page.home.dealCount'),
-    value: 9527,
+    key: 'totalNotes',
+    title: '笔记数量',
+    value: stats.value?.total_notes || 0,
     unit: '',
     color: {
       start: '#fcbc25',
       end: '#f68057'
     },
-    icon: 'ant-design:trademark-circle-outlined'
+    icon: 'mdi:notebook-outline'
   }
 ]);
 
@@ -78,11 +88,14 @@ const themeStore = useThemeStore();
 function getGradientColor(color: CardData['color']) {
   return `linear-gradient(to bottom right, ${color.start}, ${color.end})`;
 }
+
+onMounted(() => {
+  loadStats();
+});
 </script>
 
 <template>
   <NCard :bordered="false" size="small" class="card-wrapper">
-    <!-- define component start: GradientBg -->
     <DefineGradientBg v-slot="{ $slots, gradientColor }">
       <div
         class="px-16px pb-4px pt-8px text-white"
@@ -91,7 +104,6 @@ function getGradientColor(color: CardData['color']) {
         <component :is="$slots.default" />
       </div>
     </DefineGradientBg>
-    <!-- define component end: GradientBg -->
 
     <NGrid cols="s:1 m:2 l:4" responsive="screen" :x-gap="16" :y-gap="16">
       <NGi v-for="item in cardData" :key="item.key">

@@ -1,14 +1,11 @@
 <script setup lang="ts">
-import { watch } from 'vue';
-import { useAppStore } from '@/store/modules/app';
+import { onMounted } from 'vue';
 import { useEcharts } from '@/hooks/common/echarts';
-import { $t } from '@/locales';
+import { fetchDashboardStats } from '@/service/api';
 
 defineOptions({
   name: 'PieChart'
 });
-
-const appStore = useAppStore();
 
 const { domRef, updateOptions } = useEcharts(() => ({
   tooltip: {
@@ -23,8 +20,8 @@ const { domRef, updateOptions } = useEcharts(() => ({
   },
   series: [
     {
-      color: ['#5da8ff', '#8e9dff', '#fedc69', '#26deca'],
-      name: $t('page.home.schedule'),
+      color: ['#5da8ff', '#8e9dff', '#fedc69', '#26deca', '#ff6b6b'],
+      name: '训练类型',
       type: 'pie',
       radius: ['45%', '75%'],
       avoidLabelOverlap: false,
@@ -51,57 +48,26 @@ const { domRef, updateOptions } = useEcharts(() => ({
   ]
 }));
 
-async function mockData() {
-  await new Promise(resolve => {
-    setTimeout(resolve, 1000);
-  });
-
-  updateOptions(opts => {
-    opts.series[0].data = [
-      { name: $t('page.home.study'), value: 20 },
-      { name: $t('page.home.entertainment'), value: 10 },
-      { name: $t('page.home.work'), value: 40 },
-      { name: $t('page.home.rest'), value: 30 }
-    ];
-
-    return opts;
-  });
-}
-
-function updateLocale() {
-  updateOptions((opts, factory) => {
-    const originOpts = factory();
-
-    opts.series[0].name = originOpts.series[0].name;
-
-    opts.series[0].data = [
-      { name: $t('page.home.study'), value: 20 },
-      { name: $t('page.home.entertainment'), value: 10 },
-      { name: $t('page.home.work'), value: 40 },
-      { name: $t('page.home.rest'), value: 30 }
-    ];
-
-    return opts;
-  });
-}
-
-async function init() {
-  mockData();
-}
-
-watch(
-  () => appStore.locale,
-  () => {
-    updateLocale();
+async function loadData() {
+  const { data, error } = await fetchDashboardStats();
+  if (!error && data) {
+    updateOptions(opts => {
+      opts.series[0].data = data.training_type_stats.map(item => ({
+        name: item.type,
+        value: item.count
+      }));
+      return opts;
+    });
   }
-);
+}
 
-// init
-init();
+onMounted(() => {
+  loadData();
+});
 </script>
 
 <template>
-  <NCard :bordered="false" class="card-wrapper">
+  <NCard :bordered="false" class="card-wrapper" title="训练类型分布">
     <div ref="domRef" class="h-360px overflow-hidden"></div>
   </NCard>
 </template>

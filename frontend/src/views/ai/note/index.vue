@@ -4,6 +4,7 @@ import { NButton, NPopconfirm, useMessage, NTag } from 'naive-ui';
 import type { DataTableColumns } from 'naive-ui';
 import { fetchDeleteNote, fetchGetNoteList, fetchUpdateNote } from '@/service/api';
 import MarkdownIt from 'markdown-it';
+import { $t } from '@/locales';
 
 const md = new MarkdownIt({
   html: true,
@@ -35,15 +36,15 @@ const pagination = ref({
 const columns = computed<DataTableColumns<any>>(() => {
   return [
     {
-      title: '标题',
+      title: $t('page.ai.note.noteTitle'),
       key: 'title',
       width: 200,
       render(row) {
-        return h('span', { class: 'font-bold' }, row.title || '无标题');
+        return h('span', { class: 'font-bold' }, row.title || $t('page.ai.note.noTitle'));
       }
     },
     {
-      title: '分类',
+      title: $t('page.ai.note.category'),
       key: 'category',
       width: 120,
       render(row) {
@@ -51,7 +52,7 @@ const columns = computed<DataTableColumns<any>>(() => {
       }
     },
     {
-      title: '内容',
+      title: $t('page.ai.note.content'),
       key: 'content',
       minWidth: 300,
       render(row) {
@@ -62,7 +63,7 @@ const columns = computed<DataTableColumns<any>>(() => {
       }
     },
     {
-      title: '创建时间',
+      title: $t('page.ai.note.createdAt'),
       key: 'createdAt',
       width: 180,
       render(row) {
@@ -70,14 +71,14 @@ const columns = computed<DataTableColumns<any>>(() => {
       }
     },
     {
-      title: '操作',
+      title: $t('page.ai.note.actions'),
       key: 'actions',
       width: 200,
       fixed: 'right',
       render(row) {
         return h('div', { class: 'flex gap-2' }, [
-          h(NButton, { size: 'small', type: 'primary', quaternary: true, onClick: () => handleView(row) }, { default: () => '查看' }),
-          h(NButton, { size: 'small', type: 'info', quaternary: true, onClick: () => handleEdit(row) }, { default: () => '编辑' }),
+          h(NButton, { size: 'small', type: 'primary', quaternary: true, onClick: () => handleView(row) }, { default: () => $t('page.ai.note.view') }),
+          h(NButton, { size: 'small', type: 'info', quaternary: true, onClick: () => handleEdit(row) }, { default: () => $t('page.ai.note.edit') }),
           h(
           NPopconfirm,
           {
@@ -85,8 +86,8 @@ const columns = computed<DataTableColumns<any>>(() => {
             trigger: 'click'
           },
           {
-            trigger: () => h(NButton, { size: 'small', type: 'error', quaternary: true }, { default: () => '删除' }),
-            default: () => '确定删除此笔记吗？'
+            trigger: () => h(NButton, { size: 'small', type: 'error', quaternary: true }, { default: () => $t('common.delete') }),
+            default: () => $t('page.ai.note.deleteConfirm')
           }
         )
         ]);
@@ -110,7 +111,7 @@ const loadData = async () => {
       pagination.value.itemCount = res.total;
     }
   } catch (err: any) {
-    message.error(`获取列表失败: ${err?.message || '未知错误'}`);
+    message.error(`${$t('page.ai.note.loadFailed')}: ${err?.message || $t('common.error')}`);
   } finally {
     loading.value = false;
   }
@@ -119,13 +120,13 @@ const loadData = async () => {
 const handleDelete = async (id: number) => {
   try {
     await fetchDeleteNote(id);
-    message.success('删除成功');
+    message.success($t('page.ai.note.deleteSuccess'));
     if (data.value.length === 1 && pagination.value.page > 1) {
       pagination.value.page--;
     }
     loadData();
   } catch (err: any) {
-    message.error(`删除失败: ${err?.message || '未知错误'}`);
+    message.error(`${$t('page.ai.note.deleteFailed')}: ${err?.message || $t('common.error')}`);
   }
 };
 
@@ -156,7 +157,7 @@ const handleEdit = (row: any) => {
 
 const submitEdit = async () => {
   if (!editForm.value.title.trim() || !editForm.value.category.trim() || !editForm.value.content.trim()) {
-    message.warning('标题、分类和内容不能为空');
+    message.warning($t('page.ai.note.fieldsRequired'));
     return;
   }
   editLoading.value = true;
@@ -167,7 +168,7 @@ const submitEdit = async () => {
         category: editForm.value.category,
         content: editForm.value.content
       });
-      message.success('修改成功');
+      message.success($t('page.ai.note.updateSuccess'));
     } else {
       const { fetchAddNote } = await import('@/service/api');
       await fetchAddNote({
@@ -175,12 +176,12 @@ const submitEdit = async () => {
         category: editForm.value.category,
         content: editForm.value.content
       });
-      message.success('添加成功');
+      message.success($t('page.ai.note.addSuccess'));
     }
     showEditModal.value = false;
     loadData();
   } catch (err: any) {
-    message.error(`${isEdit.value ? '修改' : '添加'}失败: ${err?.message || '未知错误'}`);
+    message.error(`${$t('page.ai.note.operationFailed')}: ${err?.message || $t('common.error')}`);
   } finally {
     editLoading.value = false;
   }
@@ -196,7 +197,7 @@ onMounted(() => {
     <NCard :bordered="false" shadow="sm" class="flex-1">
       <template #header>
         <div class="flex items-center gap-4">
-          <span class="text-18px font-bold">笔记本</span>
+          <span class="text-18px font-bold">{{ $t('page.ai.note.title') }}</span>
         </div>
       </template>
       <div class="flex flex-col h-full gap-4">
@@ -204,14 +205,14 @@ onMounted(() => {
           <div class="flex gap-4 items-center">
             <NInput
               v-model:value="keyword"
-              placeholder="搜索标题或内容..."
+              :placeholder="$t('page.ai.note.searchTitlePlaceholder')"
               clearable
               style="width: 260px"
               @keyup.enter="loadData"
             />
             <NInput
               v-model:value="category"
-              placeholder="搜索分类..."
+              :placeholder="$t('page.ai.note.searchCategoryPlaceholder')"
               clearable
               style="width: 200px"
               @keyup.enter="loadData"
@@ -220,20 +221,20 @@ onMounted(() => {
               <template #icon>
                 <icon-mdi-magnify class="text-icon" />
               </template>
-              搜索
+              {{ $t('common.search') }}
             </NButton>
           </div>
           <div class="flex gap-2 items-center">
             <ButtonIcon
               icon="mdi:refresh"
-              tooltip-content="刷新"
+              :tooltip-content="$t('common.refresh')"
               @click="loadData"
             />
             <NButton type="primary" @click="handleAdd">
               <template #icon>
                 <icon-mdi-plus class="text-icon" />
               </template>
-              新增笔记
+              {{ $t('page.ai.note.addNote') }}
             </NButton>
           </div>
         </div>
@@ -255,7 +256,7 @@ onMounted(() => {
     <NModal
       v-model:show="showViewModal"
       preset="card"
-      title="查看笔记"
+      :title="$t('page.ai.note.viewNote')"
       style="width: 800px; max-width: 95vw;"
       :segmented="{ content: 'soft' }"
     >
@@ -270,26 +271,26 @@ onMounted(() => {
     <NModal
       v-model:show="showEditModal"
       preset="card"
-      :title="isEdit ? '编辑笔记' : '新增笔记'"
+      :title="isEdit ? $t('page.ai.note.editNote') : $t('page.ai.note.addNote')"
       style="width: 800px; max-width: 95vw;"
       :segmented="{ content: 'soft' }"
     >
       <NForm :model="editForm" label-placement="left" label-width="80">
         <div class="flex gap-4">
-          <NFormItem label="标题" path="title" class="flex-1">
-            <NInput v-model:value="editForm.title" placeholder="输入笔记标题" />
+          <NFormItem :label="$t('page.ai.note.noteTitle')" path="title" class="flex-1">
+            <NInput v-model:value="editForm.title" :placeholder="$t('page.ai.note.noteTitlePlaceholder')" />
           </NFormItem>
-          <NFormItem label="分类" path="category" style="width: 240px">
-            <NInput v-model:value="editForm.category" placeholder="输入笔记分类" />
+          <NFormItem :label="$t('page.ai.note.category')" path="category" style="width: 240px">
+            <NInput v-model:value="editForm.category" :placeholder="$t('page.ai.note.searchCategoryPlaceholder')" />
           </NFormItem>
         </div>
-        <NFormItem label="内容" path="content">
+        <NFormItem :label="$t('page.ai.note.content')" path="content">
           <div class="grid grid-cols-2 gap-4 w-full">
             <NInput
               v-model:value="editForm.content"
               type="textarea"
               :autosize="{ minRows: 12, maxRows: 15 }"
-              placeholder="输入笔记内容"
+              :placeholder="$t('page.ai.note.noteContentPlaceholder')"
             />
             <div
               class="prose dark:prose-invert max-w-none overflow-y-auto p-4 border border-gray-200 dark:border-gray-700 rounded-md bg-gray-50/50 dark:bg-dark-100 text-sm leading-relaxed"
@@ -301,9 +302,9 @@ onMounted(() => {
       </NForm>
       <template #footer>
         <div class="flex justify-end gap-3">
-          <NButton @click="showEditModal = false">取消</NButton>
+          <NButton @click="showEditModal = false">{{ $t('common.cancel') }}</NButton>
           <NButton type="primary" :loading="editLoading" @click="submitEdit">
-            保存修改
+            {{ $t('page.ai.note.saveSuccess') }}
           </NButton>
         </div>
       </template>

@@ -6,6 +6,7 @@ import { useRouterPush } from '@/hooks/common/router';
 import { fetchDeleteVocabulary, fetchGetVocabularyList, fetchUpdateVocabulary } from '@/service/api';
 import { onKeyStroke } from '@vueuse/core';
 import { speak } from '@/utils/tts';
+import { $t } from '@/locales';
 
 const message = useMessage();
 const dialog = useDialog();
@@ -20,7 +21,7 @@ const activeTab = ref<'new' | 'mastered'>('new');
 const columns = computed<DataTableColumns<any>>(() => {
   const cols: DataTableColumns<any> = [
     {
-      title: '单词',
+      title: $t('page.ai.vocabulary.word'),
       key: 'word',
       width: 150,
       render(row) {
@@ -28,7 +29,7 @@ const columns = computed<DataTableColumns<any>>(() => {
       }
     },
     {
-      title: '发音',
+      title: $t('page.ai.vocabulary.phonetic'),
       key: 'play',
       width: 80,
       render(row) {
@@ -47,12 +48,12 @@ const columns = computed<DataTableColumns<any>>(() => {
         );
       }
     },
-    { title: '音标', key: 'phonetic', width: 100 },
-    { title: '释义', key: 'definition', minWidth: 200 },
-    { title: '例句', key: 'example', minWidth: 200 },
-    { title: '易混淆', key: 'confusingWords', minWidth: 150 },
+    { title: $t('page.ai.vocabulary.phoneticSymbol'), key: 'phonetic', width: 100 },
+    { title: $t('page.ai.vocabulary.definition'), key: 'definition', minWidth: 200 },
+    { title: $t('page.ai.vocabulary.example'), key: 'example', minWidth: 200 },
+    { title: $t('page.ai.vocabulary.confusing'), key: 'confusingWords', minWidth: 150 },
     {
-      title: '添加时间',
+      title: $t('page.ai.vocabulary.addedAt'),
       key: 'createdAt',
       width: 180,
       render(row) {
@@ -60,7 +61,7 @@ const columns = computed<DataTableColumns<any>>(() => {
       }
     },
     {
-      title: '操作',
+      title: $t('page.ai.vocabulary.actions'),
       key: 'actions',
       width: 150,
       fixed: 'right',
@@ -74,7 +75,7 @@ const columns = computed<DataTableColumns<any>>(() => {
               quaternary: true,
               onClick: () => handleToggleMastered(row)
             },
-            { default: () => (activeTab.value === 'new' ? '掌握' : '移回') }
+            { default: () => (activeTab.value === 'new' ? $t('page.ai.vocabulary.masteredBtn') : $t('page.ai.vocabulary.moveBackBtn')) }
           ),
           h(
             NPopconfirm,
@@ -83,8 +84,8 @@ const columns = computed<DataTableColumns<any>>(() => {
               trigger: 'click'
             },
             {
-              trigger: () => h(NButton, { size: 'small', type: 'error', quaternary: true }, { default: () => '删除' }),
-              default: () => '确定删除此单词吗？'
+              trigger: () => h(NButton, { size: 'small', type: 'error', quaternary: true }, { default: () => $t('common.delete') }),
+              default: () => $t('page.ai.vocabulary.deleteConfirm')
             }
           )
         ];
@@ -111,7 +112,7 @@ const loadData = async () => {
       data.value = res;
     }
   } catch (err: any) {
-    message.error(`获取列表失败: ${err?.message || '未知错误'}`);
+    message.error(`${$t('page.ai.vocabulary.loadFailed')}: ${err?.message || $t('common.error')}`);
   } finally {
     loading.value = false;
   }
@@ -120,10 +121,10 @@ const loadData = async () => {
 const handleDelete = async (id: number) => {
   try {
     await fetchDeleteVocabulary(id);
-    message.success('删除成功');
+    message.success($t('page.ai.vocabulary.deleteSuccess'));
     loadData();
   } catch (err: any) {
-    message.error(`删除失败: ${err?.message || '未知错误'}`);
+    message.error(`${$t('page.ai.vocabulary.deleteFailed')}: ${err?.message || $t('common.error')}`);
   }
 };
 
@@ -131,26 +132,26 @@ const handleToggleMastered = async (row: any) => {
   try {
     const newStatus = !row.isMastered;
     await fetchUpdateVocabulary(row.id, { isMastered: newStatus });
-    message.success(newStatus ? '已移至掌握列表' : '已移回生词本');
+    message.success(newStatus ? $t('page.ai.vocabulary.movedToMastered') : $t('page.ai.vocabulary.movedBack'));
     loadData();
   } catch (err: any) {
-    message.error(`操作失败: ${err?.message || '未知错误'}`);
+    message.error(`${$t('page.ai.vocabulary.operationFailed')}: ${err?.message || $t('common.error')}`);
   }
 };
 
 const handleBatchMastered = async () => {
   if (checkedRowKeys.value.length === 0) {
-    message.warning('请先选择单词');
+    message.warning($t('page.ai.vocabulary.selectWordFirst'));
     return;
   }
   try {
     const isToMastered = activeTab.value === 'new';
     await Promise.all(checkedRowKeys.value.map(id => fetchUpdateVocabulary(id as number, { isMastered: isToMastered })));
-    message.success(isToMastered ? '批量标记成功' : '批量还原成功');
+    message.success(isToMastered ? $t('page.ai.vocabulary.batchMasteredSuccess') : $t('page.ai.vocabulary.batchRestoreSuccess'));
     checkedRowKeys.value = [];
     loadData();
   } catch (err: any) {
-    message.error(`批量操作失败: ${err?.message || '未知错误'}`);
+    message.error(`${$t('page.ai.vocabulary.batchFailed')}: ${err?.message || $t('common.error')}`);
   }
 };
 
@@ -166,7 +167,7 @@ const handlePlay = (text: string) => {
     lang: 'en-US',
     rate: 0.9,
   }).catch((err) => {
-    message.error('语音播放失败');
+    message.error($t('page.ai.vocabulary.speechFailed'));
     console.error(err);
   });
 };
@@ -175,10 +176,10 @@ const handleStartExercise = () => {
   const selectedIds = checkedRowKeys.value;
   if (selectedIds.length === 0) {
     dialog.info({
-      title: '训练全部',
-      content: '您未勾选单词，是否训练生词本中的全部单词？',
-      positiveText: '确认',
-      negativeText: '取消',
+      title: $t('page.ai.vocabulary.trainAll'),
+      content: $t('page.ai.vocabulary.trainAllConfirm'),
+      positiveText: $t('common.confirm'),
+      negativeText: $t('common.cancel'),
       onPositiveClick: () => {
         routerPushByKey('ai_exercise', { query: { mode: 'all' } });
       }
@@ -199,18 +200,18 @@ onMounted(() => {
     <NCard :bordered="false" shadow="sm" class="flex-1">
       <template #header>
         <div class="flex items-center gap-4">
-          <span class="text-18px font-bold">词汇管理</span>
+          <span class="text-18px font-bold">{{ $t('page.ai.vocabulary.title') }}</span>
           <NTabs v-model:value="activeTab" type="segment" style="width: 280px" @update:value="loadData">
             <NTab name="new">
               <div class="flex items-center gap-2">
                 <icon-mdi-book-open-variant class="text-lg" />
-                <span>生词本</span>
+                <span>{{ $t('page.ai.vocabulary.wordBook') }}</span>
               </div>
             </NTab>
             <NTab name="mastered">
               <div class="flex items-center gap-2">
                 <icon-mdi-check-decagram class="text-lg text-success" />
-                <span>掌握列表</span>
+                <span>{{ $t('page.ai.vocabulary.mastered') }}</span>
               </div>
             </NTab>
           </NTabs>
@@ -221,7 +222,7 @@ onMounted(() => {
           <div class="flex gap-4 items-center">
             <NInput
               v-model:value="keyword"
-              placeholder="搜索单词..."
+              :placeholder="$t('page.ai.vocabulary.searchPlaceholder')"
               clearable
               style="width: 260px"
               @keyup.enter="loadData"
@@ -230,7 +231,7 @@ onMounted(() => {
               <template #icon>
                 <icon-mdi-magnify class="text-icon" />
               </template>
-              搜索
+              {{ $t('common.search') }}
             </NButton>
           </div>
           <div class="flex gap-2 items-center">
@@ -238,17 +239,17 @@ onMounted(() => {
               <template #icon>
                 <icon-mdi-checkbox-multiple-marked-outline class="text-icon" />
               </template>
-              {{ isSelectionMode ? '取消选择' : '开启选择' }}
+              {{ isSelectionMode ? $t('page.ai.vocabulary.selectMode') : $t('page.ai.vocabulary.selectModeOn') }}
             </NButton>
             <NButton type="info" @click="handleStartExercise">
               <template #icon>
                 <icon-mdi-play-circle-outline class="text-icon" />
               </template>
-              开始练习
+              {{ $t('page.ai.vocabulary.startPractice') }}
             </NButton>
             <ButtonIcon
               icon="mdi:refresh"
-              tooltip-content="刷新"
+              :tooltip-content="$t('common.refresh')"
               @click="loadData"
             />
           </div>

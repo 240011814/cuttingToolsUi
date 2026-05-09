@@ -5,3 +5,4 @@ export * from './vocabulary';
 export * from './note';
 export * from './history';
 export * from './custom-training';
+export * from './dashboard';

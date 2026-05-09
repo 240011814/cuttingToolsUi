@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useMessage } from 'naive-ui';
 import { useAuth } from '@/hooks/business/auth';
 import { fetchCustomTrainingList, fetchCustomTrainingDetail, fetchCreateCustomTraining, fetchUpdateCustomTraining, fetchDeleteCustomTraining } from '@/service/api';
 import type { CustomTraining } from '@/service/api';
+import { $t } from '@/locales';
 
 const router = useRouter();
 const message = useMessage();
@@ -20,10 +21,10 @@ interface TrainingModule {
   permission: string;
 }
 
-const modules: TrainingModule[] = [
+const modules = computed<TrainingModule[]>(() => [
   {
     key: 'chat',
-    title: '英语训练',
+    title: $t('route.ai_chat'),
     description: '通过模拟真实生活场景练习地道英语口语表达',
     icon: 'mdi:translate-variant',
     color: '#2080f0',
@@ -32,7 +33,7 @@ const modules: TrainingModule[] = [
   },
   {
     key: 'decision',
-    title: '决策训练',
+    title: $t('route.ai_decision'),
     description: '学习60+决策模型，提升在工作生活中的决策能力',
     icon: 'mdi:scale-balance',
     color: '#8a6d3b',
@@ -41,7 +42,7 @@ const modules: TrainingModule[] = [
   },
   {
     key: 'social',
-    title: '社交训练',
+    title: $t('route.ai_social'),
     description: '练习聊天破冰、安慰、拒绝等40+沟通场景',
     icon: 'mdi:account-group-outline',
     color: '#7c3aed',
@@ -50,14 +51,14 @@ const modules: TrainingModule[] = [
   },
   {
     key: 'emergency',
-    title: '应急训练',
+    title: $t('route.ai_emergency'),
     description: '突发应变与反应力训练，掌握应变策略',
     icon: 'mdi:incognito',
     color: '#d9534f',
     route: '/ai/emergency',
     permission: 'ai:emergency:view'
   }
-];
+]);
 
 const customTrainings = ref<CustomTraining[]>([]);
 const loading = ref(false);
@@ -74,34 +75,34 @@ const form = ref({
   icon: 'mdi:robot-outline',
   color: '#2080f0',
   initial_message: '',
-  input_placeholder: '输入消息... (回车发送，Shift + 回车换行)',
+  input_placeholder: '',
   speech_lang: 'zh-CN',
   speech_rate: 0.95
 });
 
-const iconOptions = [
-  { label: '机器人', value: 'mdi:robot-outline' },
-  { label: '对话', value: 'mdi:chat-outline' },
-  { label: '脑', value: 'mdi:brain' },
-  { label: '灯泡', value: 'mdi:lightbulb-outline' },
-  { label: '书', value: 'mdi:book-open-outline' },
-  { label: '铅笔', value: 'mdi:pencil-outline' },
-  { label: '星星', value: 'mdi:star-outline' },
-  { label: '心', value: 'mdi:heart-outline' },
-  { label: '火箭', value: 'mdi:rocket-launch-outline' },
-  { label: '齿轮', value: 'mdi:cog-outline' }
-];
+const iconOptions = computed(() => [
+  { label: $t('page.ai.training.icons.robot'), value: 'mdi:robot-outline' },
+  { label: $t('page.ai.training.icons.chat'), value: 'mdi:chat-outline' },
+  { label: $t('page.ai.training.icons.brain'), value: 'mdi:brain' },
+  { label: $t('page.ai.training.icons.lightbulb'), value: 'mdi:lightbulb-outline' },
+  { label: $t('page.ai.training.icons.book'), value: 'mdi:book-open-outline' },
+  { label: $t('page.ai.training.icons.pencil'), value: 'mdi:pencil-outline' },
+  { label: $t('page.ai.training.icons.star'), value: 'mdi:star-outline' },
+  { label: $t('page.ai.training.icons.heart'), value: 'mdi:heart-outline' },
+  { label: $t('page.ai.training.icons.rocket'), value: 'mdi:rocket-launch-outline' },
+  { label: $t('page.ai.training.icons.cog'), value: 'mdi:cog-outline' }
+]);
 
-const colorOptions = [
-  { label: '蓝色', value: '#2080f0' },
-  { label: '绿色', value: '#18a058' },
-  { label: '红色', value: '#d9534f' },
-  { label: '橙色', value: '#f0a020' },
-  { label: '紫色', value: '#7c3aed' },
-  { label: '棕色', value: '#8a6d3b' },
-  { label: '灰色', value: '#666666' },
-  { label: '青色', value: '#20c997' }
-];
+const colorOptions = computed(() => [
+  { label: $t('page.ai.training.colors.blue'), value: '#2080f0' },
+  { label: $t('page.ai.training.colors.green'), value: '#18a058' },
+  { label: $t('page.ai.training.colors.red'), value: '#d9534f' },
+  { label: $t('page.ai.training.colors.orange'), value: '#f0a020' },
+  { label: $t('page.ai.training.colors.purple'), value: '#7c3aed' },
+  { label: $t('page.ai.training.colors.brown'), value: '#8a6d3b' },
+  { label: $t('page.ai.training.colors.gray'), value: '#666666' },
+  { label: $t('page.ai.training.colors.cyan'), value: '#20c997' }
+]);
 
 const resetForm = () => {
   form.value = {
@@ -111,7 +112,7 @@ const resetForm = () => {
     icon: 'mdi:robot-outline',
     color: '#2080f0',
     initial_message: '',
-    input_placeholder: '输入消息... (回车发送，Shift + 回车换行)',
+    input_placeholder: '',
     speech_lang: 'zh-CN',
     speech_rate: 0.95
   };
@@ -125,7 +126,7 @@ const loadCustomTrainings = async () => {
       customTrainings.value = data;
     }
   } catch (err: any) {
-    console.error('加载自定义训练失败:', err);
+    console.error('loadCustomTrainings error:', err);
   } finally {
     loading.value = false;
   }
@@ -159,13 +160,13 @@ async function handleEdit(id: number) {
         icon: data.icon || 'mdi:robot-outline',
         color: data.color || '#2080f0',
         initial_message: data.initial_message,
-        input_placeholder: data.input_placeholder || '输入消息... (回车发送，Shift + 回车换行)',
+        input_placeholder: data.input_placeholder || '',
         speech_lang: data.speech_lang || 'zh-CN',
         speech_rate: data.speech_rate || 0.95
       };
     }
   } catch (err: any) {
-    message.error(`加载失败: ${err?.message || '未知错误'}`);
+    message.error(`${$t('page.ai.training.loadFailed')}: ${err?.message || $t('common.error')}`);
     return;
   }
   showModal.value = true;
@@ -173,11 +174,11 @@ async function handleEdit(id: number) {
 
 async function handleSubmit() {
   if (!form.value.title.trim()) {
-    message.warning('请输入训练标题');
+    message.warning($t('page.ai.training.titleRequired'));
     return;
   }
   if (!form.value.system_prompt.trim()) {
-    message.warning('请输入系统提示词');
+    message.warning($t('page.ai.training.promptRequired'));
     return;
   }
 
@@ -185,15 +186,15 @@ async function handleSubmit() {
   try {
     if (isEdit.value) {
       await fetchUpdateCustomTraining(editId.value, form.value);
-      message.success('更新成功');
+      message.success($t('page.ai.training.updateSuccess'));
     } else {
       await fetchCreateCustomTraining(form.value);
-      message.success('创建成功');
+      message.success($t('page.ai.training.createSuccess'));
     }
     showModal.value = false;
     loadCustomTrainings();
   } catch (err: any) {
-    message.error(`操作失败: ${err?.message || '未知错误'}`);
+    message.error(`${$t('page.ai.training.operationFailed')}: ${err?.message || $t('common.error')}`);
   } finally {
     submitting.value = false;
   }
@@ -202,10 +203,10 @@ async function handleSubmit() {
 async function handleDeleteCustomTraining(id: number) {
   try {
     await fetchDeleteCustomTraining(id);
-    message.success('删除成功');
+    message.success($t('page.ai.training.deleteSuccess'));
     loadCustomTrainings();
   } catch (err: any) {
-    message.error(`删除失败: ${err?.message || '未知错误'}`);
+    message.error(`${$t('page.ai.training.deleteFailed')}: ${err?.message || $t('common.error')}`);
   }
 }
 
@@ -218,8 +219,8 @@ onMounted(() => {
   <div class="h-full overflow-auto p-6">
     <div class="mx-auto max-w-4xl">
       <div class="mb-8 text-center">
-        <h1 class="text-3xl font-bold text-gray-800 dark:text-gray-200">训练中心</h1>
-        <p class="mt-2 text-gray-500 dark:text-gray-400">选择训练模块，开始你的提升之旅</p>
+        <h1 class="text-3xl font-bold text-gray-800 dark:text-gray-200">{{ $t('page.ai.training.title') }}</h1>
+        <p class="mt-2 text-gray-500 dark:text-gray-400">{{ $t('page.ai.training.subtitle') }}</p>
       </div>
 
       <!-- 内置训练模块 -->
@@ -257,12 +258,12 @@ onMounted(() => {
       <!-- 自定义训练 -->
       <div v-if="hasAuth('ai:custom-training:view')">
         <div class="mb-6 flex items-center justify-between">
-          <h2 class="text-xl font-bold text-gray-800 dark:text-gray-200">自定义训练</h2>
+          <h2 class="text-xl font-bold text-gray-800 dark:text-gray-200">{{ $t('page.ai.training.customTraining') }}</h2>
           <NButton v-if="hasAuth('ai:custom-training:create')" type="primary" @click="handleCreate">
             <template #icon>
               <SvgIcon icon="mdi:plus" />
             </template>
-            新增训练
+            {{ $t('page.ai.training.addTraining') }}
           </NButton>
         </div>
 
@@ -272,8 +273,8 @@ onMounted(() => {
 
         <div v-else-if="customTrainings.length === 0" class="rounded-xl border border-dashed border-gray-300 p-8 text-center dark:border-gray-600">
           <SvgIcon icon="mdi:robot-outline" class="text-4xl text-gray-400 mb-2" />
-          <p class="text-gray-500 dark:text-gray-400">还没有自定义训练</p>
-          <p class="text-sm text-gray-400 dark:text-gray-500 mt-1">点击上方按钮创建你的专属训练</p>
+          <p class="text-gray-500 dark:text-gray-400">{{ $t('page.ai.training.noCustomTraining') }}</p>
+          <p class="text-sm text-gray-400 dark:text-gray-500 mt-1">{{ $t('page.ai.training.noCustomTrainingTip') }}</p>
         </div>
 
         <div v-else class="grid grid-cols-1 gap-6 md:grid-cols-2">
@@ -295,7 +296,7 @@ onMounted(() => {
                   {{ item.title }}
                 </h3>
                 <p class="mt-1 text-sm text-gray-500 dark:text-gray-400 line-clamp-2">
-                  {{ item.description || '暂无描述' }}
+                  {{ item.description || $t('page.ai.training.noDescription') }}
                 </p>
               </div>
               <SvgIcon
@@ -321,7 +322,7 @@ onMounted(() => {
                     </template>
                   </NButton>
                 </template>
-                确定删除这个自定义训练吗？
+                {{ $t('page.ai.training.deleteConfirm') }}
               </NPopconfirm>
             </div>
           </div>
@@ -333,49 +334,49 @@ onMounted(() => {
     <NModal
       v-model:show="showModal"
       preset="card"
-      :title="isEdit ? '编辑训练' : '创建自定义训练'"
+      :title="isEdit ? $t('page.ai.training.editTraining') : $t('page.ai.training.createTraining')"
       style="width: 600px; max-height: 80vh"
       :segmented="{ content: 'soft', footer: 'soft' }"
     >
       <NForm :model="form" label-placement="left" label-width="80">
-        <NFormItem label="训练标题" path="title">
-          <NInput v-model:value="form.title" placeholder="例如：商务英语、面试模拟" maxlength="50" show-count />
+        <NFormItem :label="$t('page.ai.training.titleLabel')" path="title">
+          <NInput v-model:value="form.title" :placeholder="$t('page.ai.training.titlePlaceholder')" maxlength="50" show-count />
         </NFormItem>
-        <NFormItem label="描述" path="description">
-          <NInput v-model:value="form.description" type="textarea" :autosize="{ minRows: 2, maxRows: 3 }" placeholder="简要描述训练内容" maxlength="200" show-count />
+        <NFormItem :label="$t('page.ai.training.descLabel')" path="description">
+          <NInput v-model:value="form.description" type="textarea" :autosize="{ minRows: 2, maxRows: 3 }" :placeholder="$t('page.ai.training.descPlaceholder')" maxlength="200" show-count />
         </NFormItem>
-        <NFormItem label="系统提示" path="system_prompt">
-          <NInput v-model:value="form.system_prompt" type="textarea" :autosize="{ minRows: 4, maxRows: 8 }" placeholder="定义AI的角色、行为和训练流程" />
+        <NFormItem :label="$t('page.ai.training.promptLabel')" path="system_prompt">
+          <NInput v-model:value="form.system_prompt" type="textarea" :autosize="{ minRows: 4, maxRows: 8 }" :placeholder="$t('page.ai.training.promptPlaceholder')" />
         </NFormItem>
-        <NFormItem label="欢迎语" path="initial_message">
-          <NInput v-model:value="form.initial_message" type="textarea" :autosize="{ minRows: 2, maxRows: 3 }" placeholder="AI的开场白" />
+        <NFormItem :label="$t('page.ai.training.welcomeLabel')" path="initial_message">
+          <NInput v-model:value="form.initial_message" type="textarea" :autosize="{ minRows: 2, maxRows: 3 }" :placeholder="$t('page.ai.training.welcomePlaceholder')" />
         </NFormItem>
         <div class="grid grid-cols-2 gap-4">
-          <NFormItem label="图标" path="icon">
+          <NFormItem :label="$t('page.ai.training.iconLabel')" path="icon">
             <NSelect v-model:value="form.icon" :options="iconOptions" />
           </NFormItem>
-          <NFormItem label="颜色" path="color">
+          <NFormItem :label="$t('page.ai.training.colorLabel')" path="color">
             <NSelect v-model:value="form.color" :options="colorOptions" />
           </NFormItem>
         </div>
         <div class="grid grid-cols-2 gap-4">
-          <NFormItem label="语言" path="speech_lang">
+          <NFormItem :label="$t('page.ai.training.langLabel')" path="speech_lang">
             <NSelect v-model:value="form.speech_lang" :options="[
-              { label: '中文', value: 'zh-CN' },
-              { label: '英文', value: 'en-US' },
-              { label: '日文', value: 'ja-JP' }
+              { label: $t('page.ai.training.chinese'), value: 'zh-CN' },
+              { label: $t('page.ai.training.english'), value: 'en-US' },
+              { label: $t('page.ai.training.japanese'), value: 'ja-JP' }
             ]" />
           </NFormItem>
-          <NFormItem label="语速" path="speech_rate">
+          <NFormItem :label="$t('page.ai.training.speedLabel')" path="speech_rate">
             <NSlider v-model:value="form.speech_rate" :min="0.5" :max="1.5" :step="0.05" />
           </NFormItem>
         </div>
       </NForm>
       <template #footer>
         <div class="flex justify-end gap-3">
-          <NButton @click="showModal = false">取消</NButton>
+          <NButton @click="showModal = false">{{ $t('common.cancel') }}</NButton>
           <NButton type="primary" :loading="submitting" @click="handleSubmit">
-            {{ isEdit ? '保存' : '创建' }}
+            {{ isEdit ? $t('common.save') : $t('common.confirm') }}
           </NButton>
         </div>
       </template>

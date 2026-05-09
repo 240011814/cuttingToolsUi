@@ -1,14 +1,14 @@
 <script setup lang="ts">
-import { watch } from 'vue';
-import { useAppStore } from '@/store/modules/app';
+import { onMounted, ref } from 'vue';
 import { useEcharts } from '@/hooks/common/echarts';
-import { $t } from '@/locales';
+import { fetchDashboardStats } from '@/service/api';
+import type { DashboardStats } from '@/service/api';
 
 defineOptions({
   name: 'LineChart'
 });
 
-const appStore = useAppStore();
+const stats = ref<DashboardStats | null>(null);
 
 const { domRef, updateOptions } = useEcharts(() => ({
   tooltip: {
@@ -21,7 +21,7 @@ const { domRef, updateOptions } = useEcharts(() => ({
     }
   },
   legend: {
-    data: [$t('page.home.downloadCount'), $t('page.home.registerCount')],
+    data: ['训练次数'],
     top: '0'
   },
   grid: {
@@ -41,7 +41,7 @@ const { domRef, updateOptions } = useEcharts(() => ({
   series: [
     {
       color: '#8e9dff',
-      name: $t('page.home.downloadCount'),
+      name: '训练次数',
       type: 'line',
       smooth: true,
       stack: 'Total',
@@ -68,83 +68,29 @@ const { domRef, updateOptions } = useEcharts(() => ({
         focus: 'series'
       },
       data: [] as number[]
-    },
-    {
-      color: '#26deca',
-      name: $t('page.home.registerCount'),
-      type: 'line',
-      smooth: true,
-      stack: 'Total',
-      areaStyle: {
-        color: {
-          type: 'linear',
-          x: 0,
-          y: 0,
-          x2: 0,
-          y2: 1,
-          colorStops: [
-            {
-              offset: 0.25,
-              color: '#26deca'
-            },
-            {
-              offset: 1,
-              color: '#fff'
-            }
-          ]
-        }
-      },
-      emphasis: {
-        focus: 'series'
-      },
-      data: []
     }
   ]
 }));
 
-async function mockData() {
-  await new Promise(resolve => {
-    setTimeout(resolve, 1000);
-  });
-
-  updateOptions(opts => {
-    opts.xAxis.data = ['06:00', '08:00', '10:00', '12:00', '14:00', '16:00', '18:00', '20:00', '22:00', '24:00'];
-    opts.series[0].data = [4623, 6145, 6268, 6411, 1890, 4251, 2978, 3880, 3606, 4311];
-    opts.series[1].data = [2208, 2016, 2916, 4512, 8281, 2008, 1963, 2367, 2956, 678];
-
-    return opts;
-  });
-}
-
-function updateLocale() {
-  updateOptions((opts, factory) => {
-    const originOpts = factory();
-
-    opts.legend.data = originOpts.legend.data;
-    opts.series[0].name = originOpts.series[0].name;
-    opts.series[1].name = originOpts.series[1].name;
-
-    return opts;
-  });
-}
-
-async function init() {
-  mockData();
-}
-
-watch(
-  () => appStore.locale,
-  () => {
-    updateLocale();
+async function loadData() {
+  const { data, error } = await fetchDashboardStats();
+  if (!error && data) {
+    stats.value = data;
+    updateOptions(opts => {
+      opts.xAxis.data = data.training_trend.map(item => item.date.slice(5));
+      opts.series[0].data = data.training_trend.map(item => item.count);
+      return opts;
+    });
   }
-);
+}
 
-// init
-init();
+onMounted(() => {
+  loadData();
+});
 </script>
 
 <template>
-  <NCard :bordered="false" class="card-wrapper">
+  <NCard :bordered="false" class="card-wrapper" title="近7天训练趋势">
     <div ref="domRef" class="h-360px overflow-hidden"></div>
   </NCard>
 </template>

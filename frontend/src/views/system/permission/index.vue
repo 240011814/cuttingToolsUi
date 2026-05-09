@@ -13,6 +13,7 @@ import {
   fetchDeletePermission
 } from '@/service/api';
 import { useAuth } from '@/hooks/business/auth';
+import { $t } from '@/locales';
 
 const message = useMessage();
 const dialog = useDialog();
@@ -81,20 +82,20 @@ async function handleSaveRolePermissions() {
   saving.value = true;
   const { error } = await fetchUpdateRolePermissions(selectedRole.value, checkedPermissions.value);
   if (!error) {
-    message.success('权限保存成功');
+    message.success($t('page.system.permission.permissionSaveSuccess'));
   }
   saving.value = false;
 }
 
 async function handleAddRole() {
   if (!newRole.value.code || !newRole.value.name) {
-    message.warning('请填写完整的角色信息');
+    message.warning($t('page.system.permission.roleInfoRequired'));
     return;
   }
   addRoleLoading.value = true;
   const { error } = await fetchCreateRole(newRole.value);
   if (!error) {
-    message.success('角色创建成功');
+    message.success($t('page.system.permission.roleCreateSuccess'));
     showAddRoleModal.value = false;
     newRole.value = { code: '', name: '', description: '' };
     await loadBaseData();
@@ -104,14 +105,14 @@ async function handleAddRole() {
 
 function confirmDeleteRole(role: Api.Admin.Role) {
   dialog.warning({
-    title: '确认删除',
-    content: `确定要删除角色 "${role.name}" 吗？此操作不可撤销。`,
-    positiveText: '确认',
-    negativeText: '取消',
+    title: $t('page.system.permission.deleteConfirm'),
+    content: $t('page.system.permission.deleteRoleConfirm', { name: role.name }),
+    positiveText: $t('common.confirm'),
+    negativeText: $t('common.cancel'),
     onPositiveClick: async () => {
       const { error } = await fetchDeleteRole(role.code);
       if (!error) {
-        message.success('角色已删除');
+        message.success($t('page.system.permission.roleDeleteSuccess'));
         if (selectedRole.value === role.code) {
           selectedRole.value = '';
         }
@@ -143,7 +144,7 @@ async function handleSubmitPermission() {
   }
   
   if (!error) {
-    message.success(isEditPermission.value ? '权限点更新成功' : '权限点创建成功');
+    message.success(isEditPermission.value ? $t('page.system.permission.permissionUpdateSuccess') : $t('page.system.permission.permissionCreateSuccess'));
     showPermissionModal.value = false;
     await loadBaseData();
     if (selectedRole.value) {
@@ -155,14 +156,14 @@ async function handleSubmitPermission() {
 
 function confirmDeletePermission(item: Api.Admin.Permission) {
   dialog.warning({
-    title: '确认删除',
-    content: `确定要删除权限点 "${item.name}" (${item.code}) 吗？`,
-    positiveText: '确认',
-    negativeText: '取消',
+    title: $t('page.system.permission.deleteConfirm'),
+    content: $t('page.system.permission.deletePermissionConfirm', { name: item.name, code: item.code }),
+    positiveText: $t('common.confirm'),
+    negativeText: $t('common.cancel'),
     onPositiveClick: async () => {
       const { error } = await fetchDeletePermission(item.id);
       if (!error) {
-        message.success('权限点已删除');
+        message.success($t('page.system.permission.permissionDeleteSuccess'));
         await loadBaseData();
         if (selectedRole.value) {
           await loadRolePermissions();
@@ -192,7 +193,7 @@ onMounted(async () => {
     <NCard :bordered="false" shadow="sm" class="w-280px flex-shrink-0 flex flex-col" content-style="padding: 0; display: flex; flex-direction: column;">
       <template #header>
         <div class="flex items-center justify-between">
-          <span class="text-16px font-bold">角色列表</span>
+          <span class="text-16px font-bold">{{ $t('page.system.permission.roleList') }}</span>
           <NButton size="small" type="primary" quaternary circle @click="showAddRoleModal = true">
             <template #icon>
               <SvgIcon icon="mdi:plus" />
@@ -238,7 +239,7 @@ onMounted(async () => {
       <template #header>
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-2">
-            <span class="text-18px font-bold">权限配置</span>
+            <span class="text-18px font-bold">{{ $t('page.system.permission.permissionConfig') }}</span>
             <NTag v-if="selectedRole" type="primary" round size="small">{{ currentRoleName }}</NTag>
           </div>
           <div class="flex gap-2">
@@ -246,7 +247,7 @@ onMounted(async () => {
               <template #icon>
                 <SvgIcon icon="mdi:plus-circle-outline" />
               </template>
-              新增权限点
+              {{ $t('page.system.permission.addPermission') }}
             </NButton>
             <NButton
               type="primary"
@@ -257,19 +258,19 @@ onMounted(async () => {
               <template #icon>
                 <SvgIcon icon="mdi:content-save-outline" />
               </template>
-              保存配置
+              {{ $t('page.system.permission.saveConfig') }}
             </NButton>
           </div>
         </div>
       </template>
 
       <div v-if="!selectedRole" class="flex flex-1 items-center justify-center text-gray-400">
-        请选择一个角色以配置权限
+        {{ $t('page.system.permission.selectRoleTip') }}
       </div>
 
       <div v-else-if="selectedRole === 'R_SUPER'" class="flex flex-1 flex-col items-center justify-center text-gray-400 gap-2">
         <SvgIcon icon="mdi:shield-check" class="text-48px text-primary/40" />
-        <span>超级管理员默认拥有所有权限，无需配置</span>
+        <span>{{ $t('page.system.permission.superAdminTip') }}</span>
       </div>
 
       <NSpin v-else :show="loading" class="flex-1">
@@ -318,43 +319,43 @@ onMounted(async () => {
     </NCard>
 
     <!-- Add Role Modal -->
-    <NModal v-model:show="showAddRoleModal" preset="card" title="新增角色" class="w-450px" :segmented="{ content: true, footer: true }">
+    <NModal v-model:show="showAddRoleModal" preset="card" :title="$t('page.system.permission.addRole')" class="w-450px" :segmented="{ content: true, footer: true }">
       <NForm>
-        <NFormItem label="角色名称" path="name">
-          <NInput v-model:value="newRole.name" placeholder="请输入角色名称，如：高级用户" />
+        <NFormItem :label="$t('page.system.permission.roleName')" path="name">
+          <NInput v-model:value="newRole.name" :placeholder="$t('page.system.permission.roleNamePlaceholder')" />
         </NFormItem>
-        <NFormItem label="角色编码" path="code">
-          <NInput v-model:value="newRole.code" placeholder="请输入唯一编码，如：R_SENIOR" />
+        <NFormItem :label="$t('page.system.permission.roleCode')" path="code">
+          <NInput v-model:value="newRole.code" :placeholder="$t('page.system.permission.roleCodePlaceholder')" />
         </NFormItem>
-        <NFormItem label="描述" path="description">
-          <NInput v-model:value="newRole.description" type="textarea" placeholder="请输入角色描述" />
+        <NFormItem :label="$t('page.system.permission.description')" path="description">
+          <NInput v-model:value="newRole.description" type="textarea" :placeholder="$t('page.system.permission.descriptionPlaceholder')" />
         </NFormItem>
       </NForm>
       <template #footer>
         <div class="flex justify-end gap-3">
-          <NButton @click="showAddRoleModal = false">取消</NButton>
-          <NButton type="primary" :loading="addRoleLoading" @click="handleAddRole">确定</NButton>
+          <NButton @click="showAddRoleModal = false">{{ $t('common.cancel') }}</NButton>
+          <NButton type="primary" :loading="addRoleLoading" @click="handleAddRole">{{ $t('common.confirm') }}</NButton>
         </div>
       </template>
     </NModal>
 
     <!-- Add/Edit Permission Modal -->
-    <NModal v-model:show="showPermissionModal" preset="card" :title="isEditPermission ? '编辑权限点' : '新增权限点'" class="w-450px" :segmented="{ content: true, footer: true }">
+    <NModal v-model:show="showPermissionModal" preset="card" :title="isEditPermission ? $t('page.system.permission.addPermission') : $t('page.system.permission.addPermission')" class="w-450px" :segmented="{ content: true, footer: true }">
       <NForm>
-        <NFormItem label="权限名称" path="name">
-          <NInput v-model:value="permissionForm.name" placeholder="请输入权限显示名称" />
+        <NFormItem :label="$t('page.system.permission.permissionName')" path="name">
+          <NInput v-model:value="permissionForm.name" :placeholder="$t('page.system.permission.permissionNamePlaceholder')" />
         </NFormItem>
-        <NFormItem label="权限编码" path="code">
-          <NInput v-model:value="permissionForm.code" :disabled="isEditPermission" placeholder="请输入唯一编码，如：system:user:list" />
+        <NFormItem :label="$t('page.system.permission.permissionCode')" path="code">
+          <NInput v-model:value="permissionForm.code" :disabled="isEditPermission" :placeholder="$t('page.system.permission.permissionCodePlaceholder')" />
         </NFormItem>
-        <NFormItem label="所属分组" path="groupName">
-          <NInput v-model:value="permissionForm.groupName" placeholder="请输入分组名称，如：用户管理" />
+        <NFormItem :label="$t('page.system.permission.groupName')" path="groupName">
+          <NInput v-model:value="permissionForm.groupName" :placeholder="$t('page.system.permission.groupNamePlaceholder')" />
         </NFormItem>
       </NForm>
       <template #footer>
         <div class="flex justify-end gap-3">
-          <NButton @click="showPermissionModal = false">取消</NButton>
-          <NButton type="primary" :loading="permissionLoading" @click="handleSubmitPermission">确定</NButton>
+          <NButton @click="showPermissionModal = false">{{ $t('common.cancel') }}</NButton>
+          <NButton type="primary" :loading="permissionLoading" @click="handleSubmitPermission">{{ $t('common.confirm') }}</NButton>
         </div>
       </template>
     </NModal>
