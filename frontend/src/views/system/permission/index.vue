@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
-import { useMessage, useDialog } from 'naive-ui';
+import { computed, onMounted, ref, watch } from "vue";
+import { useMessage, useDialog } from "naive-ui";
 import {
   fetchGetPermissions,
   fetchGetRolePermissions,
@@ -10,10 +10,10 @@ import {
   fetchDeleteRole,
   fetchCreatePermission,
   fetchUpdatePermission,
-  fetchDeletePermission
-} from '@/service/api';
-import { useAuth } from '@/hooks/business/auth';
-import { $t } from '@/locales';
+  fetchDeletePermission,
+} from "@/service/api";
+import { useAuth } from "@/hooks/business/auth";
+import { $t } from "@/locales";
 
 const message = useMessage();
 const dialog = useDialog();
@@ -21,7 +21,7 @@ const { hasAuth } = useAuth();
 
 const roles = ref<Api.Admin.Role[]>([]);
 const permissions = ref<Api.Admin.Permission[]>([]);
-const selectedRole = ref('');
+const selectedRole = ref("");
 const checkedPermissions = ref<string[]>([]);
 const loading = ref(false);
 const saving = ref(false);
@@ -29,9 +29,9 @@ const saving = ref(false);
 const showAddRoleModal = ref(false);
 const addRoleLoading = ref(false);
 const newRole = ref({
-  code: '',
-  name: '',
-  description: ''
+  code: "",
+  name: "",
+  description: "",
 });
 
 const showPermissionModal = ref(false);
@@ -39,14 +39,14 @@ const permissionLoading = ref(false);
 const isEditPermission = ref(false);
 const permissionForm = ref({
   id: 0,
-  code: '',
-  name: '',
-  groupName: ''
+  code: "",
+  name: "",
+  groupName: "",
 });
 
 const groupedPermissions = computed(() => {
   const groups = new Map<string, Api.Admin.Permission[]>();
-  permissions.value.forEach(permission => {
+  permissions.value.forEach((permission) => {
     const items = groups.get(permission.groupName) || [];
     items.push(permission);
     groups.set(permission.groupName, items);
@@ -55,7 +55,10 @@ const groupedPermissions = computed(() => {
 });
 
 async function loadBaseData() {
-  const [roleResult, permissionResult] = await Promise.all([fetchGetRoles(), fetchGetPermissions()]);
+  const [roleResult, permissionResult] = await Promise.all([
+    fetchGetRoles(),
+    fetchGetPermissions(),
+  ]);
   if (!roleResult.error) {
     roles.value = roleResult.data;
     if (roles.value.length > 0 && !selectedRole.value) {
@@ -80,24 +83,27 @@ async function loadRolePermissions() {
 async function handleSaveRolePermissions() {
   if (!selectedRole.value) return;
   saving.value = true;
-  const { error } = await fetchUpdateRolePermissions(selectedRole.value, checkedPermissions.value);
+  const { error } = await fetchUpdateRolePermissions(
+    selectedRole.value,
+    checkedPermissions.value
+  );
   if (!error) {
-    message.success($t('page.system.permission.permissionSaveSuccess'));
+    message.success($t("page.system.permission.permissionSaveSuccess"));
   }
   saving.value = false;
 }
 
 async function handleAddRole() {
   if (!newRole.value.code || !newRole.value.name) {
-    message.warning($t('page.system.permission.roleInfoRequired'));
+    message.warning($t("page.system.permission.roleInfoRequired"));
     return;
   }
   addRoleLoading.value = true;
   const { error } = await fetchCreateRole(newRole.value);
   if (!error) {
-    message.success($t('page.system.permission.roleCreateSuccess'));
+    message.success($t("page.system.permission.roleCreateSuccess"));
     showAddRoleModal.value = false;
-    newRole.value = { code: '', name: '', description: '' };
+    newRole.value = { code: "", name: "", description: "" };
     await loadBaseData();
   }
   addRoleLoading.value = false;
@@ -105,26 +111,26 @@ async function handleAddRole() {
 
 function confirmDeleteRole(role: Api.Admin.Role) {
   dialog.warning({
-    title: $t('page.system.permission.deleteConfirm'),
-    content: $t('page.system.permission.deleteRoleConfirm', { name: role.name }),
-    positiveText: $t('common.confirm'),
-    negativeText: $t('common.cancel'),
+    title: $t("page.system.permission.deleteConfirm"),
+    content: $t("page.system.permission.deleteRoleConfirm", { name: role.name }),
+    positiveText: $t("common.confirm"),
+    negativeText: $t("common.cancel"),
     onPositiveClick: async () => {
       const { error } = await fetchDeleteRole(role.code);
       if (!error) {
-        message.success($t('page.system.permission.roleDeleteSuccess'));
+        message.success($t("page.system.permission.roleDeleteSuccess"));
         if (selectedRole.value === role.code) {
-          selectedRole.value = '';
+          selectedRole.value = "";
         }
         await loadBaseData();
       }
-    }
+    },
   });
 }
 
 function handleAddPermission(groupName?: string) {
   isEditPermission.value = false;
-  permissionForm.value = { id: 0, code: '', name: '', groupName: groupName || '' };
+  permissionForm.value = { id: 0, code: "", name: "", groupName: groupName || "" };
   showPermissionModal.value = true;
 }
 
@@ -138,13 +144,20 @@ async function handleSubmitPermission() {
   permissionLoading.value = true;
   let error;
   if (isEditPermission.value) {
-    ({ error } = await fetchUpdatePermission(permissionForm.value.id, permissionForm.value));
+    ({ error } = await fetchUpdatePermission(
+      permissionForm.value.id,
+      permissionForm.value
+    ));
   } else {
     ({ error } = await fetchCreatePermission(permissionForm.value));
   }
-  
+
   if (!error) {
-    message.success(isEditPermission.value ? $t('page.system.permission.permissionUpdateSuccess') : $t('page.system.permission.permissionCreateSuccess'));
+    message.success(
+      isEditPermission.value
+        ? $t("page.system.permission.permissionUpdateSuccess")
+        : $t("page.system.permission.permissionCreateSuccess")
+    );
     showPermissionModal.value = false;
     await loadBaseData();
     if (selectedRole.value) {
@@ -156,25 +169,28 @@ async function handleSubmitPermission() {
 
 function confirmDeletePermission(item: Api.Admin.Permission) {
   dialog.warning({
-    title: $t('page.system.permission.deleteConfirm'),
-    content: $t('page.system.permission.deletePermissionConfirm', { name: item.name, code: item.code }),
-    positiveText: $t('common.confirm'),
-    negativeText: $t('common.cancel'),
+    title: $t("page.system.permission.deleteConfirm"),
+    content: $t("page.system.permission.deletePermissionConfirm", {
+      name: item.name,
+      code: item.code,
+    }),
+    positiveText: $t("common.confirm"),
+    negativeText: $t("common.cancel"),
     onPositiveClick: async () => {
       const { error } = await fetchDeletePermission(item.id);
       if (!error) {
-        message.success($t('page.system.permission.permissionDeleteSuccess'));
+        message.success($t("page.system.permission.permissionDeleteSuccess"));
         await loadBaseData();
         if (selectedRole.value) {
           await loadRolePermissions();
         }
       }
-    }
+    },
   });
 }
 
 const currentRoleName = computed(() => {
-  return roles.value.find(r => r.code === selectedRole.value)?.name || '';
+  return roles.value.find((r) => r.code === selectedRole.value)?.name || "";
 });
 
 watch(selectedRole, loadRolePermissions);
@@ -190,11 +206,24 @@ onMounted(async () => {
 <template>
   <div class="h-full flex gap-4 p-4">
     <!-- Role List Sidebar -->
-    <NCard :bordered="false" shadow="sm" class="w-280px flex-shrink-0 flex flex-col" content-style="padding: 0; display: flex; flex-direction: column;">
+    <NCard
+      :bordered="false"
+      shadow="sm"
+      class="w-280px flex-shrink-0 flex flex-col"
+      content-style="padding: 0; display: flex; flex-direction: column;"
+    >
       <template #header>
         <div class="flex items-center justify-between">
-          <span class="text-16px font-bold">{{ $t('page.system.permission.roleList') }}</span>
-          <NButton size="small" type="primary" quaternary circle @click="showAddRoleModal = true">
+          <span class="text-16px font-bold">{{
+            $t("page.system.permission.roleList")
+          }}</span>
+          <NButton
+            size="small"
+            type="primary"
+            quaternary
+            circle
+            @click="showAddRoleModal = true"
+          >
             <template #icon>
               <SvgIcon icon="mdi:plus" />
             </template>
@@ -208,16 +237,24 @@ onMounted(async () => {
             v-for="role in roles"
             :key="role.code"
             class="group relative flex cursor-pointer items-center justify-between rounded-8px px-4 py-3 transition-all hover:bg-primary/5"
-            :class="selectedRole === role.code ? 'bg-primary/10 text-primary shadow-sm' : 'text-gray-600'"
+            :class="
+              selectedRole === role.code
+                ? 'bg-primary/10 text-primary shadow-sm'
+                : 'text-gray-600'
+            "
             @click="selectedRole = role.code"
           >
             <div class="flex flex-col overflow-hidden">
               <span class="truncate font-medium">{{ role.name }}</span>
               <span class="text-12px opacity-60">{{ role.code }}</span>
             </div>
-            
+
             <NButton
-              v-if="role.code !== 'R_SUPER' && role.code !== 'R_ADMIN' && role.code !== 'R_USER'"
+              v-if="
+                role.code !== 'R_SUPER' &&
+                  role.code !== 'R_ADMIN' &&
+                  role.code !== 'R_USER'
+              "
               size="tiny"
               type="error"
               quaternary
@@ -235,19 +272,28 @@ onMounted(async () => {
     </NCard>
 
     <!-- Permission Area -->
-    <NCard :bordered="false" shadow="sm" class="flex-1" content-style="display: flex; flex-direction: column;">
+    <NCard
+      :bordered="false"
+      shadow="sm"
+      class="flex-1"
+      content-style="display: flex; flex-direction: column;"
+    >
       <template #header>
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-2">
-            <span class="text-18px font-bold">{{ $t('page.system.permission.permissionConfig') }}</span>
-            <NTag v-if="selectedRole" type="primary" round size="small">{{ currentRoleName }}</NTag>
+            <span class="text-18px font-bold">{{
+              $t("page.system.permission.permissionConfig")
+            }}</span>
+            <NTag v-if="selectedRole" type="primary" round size="small">
+              {{ currentRoleName }}
+            </NTag>
           </div>
           <div class="flex gap-2">
             <NButton type="info" secondary @click="handleAddPermission()">
               <template #icon>
                 <SvgIcon icon="mdi:plus-circle-outline" />
               </template>
-              {{ $t('page.system.permission.addPermission') }}
+              {{ $t("page.system.permission.addPermission") }}
             </NButton>
             <NButton
               type="primary"
@@ -258,19 +304,25 @@ onMounted(async () => {
               <template #icon>
                 <SvgIcon icon="mdi:content-save-outline" />
               </template>
-              {{ $t('page.system.permission.saveConfig') }}
+              {{ $t("page.system.permission.saveConfig") }}
             </NButton>
           </div>
         </div>
       </template>
 
-      <div v-if="!selectedRole" class="flex flex-1 items-center justify-center text-gray-400">
-        {{ $t('page.system.permission.selectRoleTip') }}
+      <div
+        v-if="!selectedRole"
+        class="flex flex-1 items-center justify-center text-gray-400"
+      >
+        {{ $t("page.system.permission.selectRoleTip") }}
       </div>
 
-      <div v-else-if="selectedRole === 'R_SUPER'" class="flex flex-1 flex-col items-center justify-center text-gray-400 gap-2">
+      <div
+        v-else-if="selectedRole === 'R_SUPER'"
+        class="flex flex-1 flex-col items-center justify-center text-gray-400 gap-2"
+      >
         <SvgIcon icon="mdi:shield-check" class="text-48px text-primary/40" />
-        <span>{{ $t('page.system.permission.superAdminTip') }}</span>
+        <span>{{ $t("page.system.permission.superAdminTip") }}</span>
       </div>
 
       <NSpin v-else :show="loading" class="flex-1">
@@ -286,27 +338,54 @@ onMounted(async () => {
               <template #header>
                 <div class="flex items-center justify-between w-full">
                   <span class="font-bold">{{ group.name }}</span>
-                  <NButton size="tiny" quaternary type="primary" @click="handleAddPermission(group.name)">
+                  <NButton
+                    size="tiny"
+                    quaternary
+                    type="primary"
+                    @click="handleAddPermission(group.name)"
+                  >
                     <template #icon><SvgIcon icon="mdi:plus" /></template>
                   </NButton>
                 </div>
               </template>
-              
+
               <NCheckboxGroup v-model:value="checkedPermissions">
                 <div class="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-1">
-                  <div v-for="item in group.items" :key="item.code" class="group/item flex items-center justify-between py-1 px-2 rounded hover:bg-gray-50">
+                  <div
+                    v-for="item in group.items"
+                    :key="item.code"
+                    class="group/item flex items-center justify-between py-1 px-2 rounded hover:bg-gray-50"
+                  >
                     <NCheckbox :value="item.code" class="flex-1">
                       <div class="flex flex-col">
-                        <span class="group-hover/item:text-primary transition-colors">{{ item.name }}</span>
-                        <span class="text-12px text-gray-400 font-mono">{{ item.code }}</span>
+                        <span class="group-hover/item:text-primary transition-colors">{{
+                          item.name
+                        }}</span>
+                        <span class="text-12px text-gray-400 font-mono">{{
+                          item.code
+                        }}</span>
                       </div>
                     </NCheckbox>
-                    <div class="flex opacity-0 group-hover/item:opacity-100 transition-opacity">
-                      <NButton size="tiny" quaternary type="info" @click.stop="handleEditPermission(item)">
+                    <div
+                      class="flex opacity-0 group-hover/item:opacity-100 transition-opacity"
+                    >
+                      <NButton
+                        size="tiny"
+                        quaternary
+                        type="info"
+                        @click.stop="handleEditPermission(item)"
+                      >
                         <template #icon><SvgIcon icon="mdi:pencil-outline" /></template>
                       </NButton>
-                      <NButton size="tiny" quaternary type="error" @click.stop="confirmDeletePermission(item)">
-                        <template #icon><SvgIcon icon="mdi:trash-can-outline" /></template>
+                      <NButton
+                        size="tiny"
+                        quaternary
+                        type="error"
+                        @click.stop="confirmDeletePermission(item)"
+                      >
+                        <template #icon>
+                          <SvgIcon icon="mdi:trash-can-outline" />
+                        </template>
                       </NButton>
                     </div>
                   </div>
@@ -319,43 +398,89 @@ onMounted(async () => {
     </NCard>
 
     <!-- Add Role Modal -->
-    <NModal v-model:show="showAddRoleModal" preset="card" :title="$t('page.system.permission.addRole')" class="w-450px" :segmented="{ content: true, footer: true }">
+    <NModal
+      v-model:show="showAddRoleModal"
+      preset="card"
+      :title="$t('page.system.permission.addRole')"
+      class="w-450px"
+      :segmented="{ content: true, footer: true }"
+    >
       <NForm>
         <NFormItem :label="$t('page.system.permission.roleName')" path="name">
-          <NInput v-model:value="newRole.name" :placeholder="$t('page.system.permission.roleNamePlaceholder')" />
+          <NInput
+            v-model:value="newRole.name"
+            :placeholder="$t('page.system.permission.roleNamePlaceholder')"
+          />
         </NFormItem>
         <NFormItem :label="$t('page.system.permission.roleCode')" path="code">
-          <NInput v-model:value="newRole.code" :placeholder="$t('page.system.permission.roleCodePlaceholder')" />
+          <NInput
+            v-model:value="newRole.code"
+            :placeholder="$t('page.system.permission.roleCodePlaceholder')"
+          />
         </NFormItem>
         <NFormItem :label="$t('page.system.permission.description')" path="description">
-          <NInput v-model:value="newRole.description" type="textarea" :placeholder="$t('page.system.permission.descriptionPlaceholder')" />
+          <NInput
+            v-model:value="newRole.description"
+            type="textarea"
+            :placeholder="$t('page.system.permission.descriptionPlaceholder')"
+          />
         </NFormItem>
       </NForm>
       <template #footer>
         <div class="flex justify-end gap-3">
-          <NButton @click="showAddRoleModal = false">{{ $t('common.cancel') }}</NButton>
-          <NButton type="primary" :loading="addRoleLoading" @click="handleAddRole">{{ $t('common.confirm') }}</NButton>
+          <NButton @click="showAddRoleModal = false">{{ $t("common.cancel") }}</NButton>
+          <NButton type="primary" :loading="addRoleLoading" @click="handleAddRole">
+            {{ $t("common.confirm") }}
+          </NButton>
         </div>
       </template>
     </NModal>
 
     <!-- Add/Edit Permission Modal -->
-    <NModal v-model:show="showPermissionModal" preset="card" :title="isEditPermission ? $t('page.system.permission.addPermission') : $t('page.system.permission.addPermission')" class="w-450px" :segmented="{ content: true, footer: true }">
+    <NModal
+      v-model:show="showPermissionModal"
+      preset="card"
+      :title="
+        isEditPermission
+          ? $t('page.system.permission.addPermission')
+          : $t('page.system.permission.addPermission')
+      "
+      class="w-450px"
+      :segmented="{ content: true, footer: true }"
+    >
       <NForm>
         <NFormItem :label="$t('page.system.permission.permissionName')" path="name">
-          <NInput v-model:value="permissionForm.name" :placeholder="$t('page.system.permission.permissionNamePlaceholder')" />
+          <NInput
+            v-model:value="permissionForm.name"
+            :placeholder="$t('page.system.permission.permissionNamePlaceholder')"
+          />
         </NFormItem>
         <NFormItem :label="$t('page.system.permission.permissionCode')" path="code">
-          <NInput v-model:value="permissionForm.code" :disabled="isEditPermission" :placeholder="$t('page.system.permission.permissionCodePlaceholder')" />
+          <NInput
+            v-model:value="permissionForm.code"
+            :disabled="isEditPermission"
+            :placeholder="$t('page.system.permission.permissionCodePlaceholder')"
+          />
         </NFormItem>
         <NFormItem :label="$t('page.system.permission.groupName')" path="groupName">
-          <NInput v-model:value="permissionForm.groupName" :placeholder="$t('page.system.permission.groupNamePlaceholder')" />
+          <NInput
+            v-model:value="permissionForm.groupName"
+            :placeholder="$t('page.system.permission.groupNamePlaceholder')"
+          />
         </NFormItem>
       </NForm>
       <template #footer>
         <div class="flex justify-end gap-3">
-          <NButton @click="showPermissionModal = false">{{ $t('common.cancel') }}</NButton>
-          <NButton type="primary" :loading="permissionLoading" @click="handleSubmitPermission">{{ $t('common.confirm') }}</NButton>
+          <NButton @click="showPermissionModal = false">
+            {{ $t("common.cancel") }}
+          </NButton>
+          <NButton
+            type="primary"
+            :loading="permissionLoading"
+            @click="handleSubmitPermission"
+          >
+            {{ $t("common.confirm") }}
+          </NButton>
         </div>
       </template>
     </NModal>

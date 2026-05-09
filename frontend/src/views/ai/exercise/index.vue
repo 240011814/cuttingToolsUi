@@ -349,10 +349,10 @@ watch(isFinished, (val) => {
                 activeWordIndex === Number(idx)
                   ? 'border-primary scale-105'
                   : wordResults[Number(idx)].status === 'error'
-                  ? 'border-red-500'
-                  : wordResults[Number(idx)].status === 'correct'
-                  ? 'border-transparent'
-                  : 'border-gray-100 dark:border-gray-800',
+                    ? 'border-red-500'
+                    : wordResults[Number(idx)].status === 'correct'
+                      ? 'border-transparent'
+                      : 'border-gray-100 dark:border-gray-800',
               ]"
               @click="selectWord(Number(idx))"
             >
@@ -394,15 +394,9 @@ watch(isFinished, (val) => {
             <span>请修正标红的拼写错误</span>
           </div>
           <div class="flex gap-10 text-xs uppercase tracking-widest font-bold">
-            <span class="flex items-center gap-2"
-              ><NTag size="small" :bordered="false" round>← →</NTag> 切换单词</span
-            >
-            <span class="flex items-center gap-2"
-              ><NTag size="small" :bordered="false" round>Space</NTag> 下一个</span
-            >
-            <span class="flex items-center gap-2"
-              ><NTag size="small" :bordered="false" round>Enter</NTag> 重播</span
-            >
+            <span class="flex items-center gap-2"><NTag size="small" :bordered="false" round>← →</NTag> 切换单词</span>
+            <span class="flex items-center gap-2"><NTag size="small" :bordered="false" round>Space</NTag> 下一个</span>
+            <span class="flex items-center gap-2"><NTag size="small" :bordered="false" round>Enter</NTag> 重播</span>
           </div>
         </div>
       </div>

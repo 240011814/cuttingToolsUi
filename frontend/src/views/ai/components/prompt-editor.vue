@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed } from "vue";
 import {
   useMessage,
   NPopconfirm,
@@ -11,10 +11,16 @@ import {
   NScrollbar,
   NModal,
   NBadge,
-  NEmpty
-} from 'naive-ui';
-import { fetchGetUserPrompt, fetchSaveUserPrompt, fetchResetUserPrompt, fetchSwitchUserPrompt, fetchDeleteUserPromptVersion } from '@/service/api/ai';
-import { format } from 'date-fns';
+  NEmpty,
+} from "naive-ui";
+import {
+  fetchGetUserPrompt,
+  fetchSaveUserPrompt,
+  fetchResetUserPrompt,
+  fetchSwitchUserPrompt,
+  fetchDeleteUserPromptVersion,
+} from "@/service/api/ai";
+import { format } from "date-fns";
 
 const props = defineProps<{
   moduleKey: string;
@@ -22,28 +28,28 @@ const props = defineProps<{
   defaultPrompt: string;
 }>();
 
-const emit = defineEmits(['updated']);
+const emit = defineEmits(["updated"]);
 
 const message = useMessage();
 const loading = ref(false);
 const saving = ref(false);
 const promptData = ref({
-  effective_prompt: '',
+  effective_prompt: "",
   default_prompt: props.defaultPrompt,
   versions: [] as any[],
-  is_customized: false
+  is_customized: false,
 });
 
-const editingPrompt = ref('');
-const remark = ref('');
+const editingPrompt = ref("");
+const remark = ref("");
 const showDefault = ref(false);
-const activeTab = ref('editor'); // 'editor' | 'history'
+const activeTab = ref("editor"); // 'editor' | 'history'
 
 // 对比相关
 const showCompareModal = ref(false);
 const compareTarget = ref<any>(null);
 
-type DiffLineType = 'equal' | 'added' | 'removed' | 'changed' | 'empty';
+type DiffLineType = "equal" | "added" | "removed" | "changed" | "empty";
 
 interface DiffLine {
   content: string;
@@ -65,8 +71,8 @@ interface DiffRow {
 interface DiffOperation {
   content: string;
   lineNumber: number;
-  side: 'left' | 'right' | 'both';
-  type: 'equal' | 'added' | 'removed';
+  side: "left" | "right" | "both";
+  type: "equal" | "added" | "removed";
 }
 
 async function loadPrompt() {
@@ -76,15 +82,16 @@ async function loadPrompt() {
     if (data) {
       promptData.value = {
         ...data,
-        default_prompt: data.default_prompt || props.defaultPrompt
+        default_prompt: data.default_prompt || props.defaultPrompt,
       };
       // 只有当编辑器内容为空或者与之前同步时才更新编辑器
-      if (!editingPrompt.value || activeTab.value === 'history') {
-        editingPrompt.value = data.effective_prompt || data.default_prompt || props.defaultPrompt;
+      if (!editingPrompt.value || activeTab.value === "history") {
+        editingPrompt.value =
+          data.effective_prompt || data.default_prompt || props.defaultPrompt;
       }
     }
   } catch (err: any) {
-    message.error(`加载失败: ${err?.message || '未知错误'}`);
+    message.error(`加载失败: ${err?.message || "未知错误"}`);
   } finally {
     loading.value = false;
   }
@@ -92,18 +99,18 @@ async function loadPrompt() {
 
 async function handleSave() {
   if (!editingPrompt.value.trim()) {
-    message.warning('提示词不能为空');
+    message.warning("提示词不能为空");
     return;
   }
   saving.value = true;
   try {
     await fetchSaveUserPrompt(props.moduleKey, editingPrompt.value, remark.value);
-    message.success('新版本已保存并启用');
-    remark.value = '';
+    message.success("新版本已保存并启用");
+    remark.value = "";
     await loadPrompt();
-    emit('updated');
+    emit("updated");
   } catch (err: any) {
-    message.error(`保存失败: ${err?.message || '未知错误'}`);
+    message.error(`保存失败: ${err?.message || "未知错误"}`);
   } finally {
     saving.value = false;
   }
@@ -113,11 +120,11 @@ async function handleSwitch(versionId: number) {
   loading.value = true;
   try {
     await fetchSwitchUserPrompt(props.moduleKey, versionId);
-    message.success('已切换版本');
+    message.success("已切换版本");
     await loadPrompt();
-    emit('updated');
+    emit("updated");
   } catch (err: any) {
-    message.error(`切换失败: ${err?.message || '未知错误'}`);
+    message.error(`切换失败: ${err?.message || "未知错误"}`);
   } finally {
     loading.value = false;
   }
@@ -126,11 +133,11 @@ async function handleSwitch(versionId: number) {
 async function handleDelete(versionId: number) {
   try {
     await fetchDeleteUserPromptVersion(props.moduleKey, versionId);
-    message.success('版本已删除');
+    message.success("版本已删除");
     await loadPrompt();
-    emit('updated');
+    emit("updated");
   } catch (err: any) {
-    message.error(`删除失败: ${err?.message || '未知错误'}`);
+    message.error(`删除失败: ${err?.message || "未知错误"}`);
   }
 }
 
@@ -138,12 +145,12 @@ async function handleReset() {
   saving.value = true;
   try {
     await fetchResetUserPrompt(props.moduleKey);
-    message.success('已恢复系统默认设置');
-    editingPrompt.value = '';
+    message.success("已恢复系统默认设置");
+    editingPrompt.value = "";
     await loadPrompt();
-    emit('updated');
+    emit("updated");
   } catch (err: any) {
-    message.error(`重置失败: ${err?.message || '未知错误'}`);
+    message.error(`重置失败: ${err?.message || "未知错误"}`);
   } finally {
     saving.value = false;
   }
@@ -151,7 +158,7 @@ async function handleReset() {
 
 function viewHistory(v: any) {
   editingPrompt.value = v.custom_prompt;
-  activeTab.value = 'editor';
+  activeTab.value = "editor";
   message.info(`已加载版本 v${v.version} 到编辑器`);
 }
 
@@ -164,9 +171,9 @@ function openCompare(v: any) {
 const leftScrollRef = ref<HTMLElement | null>(null);
 const rightScrollRef = ref<HTMLElement | null>(null);
 
-function syncScroll(event: Event, side: 'left' | 'right') {
+function syncScroll(event: Event, side: "left" | "right") {
   const source = event.target as HTMLElement;
-  const target = side === 'left' ? rightScrollRef.value : leftScrollRef.value;
+  const target = side === "left" ? rightScrollRef.value : leftScrollRef.value;
 
   if (target) {
     target.scrollTop = source.scrollTop;
@@ -182,7 +189,7 @@ const hasChanges = computed(() => {
 });
 
 const activeVersion = computed(() => {
-  return promptData.value.versions.find(v => v.is_active);
+  return promptData.value.versions.find((v) => v.is_active);
 });
 
 const currentPrompt = computed(() => {
@@ -190,11 +197,11 @@ const currentPrompt = computed(() => {
 });
 
 const compareDiffRows = computed(() => {
-  return buildDiffRows(compareTarget.value?.custom_prompt || '', currentPrompt.value);
+  return buildDiffRows(compareTarget.value?.custom_prompt || "", currentPrompt.value);
 });
 
 function splitLines(value: string) {
-  return value.length ? value.split(/\r?\n/) : [''];
+  return value.length ? value.split(/\r?\n/) : [""];
 }
 
 function buildDiffOperations(leftText: string, rightText: string) {
@@ -222,8 +229,8 @@ function buildDiffOperations(leftText: string, rightText: string) {
       operations.push({
         content: leftLines[leftIndex],
         lineNumber: leftIndex + 1,
-        side: 'both',
-        type: 'equal'
+        side: "both",
+        type: "equal",
       });
       leftIndex += 1;
       rightIndex += 1;
@@ -231,16 +238,16 @@ function buildDiffOperations(leftText: string, rightText: string) {
       operations.push({
         content: leftLines[leftIndex],
         lineNumber: leftIndex + 1,
-        side: 'left',
-        type: 'removed'
+        side: "left",
+        type: "removed",
       });
       leftIndex += 1;
     } else {
       operations.push({
         content: rightLines[rightIndex],
         lineNumber: rightIndex + 1,
-        side: 'right',
-        type: 'added'
+        side: "right",
+        type: "added",
       });
       rightIndex += 1;
     }
@@ -250,8 +257,8 @@ function buildDiffOperations(leftText: string, rightText: string) {
     operations.push({
       content: leftLines[leftIndex],
       lineNumber: leftIndex + 1,
-      side: 'left',
-      type: 'removed'
+      side: "left",
+      type: "removed",
     });
     leftIndex += 1;
   }
@@ -260,8 +267,8 @@ function buildDiffOperations(leftText: string, rightText: string) {
     operations.push({
       content: rightLines[rightIndex],
       lineNumber: rightIndex + 1,
-      side: 'right',
-      type: 'added'
+      side: "right",
+      type: "added",
     });
     rightIndex += 1;
   }
@@ -277,10 +284,10 @@ function buildDiffRows(leftText: string, rightText: string): DiffRow[] {
   while (index < operations.length) {
     const operation = operations[index];
 
-    if (operation.type === 'equal') {
+    if (operation.type === "equal") {
       rows.push({
-        left: createDiffLine(operation.content, 'equal', operation.lineNumber),
-        right: createDiffLine(operation.content, 'equal', operation.lineNumber)
+        left: createDiffLine(operation.content, "equal", operation.lineNumber),
+        right: createDiffLine(operation.content, "equal", operation.lineNumber),
       });
       index += 1;
       continue;
@@ -289,8 +296,8 @@ function buildDiffRows(leftText: string, rightText: string): DiffRow[] {
     const removed: DiffOperation[] = [];
     const added: DiffOperation[] = [];
 
-    while (index < operations.length && operations[index].type !== 'equal') {
-      if (operations[index].type === 'removed') {
+    while (index < operations.length && operations[index].type !== "equal") {
+      if (operations[index].type === "removed") {
         removed.push(operations[index]);
       } else {
         added.push(operations[index]);
@@ -304,25 +311,27 @@ function buildDiffRows(leftText: string, rightText: string): DiffRow[] {
       const removedLine = removed[rowIndex];
       const addedLine = added[rowIndex];
       const isChanged = Boolean(removedLine && addedLine);
-      const inlineDiff = isChanged ? buildInlineDiffSegments(removedLine.content, addedLine.content) : null;
+      const inlineDiff = isChanged
+        ? buildInlineDiffSegments(removedLine.content, addedLine.content)
+        : null;
 
       rows.push({
         left: removedLine
           ? createDiffLine(
               removedLine.content,
-              isChanged ? 'changed' : 'removed',
+              isChanged ? "changed" : "removed",
               removedLine.lineNumber,
               inlineDiff?.left
             )
-          : createDiffLine('', 'empty'),
+          : createDiffLine("", "empty"),
         right: addedLine
           ? createDiffLine(
               addedLine.content,
-              isChanged ? 'changed' : 'added',
+              isChanged ? "changed" : "added",
               addedLine.lineNumber,
               inlineDiff?.right
             )
-          : createDiffLine('', 'empty')
+          : createDiffLine("", "empty"),
       });
     }
   }
@@ -340,7 +349,7 @@ function createDiffLine(
     content,
     lineNumber,
     segments: segments || [{ content, changed: false }],
-    type
+    type,
   };
 }
 
@@ -351,7 +360,7 @@ function buildInlineDiffSegments(leftContent: string, rightContent: string) {
   if (leftChars.length * rightChars.length > 160000) {
     return {
       left: [{ content: leftContent, changed: true }],
-      right: [{ content: rightContent, changed: true }]
+      right: [{ content: rightContent, changed: true }],
     };
   }
 
@@ -399,8 +408,8 @@ function buildInlineDiffSegments(leftContent: string, rightContent: string) {
   }
 
   return {
-    left: leftSegments.length ? leftSegments : [{ content: '', changed: false }],
-    right: rightSegments.length ? rightSegments : [{ content: '', changed: false }]
+    left: leftSegments.length ? leftSegments : [{ content: "", changed: false }],
+    right: rightSegments.length ? rightSegments : [{ content: "", changed: false }],
   };
 }
 
@@ -417,10 +426,10 @@ function pushDiffSegment(segments: DiffSegment[], content: string, changed: bool
 
 function getDiffLineClass(line: DiffLine) {
   return {
-    'diff-line--added': line.type === 'added',
-    'diff-line--removed': line.type === 'removed',
-    'diff-line--changed': line.type === 'changed',
-    'diff-line--empty': line.type === 'empty'
+    "diff-line--added": line.type === "added",
+    "diff-line--removed": line.type === "removed",
+    "diff-line--changed": line.type === "changed",
+    "diff-line--empty": line.type === "empty",
   };
 }
 </script>
@@ -443,14 +452,28 @@ function getDiffLineClass(line: DiffLine) {
               </NTag>
               <NTag v-else type="info" size="small" round strong>系统默认</NTag>
             </div>
-            <NButton quaternary size="tiny" type="primary" @click="showDefault = !showDefault">
-              {{ showDefault ? '隐藏初始版本' : '查看初始版本' }}
+            <NButton
+              quaternary
+              size="tiny"
+              type="primary"
+              @click="showDefault = !showDefault"
+            >
+              {{ showDefault ? "隐藏初始版本" : "查看初始版本" }}
             </NButton>
           </div>
 
-          <div v-if="showDefault" class="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shrink-0">
-            <div class="text-[11px] font-bold mb-1 text-gray-500 uppercase tracking-wider">System Default (Read-only)</div>
-            <div class="text-xs text-gray-400 whitespace-pre-wrap max-h-32 overflow-y-auto italic font-mono leading-relaxed">
+          <div
+            v-if="showDefault"
+            class="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shrink-0"
+          >
+            <div
+              class="text-[11px] font-bold mb-1 text-gray-500 uppercase tracking-wider"
+            >
+              System Default (Read-only)
+            </div>
+            <div
+              class="text-xs text-gray-400 whitespace-pre-wrap max-h-32 overflow-y-auto italic font-mono leading-relaxed"
+            >
               {{ promptData.default_prompt }}
             </div>
           </div>
@@ -467,19 +490,37 @@ function getDiffLineClass(line: DiffLine) {
           </div>
 
           <div class="shrink-0 space-y-3">
-            <div class="p-3 bg-primary-50/10 dark:bg-primary-900/5 border border-dashed border-primary-200 dark:border-primary-800 rounded-lg">
+            <div
+              class="p-3 bg-primary-50/10 dark:bg-primary-900/5 border border-dashed border-primary-200 dark:border-primary-800 rounded-lg"
+            >
               <div class="text-xs text-gray-500 mb-2 font-bold flex items-center gap-1">
                 <div class="i-mdi:comment-edit-outline" />
                 版本说明
               </div>
-              <NInput v-model:value="remark" placeholder="简单描述本次修改的内容..." size="small" />
+              <NInput
+                v-model:value="remark"
+                placeholder="简单描述本次修改的内容..."
+                size="small"
+              />
             </div>
 
             <div class="flex justify-end gap-3 pb-2">
-              <NButton ghost :disabled="!hasChanges" @click="editingPrompt = promptData.effective_prompt || promptData.default_prompt">
+              <NButton
+                ghost
+                :disabled="!hasChanges"
+                @click="
+                  editingPrompt = promptData.effective_prompt || promptData.default_prompt
+                "
+              >
                 撤销修改
               </NButton>
-              <NButton type="primary" :loading="saving" :disabled="!hasChanges" class="px-6" @click="handleSave">
+              <NButton
+                type="primary"
+                :loading="saving"
+                :disabled="!hasChanges"
+                class="px-6"
+                @click="handleSave"
+              >
                 发布此版本
               </NButton>
             </div>
@@ -496,34 +537,54 @@ function getDiffLineClass(line: DiffLine) {
         </template>
 
         <div class="flex flex-col h-full overflow-hidden">
-          <div v-if="promptData.versions.length === 0" class="flex-1 flex items-center justify-center">
+          <div
+            v-if="promptData.versions.length === 0"
+            class="flex-1 flex items-center justify-center"
+          >
             <NEmpty description="还没有保存过任何版本" />
           </div>
 
           <NScrollbar v-else class="flex-1 pr-2">
             <div class="space-y-3">
               <div
-                v-for="v in promptData.versions" :key="v.id"
+                v-for="v in promptData.versions"
+                :key="v.id"
                 class="group p-4 rounded-xl border transition-all duration-300 hover:shadow-md relative overflow-hidden"
-                :class="v.is_active ? 'border-primary-500 bg-primary-50/5 ring-1 ring-primary-500/20' : 'border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-800/50 hover:border-primary-300'"
+                :class="
+                  v.is_active
+                    ? 'border-primary-500 bg-primary-50/5 ring-1 ring-primary-500/20'
+                    : 'border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-800/50 hover:border-primary-300'
+                "
               >
                 <!-- 状态标识 -->
                 <div v-if="v.is_active" class="absolute top-0 right-0">
-                  <div class="bg-primary text-white text-[10px] px-3 py-0.5 rounded-bl-lg font-bold">ACTIVE</div>
+                  <div
+                    class="bg-primary text-white text-[10px] px-3 py-0.5 rounded-bl-lg font-bold"
+                  >
+                    ACTIVE
+                  </div>
                 </div>
 
                 <div class="flex items-center justify-between mb-3">
                   <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center font-bold text-gray-500 group-hover:bg-primary-500 group-hover:text-white transition-colors">
+                    <div
+                      class="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center font-bold text-gray-500 group-hover:bg-primary-500 group-hover:text-white transition-colors"
+                    >
                       v{{ v.version }}
                     </div>
                     <div class="flex flex-col">
-                      <span class="text-xs text-gray-400">{{ format(new Date(v.created_at), 'yyyy-MM-dd HH:mm') }}</span>
+                      <span class="text-xs text-gray-400">{{
+                        format(new Date(v.created_at), "yyyy-MM-dd HH:mm")
+                      }}</span>
                     </div>
                   </div>
 
                   <div class="flex items-center gap-2">
-                    <NPopconfirm placement="left" scroll-strategy="reposition" @positive-click="handleDelete(v.id)">
+                    <NPopconfirm
+                      placement="left"
+                      scroll-strategy="reposition"
+                      @positive-click="handleDelete(v.id)"
+                    >
                       <template #trigger>
                         <div class="inline-block">
                           <ButtonIcon
@@ -539,15 +600,21 @@ function getDiffLineClass(line: DiffLine) {
                   </div>
                 </div>
 
-                <div class="text-[13px] text-gray-600 dark:text-gray-400 mb-4 bg-gray-50/50 dark:bg-gray-900/30 p-2 rounded italic line-clamp-2 border-l-2 border-gray-200">
-                  {{ v.remark || '无备注信息' }}
+                <div
+                  class="text-[13px] text-gray-600 dark:text-gray-400 mb-4 bg-gray-50/50 dark:bg-gray-900/30 p-2 rounded italic line-clamp-2 border-l-2 border-gray-200"
+                >
+                  {{ v.remark || "无备注信息" }}
                 </div>
 
                 <div class="flex gap-2 justify-end">
-                  <NButton size="small" ghost @click="viewHistory(v)">
-                    载入编辑
-                  </NButton>
-                  <NButton v-if="!v.is_active" size="small" type="primary" secondary @click="handleSwitch(v.id)">
+                  <NButton size="small" ghost @click="viewHistory(v)"> 载入编辑 </NButton>
+                  <NButton
+                    v-if="!v.is_active"
+                    size="small"
+                    type="primary"
+                    secondary
+                    @click="handleSwitch(v.id)"
+                  >
                     启用该版
                   </NButton>
                   <NButton size="small" quaternary type="info" @click="openCompare(v)">
@@ -561,7 +628,13 @@ function getDiffLineClass(line: DiffLine) {
           <div class="mt-auto pt-6 pb-2 border-t border-gray-100 dark:border-gray-800">
             <NPopconfirm @positive-click="handleReset">
               <template #trigger>
-                <NButton block quaternary type="error" size="small" class="opacity-60 hover:opacity-100">
+                <NButton
+                  block
+                  quaternary
+                  type="error"
+                  size="small"
+                  class="opacity-60 hover:opacity-100"
+                >
                   <template #icon><div class="i-mdi:refresh" /></template>
                   重置为系统出厂设置
                 </NButton>
@@ -582,8 +655,12 @@ function getDiffLineClass(line: DiffLine) {
       header-style="padding: 16px 24px; border-bottom: 1px solid #f0f0f0;"
     >
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6 h-[60vh] min-h-[400px]">
-        <div class="flex flex-col h-full overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/30">
-          <div class="p-3 bg-white dark:bg-gray-800 border-b flex justify-between items-center shrink-0">
+        <div
+          class="flex flex-col h-full overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/30"
+        >
+          <div
+            class="p-3 bg-white dark:bg-gray-800 border-b flex justify-between items-center shrink-0"
+          >
             <div class="flex items-center gap-2">
               <div class="w-2 h-2 rounded-full bg-gray-400" />
               <span class="text-sm font-bold text-gray-500">备份版本 (v{{ compareTarget?.version }})</span>
@@ -601,19 +678,23 @@ function getDiffLineClass(line: DiffLine) {
               class="diff-line"
               :class="getDiffLineClass(row.left)"
             >
-              <span class="diff-line-number">{{ row.left.lineNumber || '' }}</span>
+              <span class="diff-line-number">{{ row.left.lineNumber || "" }}</span>
               <span class="diff-line-content">
                 <span
                   v-for="(segment, segmentIndex) in row.left.segments"
                   :key="`left-${index}-${segmentIndex}`"
                   :class="{ 'diff-segment--changed': segment.changed }"
-                >{{ segment.content || ' ' }}</span>
+                >{{ segment.content || " " }}</span>
               </span>
             </div>
           </div>
         </div>
-        <div class="flex flex-col h-full overflow-hidden rounded-xl border border-primary-200 dark:border-primary-800 bg-primary-50/5">
-          <div class="p-3 bg-white dark:bg-gray-800 border-b flex justify-between items-center shrink-0">
+        <div
+          class="flex flex-col h-full overflow-hidden rounded-xl border border-primary-200 dark:border-primary-800 bg-primary-50/5"
+        >
+          <div
+            class="p-3 bg-white dark:bg-gray-800 border-b flex justify-between items-center shrink-0"
+          >
             <div class="flex items-center gap-2">
               <div class="w-2 h-2 rounded-full bg-primary" />
               <span class="text-sm font-bold text-primary">当前生效版本</span>
@@ -631,13 +712,13 @@ function getDiffLineClass(line: DiffLine) {
               class="diff-line"
               :class="getDiffLineClass(row.right)"
             >
-              <span class="diff-line-number">{{ row.right.lineNumber || '' }}</span>
+              <span class="diff-line-number">{{ row.right.lineNumber || "" }}</span>
               <span class="diff-line-content">
                 <span
                   v-for="(segment, segmentIndex) in row.right.segments"
                   :key="`right-${index}-${segmentIndex}`"
                   :class="{ 'diff-segment--changed': segment.changed }"
-                >{{ segment.content || ' ' }}</span>
+                >{{ segment.content || " " }}</span>
               </span>
             </div>
           </div>
@@ -645,10 +726,21 @@ function getDiffLineClass(line: DiffLine) {
       </div>
       <template #footer>
         <div class="flex justify-between items-center w-full px-2">
-          <NPopconfirm placement="top" @positive-click="handleDelete(compareTarget.id); showCompareModal = false">
+          <NPopconfirm
+            placement="top"
+            @positive-click="
+              handleDelete(compareTarget.id);
+              showCompareModal = false;
+            "
+          >
             <template #trigger>
               <div class="inline-block">
-                <NButton v-if="compareTarget && !compareTarget.is_active" quaternary type="error" size="small">
+                <NButton
+                  v-if="compareTarget && !compareTarget.is_active"
+                  quaternary
+                  type="error"
+                  size="small"
+                >
                   永久删除该备份
                 </NButton>
               </div>
@@ -657,7 +749,15 @@ function getDiffLineClass(line: DiffLine) {
           </NPopconfirm>
           <div class="flex gap-3">
             <NButton ghost @click="showCompareModal = false">关闭</NButton>
-            <NButton v-if="compareTarget && !compareTarget.is_active" type="primary" class="px-6" @click="handleSwitch(compareTarget.id); showCompareModal = false">
+            <NButton
+              v-if="compareTarget && !compareTarget.is_active"
+              type="primary"
+              class="px-6"
+              @click="
+                handleSwitch(compareTarget.id);
+                showCompareModal = false;
+              "
+            >
               回退到此版本
             </NButton>
           </div>
@@ -791,7 +891,7 @@ function getDiffLineClass(line: DiffLine) {
   width: 6px;
 }
 .overflow-auto::-webkit-scrollbar-thumb {
-  background-color: rgba(0,0,0,0.1);
+  background-color: rgba(0, 0, 0, 0.1);
   border-radius: 3px;
 }
 </style>

@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
-import { createReusableTemplate } from '@vueuse/core';
-import { useThemeStore } from '@/store/modules/theme';
-import { fetchDashboardStats } from '@/service/api';
-import type { DashboardStats } from '@/service/api';
+import { computed, onMounted, ref } from "vue";
+import { createReusableTemplate } from "@vueuse/core";
+import { useThemeStore } from "@/store/modules/theme";
+import { fetchDashboardStats } from "@/service/api";
+import type { DashboardStats } from "@/service/api";
 
 defineOptions({
-  name: 'CardData'
+  name: "CardData",
 });
 
 interface CardData {
@@ -32,49 +32,49 @@ const loadStats = async () => {
 
 const cardData = computed<CardData[]>(() => [
   {
-    key: 'todayTrainings',
-    title: '今日训练',
+    key: "todayTrainings",
+    title: "今日训练",
     value: stats.value?.today_trainings || 0,
-    unit: '',
+    unit: "",
     color: {
-      start: '#ec4786',
-      end: '#b955a4'
+      start: "#ec4786",
+      end: "#b955a4",
     },
-    icon: 'mdi:calendar-check'
+    icon: "mdi:calendar-check",
   },
   {
-    key: 'totalTrainings',
-    title: '累计训练',
+    key: "totalTrainings",
+    title: "累计训练",
     value: stats.value?.total_trainings || 0,
-    unit: '',
+    unit: "",
     color: {
-      start: '#865ec0',
-      end: '#5144b4'
+      start: "#865ec0",
+      end: "#5144b4",
     },
-    icon: 'mdi:chart-line'
+    icon: "mdi:chart-line",
   },
   {
-    key: 'totalVocabulary',
-    title: '生词本',
+    key: "totalVocabulary",
+    title: "生词本",
     value: stats.value?.total_vocabulary || 0,
-    unit: '',
+    unit: "",
     color: {
-      start: '#56cdf3',
-      end: '#719de3'
+      start: "#56cdf3",
+      end: "#719de3",
     },
-    icon: 'mdi:book-open-variant'
+    icon: "mdi:book-open-variant",
   },
   {
-    key: 'totalNotes',
-    title: '笔记数量',
+    key: "totalNotes",
+    title: "笔记数量",
     value: stats.value?.total_notes || 0,
-    unit: '',
+    unit: "",
     color: {
-      start: '#fcbc25',
-      end: '#f68057'
+      start: "#fcbc25",
+      end: "#f68057",
     },
-    icon: 'mdi:notebook-outline'
-  }
+    icon: "mdi:notebook-outline",
+  },
 ]);
 
 interface GradientBgProps {
@@ -85,7 +85,7 @@ const [DefineGradientBg, GradientBg] = createReusableTemplate<GradientBgProps>()
 
 const themeStore = useThemeStore();
 
-function getGradientColor(color: CardData['color']) {
+function getGradientColor(color: CardData["color"]) {
   return `linear-gradient(to bottom right, ${color.start}, ${color.end})`;
 }
 
@@ -99,7 +99,10 @@ onMounted(() => {
     <DefineGradientBg v-slot="{ $slots, gradientColor }">
       <div
         class="px-16px pb-4px pt-8px text-white"
-        :style="{ backgroundImage: gradientColor, borderRadius: themeStore.themeRadius + 'px' }"
+        :style="{
+          backgroundImage: gradientColor,
+          borderRadius: themeStore.themeRadius + 'px',
+        }"
       >
         <component :is="$slots.default" />
       </div>

@@ -1,53 +1,53 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
-import { useEcharts } from '@/hooks/common/echarts';
-import { fetchDashboardStats } from '@/service/api';
-import type { DashboardStats } from '@/service/api';
+import { onMounted, ref } from "vue";
+import { useEcharts } from "@/hooks/common/echarts";
+import { fetchDashboardStats } from "@/service/api";
+import type { DashboardStats } from "@/service/api";
 
 defineOptions({
-  name: 'LineChart'
+  name: "LineChart",
 });
 
 const stats = ref<DashboardStats | null>(null);
 
 const { domRef, updateOptions } = useEcharts(() => ({
   tooltip: {
-    trigger: 'axis',
+    trigger: "axis",
     axisPointer: {
-      type: 'cross',
+      type: "cross",
       label: {
-        backgroundColor: '#6a7985'
-      }
-    }
+        backgroundColor: "#6a7985",
+      },
+    },
   },
   legend: {
-    data: ['训练次数'],
-    top: '0'
+    data: ["训练次数"],
+    top: "0",
   },
   grid: {
-    left: '3%',
-    right: '4%',
-    bottom: '3%',
-    top: '15%'
+    left: "3%",
+    right: "4%",
+    bottom: "3%",
+    top: "15%",
   },
   xAxis: {
-    type: 'category',
+    type: "category",
     boundaryGap: false,
-    data: [] as string[]
+    data: [] as string[],
   },
   yAxis: {
-    type: 'value'
+    type: "value",
   },
   series: [
     {
-      color: '#8e9dff',
-      name: '训练次数',
-      type: 'line',
+      color: "#8e9dff",
+      name: "训练次数",
+      type: "line",
       smooth: true,
-      stack: 'Total',
+      stack: "Total",
       areaStyle: {
         color: {
-          type: 'linear',
+          type: "linear",
           x: 0,
           y: 0,
           x2: 0,
@@ -55,30 +55,30 @@ const { domRef, updateOptions } = useEcharts(() => ({
           colorStops: [
             {
               offset: 0.25,
-              color: '#8e9dff'
+              color: "#8e9dff",
             },
             {
               offset: 1,
-              color: '#fff'
-            }
-          ]
-        }
+              color: "#fff",
+            },
+          ],
+        },
       },
       emphasis: {
-        focus: 'series'
+        focus: "series",
       },
-      data: [] as number[]
-    }
-  ]
+      data: [] as number[],
+    },
+  ],
 }));
 
 async function loadData() {
   const { data, error } = await fetchDashboardStats();
   if (!error && data) {
     stats.value = data;
-    updateOptions(opts => {
-      opts.xAxis.data = data.training_trend.map(item => item.date.slice(5));
-      opts.series[0].data = data.training_trend.map(item => item.count);
+    updateOptions((opts) => {
+      opts.xAxis.data = data.training_trend.map((item) => item.date.slice(5));
+      opts.series[0].data = data.training_trend.map((item) => item.count);
       return opts;
     });
   }

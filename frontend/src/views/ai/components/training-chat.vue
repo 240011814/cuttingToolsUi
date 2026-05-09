@@ -1,7 +1,13 @@
 <script setup lang="ts">
 import { nextTick, ref, onBeforeUnmount, onMounted } from "vue";
 import { useMessage, NDrawer, NDrawerContent, NModal, NInput } from "naive-ui";
-import { fetchAddVocabulary, fetchAddNote, fetchHistoryDetail, fetchUpdateFavorite, fetchUpdateHistoryTitle } from "@/service/api";
+import {
+  fetchAddVocabulary,
+  fetchAddNote,
+  fetchHistoryDetail,
+  fetchUpdateFavorite,
+  fetchUpdateHistoryTitle,
+} from "@/service/api";
 import { fetchGetAIModels, fetchGetUserPrompt, fetchChatStream } from "@/service/api/ai";
 import { useAuth } from "@/hooks/business/auth";
 import MarkdownIt from "markdown-it";
@@ -339,7 +345,6 @@ const sendMessage = async () => {
     const decoder = new TextDecoder("utf-8");
     if (!reader) throw new Error("无法获取响应流");
 
-
     let buffer = "";
     let eventType = "message"; // 1. 移到循环外，持久化状态
 
@@ -359,7 +364,6 @@ const sendMessage = async () => {
           eventType = line.replace(/^event:\s*/, "").trim();
           continue;
         }
-
 
         if (line.startsWith("data:")) {
           const dataStr = line.replace(/^data:\s*/, "").trim();
@@ -433,37 +437,37 @@ const loadHistory = async (id: number) => {
   try {
     const { data } = await fetchHistoryDetail(id);
     if (data) {
-      const parsedMessages = JSON.parse(data.messages || '[]');
+      const parsedMessages = JSON.parse(data.messages || "[]");
       historyId.value = data.id;
       historyTitle.value = data.title;
       // 过滤掉系统提示词，只显示用户和助手的消息
       messages.value = parsedMessages
-        .filter((msg: any) => msg.role !== 'system')
+        .filter((msg: any) => msg.role !== "system")
         .map((msg: any) => createChatMessage(msg.role, msg.content));
       isFavorite.value = data.is_favorite;
     }
   } catch (err: any) {
-    message.error(`加载历史记录失败: ${err?.message || '未知错误'}`);
+    message.error(`加载历史记录失败: ${err?.message || "未知错误"}`);
   }
 };
 
 const handleToggleFavorite = async () => {
   if (!historyId.value) {
-    message.warning('请先发送消息后再收藏');
+    message.warning("请先发送消息后再收藏");
     return;
   }
   try {
     await fetchUpdateFavorite(historyId.value, !isFavorite.value);
     isFavorite.value = !isFavorite.value;
-    message.success(isFavorite.value ? '已收藏' : '已取消收藏');
+    message.success(isFavorite.value ? "已收藏" : "已取消收藏");
   } catch (err: any) {
-    message.error(`操作失败: ${err?.message || '未知错误'}`);
+    message.error(`操作失败: ${err?.message || "未知错误"}`);
   }
 };
 
 const handleOpenEditTitle = () => {
   if (!historyId.value) {
-    message.warning('请先发送消息后再编辑标题');
+    message.warning("请先发送消息后再编辑标题");
     return;
   }
   editTitle.value = historyTitle.value;
@@ -472,16 +476,16 @@ const handleOpenEditTitle = () => {
 
 const handleSaveTitle = async () => {
   if (!editTitle.value.trim()) {
-    message.warning('标题不能为空');
+    message.warning("标题不能为空");
     return;
   }
   try {
     await fetchUpdateHistoryTitle(historyId.value, editTitle.value.trim());
     historyTitle.value = editTitle.value.trim();
     showTitleModal.value = false;
-    message.success('标题已更新');
+    message.success("标题已更新");
   } catch (err: any) {
-    message.error(`操作失败: ${err?.message || '未知错误'}`);
+    message.error(`操作失败: ${err?.message || "未知错误"}`);
   }
 };
 
@@ -520,12 +524,10 @@ onBeforeUnmount(() => {
         class="p-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between"
       >
         <div class="flex items-center gap-2">
-          <span class="font-bold text-gray-600 dark:text-gray-300">{{ historyTitle || 'AI 训练对话' }}</span>
-          <NButton
-            quaternary
-            size="small"
-            @click="handleOpenEditTitle"
-          >
+          <span class="font-bold text-gray-600 dark:text-gray-300">{{
+            historyTitle || "AI 训练对话"
+          }}</span>
+          <NButton quaternary size="small" @click="handleOpenEditTitle">
             <template #icon>
               <SvgIcon icon="mdi:pencil-outline" class="text-lg" />
             </template>
@@ -537,7 +539,10 @@ onBeforeUnmount(() => {
             @click="handleToggleFavorite"
           >
             <template #icon>
-              <SvgIcon :icon="isFavorite ? 'mdi:star' : 'mdi:star-outline'" class="text-lg" />
+              <SvgIcon
+                :icon="isFavorite ? 'mdi:star' : 'mdi:star-outline'"
+                class="text-lg"
+              />
             </template>
           </NButton>
         </div>
