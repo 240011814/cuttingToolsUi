@@ -39,20 +39,46 @@ const favoriteOptions = computed(() => [
   { label: $t("page.ai.history.unfavorited"), value: false },
 ]);
 const total = ref(0);
+
 const pagination = ref({
   page: 1,
   pageSize: 10,
   itemCount: 0,
   onChange: (page: number) => {
     pagination.value.page = page;
+    // eslint-disable-next-line @typescript-eslint/no-use-before-define
     loadData();
   },
   onUpdatePageSize: (pageSize: number) => {
     pagination.value.pageSize = pageSize;
     pagination.value.page = 1;
+    // eslint-disable-next-line @typescript-eslint/no-use-before-define
     loadData();
   },
 });
+
+const loadData = async () => {
+  loading.value = true;
+  try {
+    const { data: res } = await fetchHistoryList({
+      title: title.value,
+      is_favorite: favoriteFilter.value !== null ? favoriteFilter.value : undefined,
+      page: pagination.value.page,
+      pageSize: pagination.value.pageSize,
+    });
+    if (res) {
+      data.value = res.items;
+      total.value = res.total;
+      pagination.value.itemCount = res.total;
+    }
+  } catch (err: any) {
+    message.error(
+      `${$t("page.ai.history.loadFailed")}: ${err?.message || $t("common.error")}`
+    );
+  } finally {
+    loading.value = false;
+  }
+};
 
 const showDrawer = ref(false);
 const currentMessages = ref<any[]>([]);
@@ -61,7 +87,7 @@ const handleView = (row: any) => {
   try {
     currentMessages.value = JSON.parse(row.messages || "[]");
     showDrawer.value = true;
-  } catch (e) {
+  } catch {
     message.error($t("page.ai.history.parseFailed"));
   }
 };
@@ -176,7 +202,7 @@ const columns = computed<DataTableColumns<any>>(() => {
             ),
             h("span", content),
           ]);
-        } catch (e) {
+        } catch {
           return h("span", { class: "text-error" }, $t("page.ai.history.parseFailed"));
         }
       },
@@ -259,29 +285,6 @@ const columns = computed<DataTableColumns<any>>(() => {
   ];
 });
 
-const loadData = async () => {
-  loading.value = true;
-  try {
-    const { data: res } = await fetchHistoryList({
-      title: title.value,
-      is_favorite: favoriteFilter.value !== null ? favoriteFilter.value : undefined,
-      page: pagination.value.page,
-      pageSize: pagination.value.pageSize,
-    });
-    if (res) {
-      data.value = res.items;
-      total.value = res.total;
-      pagination.value.itemCount = res.total;
-    }
-  } catch (err: any) {
-    message.error(
-      `${$t("page.ai.history.loadFailed")}: ${err?.message || $t("common.error")}`
-    );
-  } finally {
-    loading.value = false;
-  }
-};
-
 onMounted(() => {
   loadData();
 });
@@ -309,7 +312,7 @@ onMounted(() => {
               v-model:value="favoriteFilter"
               :placeholder="$t('page.ai.history.favoriteStatus')"
               clearable
-              :options="favoriteOptions"
+              :options="(favoriteOptions as any)"
               style="width: 120px"
               @update:value="loadData"
             />
@@ -371,6 +374,7 @@ onMounted(() => {
                         : 'bg-gray-100 text-gray-800 rounded-tl-none dark:bg-gray-800 dark:text-gray-200'
                     "
                   >
+                    <!-- eslint-disable-next-line vue/no-v-html -->
                     <div v-html="renderMarkdown(msg.content)"></div>
                   </div>
                 </div>

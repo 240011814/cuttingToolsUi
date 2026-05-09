@@ -596,6 +596,7 @@ onBeforeUnmount(() => {
                 "
                 @mouseup="msg.role === 'assistant' ? handleSelectText() : undefined"
               >
+                <!-- eslint-disable-next-line vue/no-v-html -->
                 <div v-html="msg.renderedContent"></div>
                 <span
                   v-if="
@@ -768,6 +769,7 @@ onBeforeUnmount(() => {
               :autosize="{ minRows: 12, maxRows: 15 }"
               placeholder="输入笔记内容"
             />
+            <!-- eslint-disable-next-line vue/no-v-html -->
             <div
               class="prose dark:prose-invert max-w-none overflow-y-auto p-4 border border-gray-200 dark:border-gray-700 rounded-md bg-gray-50/50 dark:bg-dark-100 text-sm leading-relaxed"
               style="height: 100%; max-height: 350px"

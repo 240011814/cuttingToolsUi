@@ -12,12 +12,11 @@ import {
   fetchUpdatePermission,
   fetchDeletePermission,
 } from "@/service/api";
-import { useAuth } from "@/hooks/business/auth";
+
 import { $t } from "@/locales";
 
 const message = useMessage();
 const dialog = useDialog();
-const { hasAuth } = useAuth();
 
 const roles = ref<Api.Admin.Role[]>([]);
 const permissions = ref<Api.Admin.Permission[]>([]);

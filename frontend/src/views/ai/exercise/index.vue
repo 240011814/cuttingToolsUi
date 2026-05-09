@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, nextTick, watch } from "vue";
+import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useMessage } from "naive-ui";
 import { fetchGetVocabularyList } from "@/service/api";
@@ -16,13 +16,13 @@ const message = useMessage();
 const playClick = () => {
   try {
     new Audio(typingSound).play().catch(() => {});
-  } catch (e) {}
+  } catch {}
 };
 
 const playError = () => {
   try {
     new Audio(errorSound).play().catch(() => {});
-  } catch (e) {}
+  } catch {}
 };
 
 // --- State ---
@@ -96,6 +96,7 @@ const initSentence = () => {
   currentInput.value = "";
   wordResults.value = targetWords.value.map(() => ({ typed: "", status: "pending" }));
   errorCounts.value = targetWords.value.map(() => 0);
+  // eslint-disable-next-line @typescript-eslint/no-use-before-define
   playCurrent(3);
 };
 
@@ -123,6 +124,7 @@ const selectWord = (index: number) => {
   playClick();
 
   // 离开当前单词前进行校验
+  // eslint-disable-next-line @typescript-eslint/no-use-before-define
   validateWord(activeWordIndex.value, currentInput.value);
 
   // 切换到目标单词
@@ -159,6 +161,7 @@ const handleGlobalKeydown = (e: KeyboardEvent) => {
 
   // 重播/提交
   if (e.key === "Enter") {
+    // eslint-disable-next-line @typescript-eslint/no-use-before-define
     validateWord(activeWordIndex.value, currentInput.value);
     // 如果没全对，可以触发重播
     if (!wordResults.value.every((r) => r.status === "correct")) {
@@ -171,6 +174,7 @@ const handleGlobalKeydown = (e: KeyboardEvent) => {
   if (e.key === " ") {
     e.preventDefault();
     const oldIndex = activeWordIndex.value;
+    // eslint-disable-next-line @typescript-eslint/no-use-before-define
     validateWord(oldIndex, currentInput.value);
 
     // 如果还没全对，且刚才校验的是当前焦点词，则移动到下一个

@@ -24,11 +24,13 @@ const pagination = ref({
   itemCount: 0,
   onChange: (page: number) => {
     pagination.value.page = page;
+    // eslint-disable-next-line @typescript-eslint/no-use-before-define
     loadData();
   },
   onUpdatePageSize: (pageSize: number) => {
     pagination.value.pageSize = pageSize;
     pagination.value.page = 1;
+    // eslint-disable-next-line @typescript-eslint/no-use-before-define
     loadData();
   },
 });
@@ -88,6 +90,7 @@ const columns = computed<DataTableColumns<any>>(() => {
               size: "small",
               type: "primary",
               quaternary: true,
+              // eslint-disable-next-line @typescript-eslint/no-use-before-define
               onClick: () => handleView(row),
             },
             { default: () => $t("page.ai.note.view") }
@@ -98,6 +101,7 @@ const columns = computed<DataTableColumns<any>>(() => {
               size: "small",
               type: "info",
               quaternary: true,
+              // eslint-disable-next-line @typescript-eslint/no-use-before-define
               onClick: () => handleEdit(row),
             },
             { default: () => $t("page.ai.note.edit") }
@@ -105,6 +109,7 @@ const columns = computed<DataTableColumns<any>>(() => {
           h(
             NPopconfirm,
             {
+              // eslint-disable-next-line @typescript-eslint/no-use-before-define
               onPositiveClick: () => handleDelete(row.id),
               trigger: "click",
             },
@@ -303,6 +308,7 @@ onMounted(() => {
       style="width: 800px; max-width: 95vw"
       :segmented="{ content: 'soft' }"
     >
+      <!-- eslint-disable-next-line vue/no-v-html -->
       <div
         class="prose dark:prose-invert max-w-none overflow-y-auto p-4 bg-gray-50/50 dark:bg-dark-100 rounded-md text-sm leading-relaxed"
         style="max-height: 70vh"
@@ -345,6 +351,7 @@ onMounted(() => {
               :autosize="{ minRows: 12, maxRows: 15 }"
               :placeholder="$t('page.ai.note.noteContentPlaceholder')"
             />
+            <!-- eslint-disable-next-line vue/no-v-html -->
             <div
               class="prose dark:prose-invert max-w-none overflow-y-auto p-4 border border-gray-200 dark:border-gray-700 rounded-md bg-gray-50/50 dark:bg-dark-100 text-sm leading-relaxed"
               style="height: 100%; max-height: 350px"

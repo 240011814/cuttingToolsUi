@@ -44,6 +44,7 @@ const columns = computed<DataTableColumns<any>>(() => {
             size: "small",
             quaternary: true,
             type: "primary",
+            // eslint-disable-next-line @typescript-eslint/no-use-before-define
             onClick: () => handlePlay(row.word),
           },
           {
@@ -81,6 +82,7 @@ const columns = computed<DataTableColumns<any>>(() => {
               size: "small",
               type: activeTab.value === "new" ? "success" : "warning",
               quaternary: true,
+              // eslint-disable-next-line @typescript-eslint/no-use-before-define
               onClick: () => handleToggleMastered(row),
             },
             {
@@ -93,6 +95,7 @@ const columns = computed<DataTableColumns<any>>(() => {
           h(
             NPopconfirm,
             {
+              // eslint-disable-next-line @typescript-eslint/no-use-before-define
               onPositiveClick: () => handleDelete(row.id),
               trigger: "click",
             },

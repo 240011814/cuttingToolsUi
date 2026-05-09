@@ -22,13 +22,15 @@ import {
 } from "@/service/api/ai";
 import { format } from "date-fns";
 
+ 
 const props = defineProps<{
   moduleKey: string;
-  moduleName: string;
   defaultPrompt: string;
 }>();
 
-const emit = defineEmits(["updated"]);
+const emit = defineEmits<{
+  updated: [];
+}>();
 
 const message = useMessage();
 const loading = ref(false);
