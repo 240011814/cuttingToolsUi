@@ -5,7 +5,7 @@ export interface TrainingHistory {
   user_id: number;
   training_type: string;
   title: string;
-  record_type: string;
+  is_favorite: boolean;
   messages: string;
   created_at: string;
   updated_at: string;
@@ -15,7 +15,7 @@ export interface ListHistoryParams {
   page: number;
   pageSize: number;
   title?: string;
-  record_type?: string;
+  is_favorite?: boolean;
 }
 
 export interface ListHistoryResponse {
@@ -31,10 +31,25 @@ export function fetchHistoryList(params: ListHistoryParams) {
   });
 }
 
-export function fetchArchiveHistory(data: { training_type: string; messages: string; title?: string }) {
-  return request<{ id: number }>({
-    url: '/api/histories/archive',
-    method: 'post',
-    data
+export function fetchHistoryDetail(id: number) {
+  return request<TrainingHistory>({
+    url: `/api/histories/${id}`,
+    method: 'get'
+  });
+}
+
+export function fetchUpdateFavorite(id: number, is_favorite: boolean) {
+  return request({
+    url: `/api/histories/${id}/favorite`,
+    method: 'put',
+    data: { is_favorite }
+  });
+}
+
+export function fetchUpdateHistoryTitle(id: number, title: string) {
+  return request({
+    url: `/api/histories/${id}/title`,
+    method: 'put',
+    data: { title }
   });
 }

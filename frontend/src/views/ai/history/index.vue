@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { h, onMounted, ref, computed } from 'vue';
+import { h, onMounted, ref, computed, resolveComponent } from 'vue';
+import { useRouter } from 'vue-router';
 import { useMessage, NTag, NButton, NDrawer, NDrawerContent, NAvatar, NSelect } from 'naive-ui';
 import type { DataTableColumns } from 'naive-ui';
-import { fetchHistoryList } from '@/service/api';
+import { fetchHistoryList, fetchUpdateFavorite } from '@/service/api';
 
 import MarkdownIt from 'markdown-it';
 
+const router = useRouter();
 const md = new MarkdownIt({
   html: true,
   linkify: true,
@@ -20,11 +22,11 @@ const message = useMessage();
 const loading = ref(false);
 const data = ref<any[]>([]);
 const title = ref('');
-const recordType = ref(null);
-const recordTypeOptions = [
-  { label: '全部方式', value: null },
-  { label: '自动', value: 'auto' },
-  { label: '手动', value: 'manual' }
+const favoriteFilter = ref(null);
+const favoriteOptions = [
+  { label: '全部', value: null },
+  { label: '已收藏', value: true },
+  { label: '未收藏', value: false }
 ];
 const total = ref(0);
 const pagination = ref({
@@ -54,14 +56,52 @@ const handleView = (row: any) => {
   }
 };
 
+const trainingTypeRouteMap: Record<string, string> = {
+  ai_chat: '/ai/chat',
+  ai_decision: '/ai/decision',
+  ai_social: '/ai/social',
+  ai_emergency: '/ai/emergency'
+};
+
+const handleContinue = (row: any) => {
+  const route = trainingTypeRouteMap[row.training_type];
+  if (!route) {
+    message.error('未知的训练类型');
+    return;
+  }
+  
+  router.push({
+    path: route,
+    query: {
+      history_id: row.id
+    }
+  });
+};
+
+const handleToggleFavorite = async (row: any) => {
+  try {
+    await fetchUpdateFavorite(row.id, !row.is_favorite);
+    row.is_favorite = !row.is_favorite;
+    message.success(row.is_favorite ? '已收藏' : '已取消收藏');
+  } catch (err: any) {
+    message.error(`操作失败: ${err?.message || '未知错误'}`);
+  }
+};
+
 const columns = computed<DataTableColumns<any>>(() => {
   return [
     {
       title: '训练项目',
       key: 'training_type',
-      width: 150,
+      width: 120,
       render(row) {
-        return h(NTag, { type: 'info', bordered: false }, { default: () => row.training_type });
+        const typeMap: Record<string, string> = {
+          ai_chat: '英语训练',
+          ai_decision: '决策训练',
+          ai_social: '社交训练',
+          ai_emergency: '应急训练'
+        };
+        return h(NTag, { type: 'info', bordered: false }, { default: () => typeMap[row.training_type] || row.training_type });
       }
     },
     { 
@@ -72,7 +112,7 @@ const columns = computed<DataTableColumns<any>>(() => {
     {
       title: '最近对话',
       key: 'last_message',
-      minWidth: 250,
+      minWidth: 200,
       render(row) {
         try {
           const msgs = JSON.parse(row.messages || '[]');
@@ -80,7 +120,6 @@ const columns = computed<DataTableColumns<any>>(() => {
           if (!lastMsg) return h('span', { class: 'text-gray-400' }, '无对话记录');
           
           let content = lastMsg.content;
-          // 简单过滤 Markdown 标签
           content = content.replace(/<[^>]*>?/gm, '').replace(/[#*`]/g, '').trim();
           if (content.length > 50) content = content.slice(0, 50) + '...';
           
@@ -94,29 +133,38 @@ const columns = computed<DataTableColumns<any>>(() => {
       }
     },
     {
-      title: '记录方式',
-      key: 'record_type',
-      width: 120,
+      title: '收藏',
+      key: 'is_favorite',
+      width: 80,
+      align: 'center',
       render(row) {
-        const isAuto = row.record_type === 'auto';
-        return h(NTag, { type: isAuto ? 'success' : 'warning', bordered: false }, { default: () => (isAuto ? '自动' : '手动') });
+        const SvgIcon = resolveComponent('SvgIcon');
+        return h('div', { class: 'flex justify-center cursor-pointer', onClick: () => handleToggleFavorite(row) }, [
+          h(SvgIcon, {
+            icon: row.is_favorite ? 'mdi:star' : 'mdi:star-outline',
+            class: row.is_favorite ? 'text-yellow-500 text-xl' : 'text-gray-400 text-xl'
+          })
+        ]);
       }
     },
     {
       title: '训练时间',
       key: 'created_at',
-      width: 180,
+      width: 160,
       render(row) {
-        return h('span', new Date(row.created_at).toLocaleString());
+        return h('span', { class: 'text-sm' }, new Date(row.created_at).toLocaleString());
       }
     },
     {
       title: '操作',
       key: 'actions',
-      width: 120,
+      width: 160,
       fixed: 'right',
       render(row) {
-        return h(NButton, { size: 'small', type: 'primary', quaternary: true, onClick: () => handleView(row) }, { default: () => '查看对话' });
+        return h('div', { class: 'flex gap-2' }, [
+          h(NButton, { size: 'small', type: 'primary', quaternary: true, onClick: () => handleView(row) }, { default: () => '查看' }),
+          h(NButton, { size: 'small', type: 'success', quaternary: true, onClick: () => handleContinue(row) }, { default: () => '继续训练' })
+        ]);
       }
     }
   ];
@@ -127,7 +175,7 @@ const loadData = async () => {
   try {
     const { data: res } = await fetchHistoryList({
       title: title.value,
-      record_type: recordType.value || undefined,
+      is_favorite: favoriteFilter.value !== null ? favoriteFilter.value : undefined,
       page: pagination.value.page,
       pageSize: pagination.value.pageSize
     });
@@ -167,11 +215,11 @@ onMounted(() => {
               @keyup.enter="loadData"
             />
             <NSelect
-              v-model:value="recordType"
-              placeholder="记录方式"
+              v-model:value="favoriteFilter"
+              placeholder="收藏状态"
               clearable
-              :options="recordTypeOptions"
-              style="width: 150px"
+              :options="favoriteOptions"
+              style="width: 120px"
               @update:value="loadData"
             />
             <NButton type="primary" @click="loadData">
@@ -182,11 +230,11 @@ onMounted(() => {
             </NButton>
           </div>
           <div class="flex gap-2 items-center">
-            <ButtonIcon
-              icon="mdi:refresh"
-              tooltip-content="刷新"
-              @click="loadData"
-            />
+            <NButton quaternary @click="loadData">
+              <template #icon>
+                <SvgIcon icon="mdi:refresh" class="text-icon" />
+              </template>
+            </NButton>
           </div>
         </div>
 
@@ -211,7 +259,6 @@ onMounted(() => {
             :key="index"
             class="flex flex-col gap-2"
           >
-            <!-- 过滤掉系统提示词，通常是第一条或 role 为 system 的 -->
             <template v-if="msg.role !== 'system'">
               <div
                 class="flex items-start gap-3"

@@ -81,9 +81,9 @@ func HandleChatStream(aiService *service.AIService, historyService *service.Hist
 				}
 				// 提取保存逻辑
 				saveFunc := func() {
-					historyID, saveErr := historyService.SaveHistory(userID.(uint), req.HistoryID, req.TrainingType, title, string(messagesBytes), "auto")
+					historyID, saveErr := historyService.SaveHistory(userID.(uint), req.HistoryID, req.TrainingType, title, string(messagesBytes), false)
 					if saveErr == nil && req.HistoryID == 0 {
-						c.SSEvent("history_id", gin.H{"history_id": historyID})
+						c.SSEvent("history_id", gin.H{"history_id": historyID, "title": title})
 					}
 				}
 

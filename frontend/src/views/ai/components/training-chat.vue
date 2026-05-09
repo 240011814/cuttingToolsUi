@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { nextTick, ref, onBeforeUnmount, onMounted } from "vue";
-import { useMessage, NPopconfirm, NDrawer, NDrawerContent } from "naive-ui";
-import { fetchAddVocabulary, fetchAddNote, fetchArchiveHistory } from "@/service/api";
+import { useMessage, NDrawer, NDrawerContent, NModal, NInput } from "naive-ui";
+import { fetchAddVocabulary, fetchAddNote, fetchHistoryDetail, fetchUpdateFavorite, fetchUpdateHistoryTitle } from "@/service/api";
 import { fetchGetAIModels, fetchGetUserPrompt, fetchChatStream } from "@/service/api/ai";
 import { useAuth } from "@/hooks/business/auth";
 import MarkdownIt from "markdown-it";
@@ -94,6 +94,10 @@ async function refreshPrompt() {
   }
 }
 const historyId = ref<number>(0);
+const isFavorite = ref(false);
+const historyTitle = ref("");
+const showTitleModal = ref(false);
+const editTitle = ref("");
 const inputMessage = ref("");
 const isGenerating = ref(false);
 const scrollbarRef = ref<any>(null);
@@ -363,6 +367,9 @@ const sendMessage = async () => {
 
             if (eventType == "history_id") {
               historyId.value = dataObj.history_id;
+              if (dataObj.title) {
+                historyTitle.value = dataObj.title;
+              }
             }
 
             if (dataObj.error) {
@@ -396,32 +403,6 @@ const handleEnter = (event: KeyboardEvent) => {
   }
 };
 
-const handleArchive = async () => {
-  if (messages.value.length <= 1) return;
-
-  try {
-    const routeName = (route.name as string) || "ai_chat";
-    const history = messages.value.filter((item) => item.content.trim());
-
-    let title = "手动归档对话";
-    const firstUserMsg = history.find((m) => m.role === "user");
-    if (firstUserMsg) {
-      title = firstUserMsg.content.slice(0, 20);
-      if (firstUserMsg.content.length > 20) title += "...";
-    }
-
-    await fetchArchiveHistory({
-      training_type: routeName,
-      messages: JSON.stringify(toApiMessages([systemMessage.value, ...history])),
-      title,
-    });
-
-    message.success("归档成功，可在历史记录中查看");
-  } catch (err: any) {
-    message.error(`归档失败: ${err?.message || "未知错误"}`);
-  }
-};
-
 const handleApplySuggestion = (vocab: VocabSuggestion) => {
   vocabForm.value = {
     word: vocab.word || "",
@@ -446,9 +427,71 @@ const handlePlay = (text: string) => {
   window.speechSynthesis.speak(utterance);
 };
 
+const loadHistory = async (id: number) => {
+  try {
+    const { data } = await fetchHistoryDetail(id);
+    if (data) {
+      const parsedMessages = JSON.parse(data.messages || '[]');
+      historyId.value = data.id;
+      historyTitle.value = data.title;
+      // 过滤掉系统提示词，只显示用户和助手的消息
+      messages.value = parsedMessages
+        .filter((msg: any) => msg.role !== 'system')
+        .map((msg: any) => createChatMessage(msg.role, msg.content));
+      isFavorite.value = data.is_favorite;
+    }
+  } catch (err: any) {
+    message.error(`加载历史记录失败: ${err?.message || '未知错误'}`);
+  }
+};
+
+const handleToggleFavorite = async () => {
+  if (!historyId.value) {
+    message.warning('请先发送消息后再收藏');
+    return;
+  }
+  try {
+    await fetchUpdateFavorite(historyId.value, !isFavorite.value);
+    isFavorite.value = !isFavorite.value;
+    message.success(isFavorite.value ? '已收藏' : '已取消收藏');
+  } catch (err: any) {
+    message.error(`操作失败: ${err?.message || '未知错误'}`);
+  }
+};
+
+const handleOpenEditTitle = () => {
+  if (!historyId.value) {
+    message.warning('请先发送消息后再编辑标题');
+    return;
+  }
+  editTitle.value = historyTitle.value;
+  showTitleModal.value = true;
+};
+
+const handleSaveTitle = async () => {
+  if (!editTitle.value.trim()) {
+    message.warning('标题不能为空');
+    return;
+  }
+  try {
+    await fetchUpdateHistoryTitle(historyId.value, editTitle.value.trim());
+    historyTitle.value = editTitle.value.trim();
+    showTitleModal.value = false;
+    message.success('标题已更新');
+  } catch (err: any) {
+    message.error(`操作失败: ${err?.message || '未知错误'}`);
+  }
+};
+
 onMounted(() => {
   loadModels();
   refreshPrompt();
+
+  const queryHistoryId = route.query.history_id;
+  if (queryHistoryId) {
+    loadHistory(Number(queryHistoryId));
+  }
+
   if (scrollbarRef.value) {
     scrollbarRef.value.scrollTo({ top: 999999 });
   }
@@ -474,7 +517,28 @@ onBeforeUnmount(() => {
       <div
         class="p-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between"
       >
-        <span class="font-bold text-gray-600 dark:text-gray-300">AI 训练对话</span>
+        <div class="flex items-center gap-2">
+          <span class="font-bold text-gray-600 dark:text-gray-300">{{ historyTitle || 'AI 训练对话' }}</span>
+          <NButton
+            quaternary
+            size="small"
+            @click="handleOpenEditTitle"
+          >
+            <template #icon>
+              <SvgIcon icon="mdi:pencil-outline" class="text-lg" />
+            </template>
+          </NButton>
+          <NButton
+            quaternary
+            size="small"
+            :type="isFavorite ? 'warning' : 'default'"
+            @click="handleToggleFavorite"
+          >
+            <template #icon>
+              <SvgIcon :icon="isFavorite ? 'mdi:star' : 'mdi:star-outline'" class="text-lg" />
+            </template>
+          </NButton>
+        </div>
         <div class="flex items-center gap-4">
           <NButton
             v-if="hasAuth('ai:prompt:manage')"
@@ -597,20 +661,6 @@ onBeforeUnmount(() => {
           @keydown="handleEnter"
         />
         <div class="flex flex-col gap-2">
-          <NPopconfirm @positive-click="handleArchive">
-            <template #trigger>
-              <NButton
-                secondary
-                type="warning"
-                size="large"
-                :disabled="messages.length <= 1 || isGenerating"
-                class="px-4 rounded-lg flex-1"
-              >
-                归档
-              </NButton>
-            </template>
-            确定要手动归档当前的对话记录吗？
-          </NPopconfirm>
           <NButton
             type="primary"
             size="large"
@@ -727,6 +777,22 @@ onBeforeUnmount(() => {
           </NButton>
         </div>
       </template>
+    </NModal>
+
+    <NModal
+      v-model:show="showTitleModal"
+      preset="dialog"
+      title="编辑标题"
+      positive-text="保存"
+      negative-text="取消"
+      @positive-click="handleSaveTitle"
+    >
+      <NInput
+        v-model:value="editTitle"
+        placeholder="请输入标题"
+        maxlength="50"
+        show-count
+      />
     </NModal>
 
     <NDrawer v-model:show="showPromptEditor" :width="600" placement="right">

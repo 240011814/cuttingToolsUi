@@ -174,6 +174,7 @@ const routeMap: RouteMap = {
   "ai_history": "/ai/history",
   "ai_note": "/ai/note",
   "ai_social": "/ai/social",
+  "ai_training": "/ai/training",
   "ai_vocabulary": "/ai/vocabulary",
   "home": "/home",
   "iframe-page": "/iframe-page/:url",

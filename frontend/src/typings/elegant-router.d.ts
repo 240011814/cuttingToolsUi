@@ -28,6 +28,7 @@ declare module "@elegant-router/types" {
     "ai_history": "/ai/history";
     "ai_note": "/ai/note";
     "ai_social": "/ai/social";
+    "ai_training": "/ai/training";
     "ai_vocabulary": "/ai/vocabulary";
     "home": "/home";
     "iframe-page": "/iframe-page/:url";
@@ -103,6 +104,7 @@ declare module "@elegant-router/types" {
     | "ai_history"
     | "ai_note"
     | "ai_social"
+    | "ai_training"
     | "ai_vocabulary"
     | "home"
     | "system_ai-config"

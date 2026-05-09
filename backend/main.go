@@ -92,7 +92,9 @@ func main() {
 		historyGroup := apiGroup.Group("/histories")
 		{
 			historyGroup.GET("", historyHandler.ListHistory)
-			historyGroup.POST("/archive", historyHandler.ArchiveHistory)
+			historyGroup.GET("/:id", historyHandler.GetHistory)
+			historyGroup.PUT("/:id/favorite", historyHandler.UpdateFavorite)
+			historyGroup.PUT("/:id/title", historyHandler.UpdateTitle)
 		}
 
 		adminGroup := apiGroup.Group("/admin")
