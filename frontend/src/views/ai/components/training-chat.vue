@@ -27,6 +27,7 @@ interface ChatMessage {
   content: string;
   renderedContent?: string;
   suggestions?: VocabSuggestion[];
+  isError?: boolean;
 }
 
 const props = withDefaults(
@@ -61,7 +62,7 @@ const md = new MarkdownIt({
 const { hasAuth } = useAuth();
 
 const renderMarkdown = (content: string) => {
-  return md.render(content);
+  return md.render(content).trim();
 };
 
 function formatDisplayContent(content: string) {
@@ -271,7 +272,17 @@ const setAssistantError = (content: string) => {
     ...messages.value[lastIdx],
     content,
     renderedContent: renderMessageContent(content),
+    isError: true,
   };
+};
+
+const copyToClipboard = async (content: string) => {
+  try {
+    await navigator.clipboard.writeText(content);
+    message.success("已复制");
+  } catch {
+    message.error("复制失败");
+  }
 };
 
 const parseVocabSuggestions = () => {
@@ -324,7 +335,9 @@ const sendMessage = async () => {
   isGenerating.value = true;
 
   try {
-    const history = messages.value.slice(0, -1).filter((item) => item.content.trim());
+    const history = messages.value
+      .slice(0, -1)
+      .filter((item) => item.content.trim() && !item.isError);
     const routeName = props.trainingType || (route.name as string) || "ai_chat";
 
     const response = await fetchChatStream({
@@ -583,50 +596,56 @@ onBeforeUnmount(() => {
             :class="msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'"
           >
             <NAvatar
-              :color="msg.role === 'user' ? '#18a058' : assistantColor"
+              :color="msg.role === 'user' ? '#6bb8e8' : assistantColor"
               round
               size="large"
             >
               {{ msg.role === "user" ? "U" : "AI" }}
             </NAvatar>
             <div class="flex flex-col gap-1 max-w-[80%]">
-              <div
-                class="p-4 rounded-2xl whitespace-pre-wrap leading-relaxed shadow-sm text-[15px] relative group"
-                :class="
-                  msg.role === 'user'
-                    ? 'bg-[#18a058] text-white rounded-tr-none'
-                    : 'bg-white text-gray-800 rounded-tl-none dark:bg-gray-800 dark:text-gray-200'
-                "
-                @mouseup="msg.role === 'assistant' ? handleSelectText() : undefined"
-              >
-                <!-- eslint-disable-next-line vue/no-v-html -->
-                <div v-html="msg.renderedContent"></div>
-                <span
-                  v-if="
-                    isGenerating && index === messages.length - 1 && msg.content === ''
+              <div class="group/btn">
+                <div
+                  class="p-4 rounded-2xl whitespace-pre-wrap leading-relaxed shadow-sm text-[15px]"
+                  :class="
+                    msg.role === 'user'
+                      ? 'bg-[#e8f4fd] text-gray-800 rounded-tr-none dark:bg-blue-900/40 dark:text-gray-200'
+                      : 'bg-white text-gray-800 rounded-tl-none dark:bg-gray-800 dark:text-gray-200'
                   "
-                  class="inline-block mt-1"
+                  @mouseup="msg.role === 'assistant' ? handleSelectText() : undefined"
                 >
-                  <NSpin size="small" />
-                </span>
+                  <!-- eslint-disable-next-line vue/no-v-html -->
+                  <div v-html="msg.renderedContent" class="msg-content"></div>
+                  <span
+                    v-if="
+                      isGenerating && index === messages.length - 1 && msg.content === ''
+                    "
+                    class="inline-block mt-1"
+                  >
+                    <NSpin size="small" />
+                  </span>
+                </div>
 
                 <div
-                  v-if="msg.role === 'assistant' && msg.content"
-                  class="absolute -right-2 -top-4 opacity-0 group-hover:opacity-100 transition-all duration-300 flex gap-1 p-1 bg-white dark:bg-gray-700 rounded-full shadow-md border border-gray-100 dark:border-gray-600 z-10"
+                  v-if="msg.content"
+                  class="opacity-0 group-hover/btn:opacity-100 transition-all duration-200 flex items-center gap-0.5 mt-1 justify-end"
                 >
-                  <template v-if="enableVocabulary">
-                    <div class="w-[1px] h-4 bg-gray-200 dark:bg-gray-600 self-center" />
-                    <ButtonIcon
-                      icon="mdi:star"
-                      class="text-18px text-warning"
-                      tooltip-content="添加到生词本"
-                      @click.stop="openVocabModal()"
-                    />
-                  </template>
-                  <div class="w-[1px] h-4 bg-gray-200 dark:bg-gray-600 self-center" />
                   <ButtonIcon
+                    icon="mdi:content-copy"
+                    class="!h-28px !w-28px text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
+                    tooltip-content="复制"
+                    @click.stop="copyToClipboard(msg.content)"
+                  />
+                  <ButtonIcon
+                    v-if="enableVocabulary && msg.role === 'assistant'"
+                    icon="mdi:star-outline"
+                    class="!h-28px !w-28px text-gray-400 hover:text-amber-500 dark:text-gray-500 dark:hover:text-amber-400"
+                    tooltip-content="添加到生词本"
+                    @click.stop="openVocabModal()"
+                  />
+                  <ButtonIcon
+                    v-if="msg.role === 'assistant'"
                     icon="mdi:notebook-edit-outline"
-                    class="text-18px text-info"
+                    class="!h-28px !w-28px text-gray-400 hover:text-blue-500 dark:text-gray-500 dark:hover:text-blue-400"
                     tooltip-content="添加笔记"
                     @click.stop="openNoteModal(msg.content)"
                   />
@@ -823,3 +842,12 @@ onBeforeUnmount(() => {
     </NDrawer>
   </div>
 </template>
+
+<style scoped>
+:deep(.msg-content p) {
+  margin: 0;
+}
+:deep(.msg-content p + p) {
+  margin-top: 0.5em;
+}
+</style>
