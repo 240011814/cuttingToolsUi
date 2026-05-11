@@ -40,7 +40,7 @@ func InitDB(cfg *config.Config) (*gorm.DB, error) {
 		log.New(os.Stdout, "\r\n", log.LstdFlags), // io writer
 		logger.Config{
 			SlowThreshold:             500 * time.Millisecond, // 慢 SQL 阈值调高到 500ms
-			LogLevel:                  logger.Warn,            // 只记录警告和错误
+			LogLevel:                  logger.Info,            // 打印所有 SQL
 			IgnoreRecordNotFoundError: true,                   // 忽略未找到记录的错误
 			Colorful:                  true,                   // 彩色打印
 		},

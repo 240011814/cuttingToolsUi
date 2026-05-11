@@ -49,6 +49,9 @@ func main() {
 	dashboardService := service.NewDashboardService()
 	dashboardHandler := api.NewDashboardHandler(dashboardService)
 
+	cutService := service.NewCutService()
+	cutHandler := api.NewCutHandler(cutService)
+
 	r.GET("/api/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"status":  "ok",
@@ -124,6 +127,22 @@ func main() {
 			customTrainingGroup.POST("", api.RequirePermission("ai:custom-training:create"), customTrainingHandler.CreateCustomTraining)
 			customTrainingGroup.PUT("/:id", api.RequirePermission("ai:custom-training:edit"), customTrainingHandler.UpdateCustomTraining)
 			customTrainingGroup.DELETE("/:id", api.RequirePermission("ai:custom-training:delete"), customTrainingHandler.DeleteCustomTraining)
+		}
+
+		// Cut APIs
+		cutGroup := apiGroup.Group("/cut")
+		cutGroup.Use(api.RequirePermission("cut:menu:view"))
+		{
+			cutGroup.POST("/bar", api.RequirePermission("cut:bar:compute"), cutHandler.HandleBarCut)
+			cutGroup.POST("/plane", api.RequirePermission("cut:plane:compute"), cutHandler.HandlePlaneCut)
+		}
+
+		cutRecordGroup := apiGroup.Group("/cutRecord")
+		cutRecordGroup.Use(api.RequirePermission("cut:menu:view"))
+		{
+			cutRecordGroup.POST("/add", api.RequirePermission("cut:record:create"), cutHandler.HandleAddRecord)
+			cutRecordGroup.GET("/list", api.RequirePermission("cut:record:view"), cutHandler.HandleListRecords)
+			cutRecordGroup.POST("/delete/:id", api.RequirePermission("cut:record:delete"), cutHandler.HandleDeleteRecord)
 		}
 
 		adminGroup := apiGroup.Group("/admin")

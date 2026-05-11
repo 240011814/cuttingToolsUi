@@ -1,20 +1,30 @@
 <script setup lang="tsx">
 import { h, onMounted, ref, computed } from 'vue';
-import { NButton, NCard, NDataTable, NPopconfirm, NTag, useMessage } from 'naive-ui';
+import { NButton, NCard, NDataTable, NPopconfirm, NTag, NSelect, NDatePicker, useMessage } from 'naive-ui';
 import type { DataTableColumns } from 'naive-ui';
 import { cutList, deleteRecod } from '@/service/api';
-import { useAppStore } from '@/store/modules/app';
 import { useRouterPush } from '@/hooks/common/router';
 import { $t } from '@/locales';
-import RecordSearch from './modules/record-search.vue';
 
-const appStore = useAppStore();
 const message = useMessage();
 const { routerPushByKey } = useRouterPush();
 
 const loading = ref(false);
 const data = ref<any[]>([]);
 const total = ref(0);
+
+const searchParams = ref({
+  name: null as string | null,
+  type: null as string | null,
+  startTime: null as number | null,
+  endTime: null as number | null
+});
+
+const typeOptions = [
+  { label: '一维', value: '1' },
+  { label: '平面', value: '2' }
+];
+
 const pagination = ref({
   page: 1,
   pageSize: 10,
@@ -30,13 +40,6 @@ const pagination = ref({
     pagination.value.page = 1;
     getData();
   }
-});
-
-const searchParams = ref({
-  name: null as string | null,
-  type: null as string | null,
-  startTime: null as string | null,
-  endTime: null as string | null
 });
 
 const columns = computed<DataTableColumns<any>>(() => [
@@ -55,7 +58,7 @@ const columns = computed<DataTableColumns<any>>(() => [
   { key: 'createTime', title: '创建时间', align: 'center', minWidth: 200 },
   {
     key: 'operate',
-    title: $t('common.operate'),
+    title: '操作',
     align: 'center',
     width: 180,
     render(row) {
@@ -63,15 +66,15 @@ const columns = computed<DataTableColumns<any>>(() => [
         h(
           NButton,
           { size: 'small', type: 'primary', quaternary: true, onClick: () => edit(row) },
-          { default: () => $t('common.view') }
+          { default: () => '查看' }
         ),
         h(
           NPopconfirm,
           { onPositiveClick: () => deleteData(row.id) },
           {
             trigger: () =>
-              h(NButton, { size: 'small', type: 'error', quaternary: true }, { default: () => $t('common.delete') }),
-            default: () => $t('common.confirmDelete')
+              h(NButton, { size: 'small', type: 'error', quaternary: true }, { default: () => '删除' }),
+            default: () => '确认删除?'
           }
         )
       ]);
@@ -82,14 +85,19 @@ const columns = computed<DataTableColumns<any>>(() => [
 async function getData() {
   loading.value = true;
   try {
-    const { data: res, error } = await cutList({
+    const params: Record<string, any> = {
       current: pagination.value.page,
-      size: pagination.value.pageSize,
-      ...searchParams.value
-    });
+      size: pagination.value.pageSize
+    };
+    if (searchParams.value.name) params.name = searchParams.value.name;
+    if (searchParams.value.type) params.type = searchParams.value.type;
+    if (searchParams.value.startTime) params.startTime = searchParams.value.startTime;
+    if (searchParams.value.endTime) params.endTime = searchParams.value.endTime;
+
+    const { data: res, error } = await cutList(params);
     if (!error && res) {
-      data.value = res.content || [];
-      total.value = res.page?.totalElements || 0;
+      data.value = res.items || [];
+      total.value = res.total || 0;
       pagination.value.itemCount = total.value;
     }
   } catch (err) {
@@ -97,13 +105,6 @@ async function getData() {
   } finally {
     loading.value = false;
   }
-}
-
-function getDataByPage(page: number = 1) {
-  if (page !== pagination.value.page) {
-    pagination.value.page = page;
-  }
-  getData();
 }
 
 function resetSearchParams() {
@@ -149,7 +150,52 @@ onMounted(() => {
         </div>
       </template>
       <div class="flex flex-col h-full gap-4">
-        <RecordSearch v-model:model="searchParams" @reset="resetSearchParams" @search="getDataByPage" />
+        <div class="flex justify-between items-center">
+          <div class="flex gap-4 items-center">
+            <NInput
+              v-model:value="searchParams.name"
+              placeholder="输入名称搜索"
+              clearable
+              style="width: 180px"
+              @keyup.enter="getData"
+            />
+            <NSelect
+              v-model:value="searchParams.type"
+              placeholder="选择类型"
+              clearable
+              :options="typeOptions"
+              style="width: 120px"
+              @update:value="getData"
+            />
+            <NDatePicker
+              v-model:value="searchParams.startTime"
+              type="datetime"
+              clearable
+              placeholder="开始时间"
+              style="width: 180px"
+            />
+            <NDatePicker
+              v-model:value="searchParams.endTime"
+              type="datetime"
+              clearable
+              placeholder="结束时间"
+              style="width: 180px"
+            />
+            <NButton type="primary" @click="getData">
+              <template #icon>
+                <icon-ic-round-search class="text-icon" />
+              </template>
+              {{ $t('common.search') }}
+            </NButton>
+          </div>
+          <div class="flex gap-2 items-center">
+            <NButton quaternary @click="resetSearchParams">
+              <template #icon>
+                <icon-ic-round-refresh class="text-icon" />
+              </template>
+            </NButton>
+          </div>
+        </div>
 
         <NDataTable
           :columns="columns"
