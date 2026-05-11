@@ -100,17 +100,21 @@ const trainingTypeRouteMap: Record<string, string> = {
 };
 
 const handleContinue = (row: any) => {
-  let route = trainingTypeRouteMap[row.training_type];
-  if (!route) {
-    route = "/ai/custom-training";
-  }
+  const route = trainingTypeRouteMap[row.training_type];
 
-  router.push({
-    path: route,
-    query: {
-      history_id: row.id,
-    },
-  });
+  if (route) {
+    router.push({
+      path: route,
+      query: { history_id: row.id },
+    });
+  } else if (row.custom_training_id) {
+    router.push({
+      path: `/ai/custom-training/${row.custom_training_id}`,
+      query: { history_id: row.id },
+    });
+  } else {
+    message.error($t("page.ai.history.unknownType"));
+  }
 };
 
 const handleToggleFavorite = async (row: any) => {
@@ -154,10 +158,11 @@ const columns = computed<DataTableColumns<any>>(() => {
           ai_social: $t("route.ai_social"),
           ai_emergency: $t("route.ai_emergency"),
         };
+        const label = typeMap[row.training_type] || row.training_type;
         return h(
           NTag,
           { type: "info", bordered: false },
-          { default: () => typeMap[row.training_type] || row.training_type }
+          { default: () => label }
         );
       },
     },

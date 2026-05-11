@@ -3,14 +3,15 @@ package model
 import "time"
 
 type TrainingHistory struct {
-	ID           uint      `json:"id" gorm:"primaryKey"`
-	UserID       uint      `json:"user_id"`
-	TrainingType string    `json:"training_type"`
-	Title        string    `json:"title"`
-	IsFavorite   bool      `json:"is_favorite"`
-	Messages     string    `json:"messages"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
+	ID               uint      `json:"id" gorm:"primaryKey"`
+	UserID           uint      `json:"user_id"`
+	TrainingType     string    `json:"training_type"`
+	CustomTrainingID *uint     `json:"custom_training_id"`
+	Title            string    `json:"title"`
+	IsFavorite       bool      `json:"is_favorite"`
+	Messages         string    `json:"messages"`
+	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
 }
 
 type ListHistoryRequest struct {

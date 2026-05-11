@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import TrainingChat from "../components/training-chat.vue";
 import { fetchCustomTrainingDetail } from "@/service/api";
@@ -7,14 +7,17 @@ import { fetchCustomTrainingDetail } from "@/service/api";
 const route = useRoute();
 const loading = ref(true);
 const training = ref<any>(null);
+const chatKey = ref(0);
 
 const loadTraining = async () => {
   const id = route.params.id;
   if (id) {
+    loading.value = true;
     try {
       const { data } = await fetchCustomTrainingDetail(Number(id));
       if (data) {
         training.value = data;
+        chatKey.value++;
       }
     } catch (err: any) {
       console.error("加载训练失败:", err);
@@ -24,9 +27,13 @@ const loadTraining = async () => {
   }
 };
 
-onMounted(() => {
-  loadTraining();
-});
+watch(
+  () => route.params.id,
+  () => {
+    loadTraining();
+  },
+  { immediate: true }
+);
 </script>
 
 <template>
@@ -35,8 +42,10 @@ onMounted(() => {
   </div>
   <TrainingChat
     v-else-if="training"
+    :key="chatKey"
     :module-key="'custom_' + training.id"
     :training-type="training.title"
+    :custom-training-id="training.id"
     :system-prompt="training.system_prompt"
     :initial-message="
       training.initial_message || '你好！我是你的AI训练助手，让我们开始吧。'

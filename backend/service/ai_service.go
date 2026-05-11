@@ -6,7 +6,9 @@ import (
 	"encoding/json"
 	"errors"
 	"log"
+	"net/http"
 	"sync"
+	"time"
 
 	"github.com/sashabaranov/go-openai"
 )
@@ -18,11 +20,17 @@ type AIService struct {
 	activeModel    *model.AIModel
 	enabledModels  []model.AIModel
 	client         *openai.Client
+	timeout        time.Duration
 }
 
 // NewAIService 初始化 AIService
-func NewAIService() (*AIService, error) {
-	s := &AIService{}
+func NewAIService(timeoutMinutes int) (*AIService, error) {
+	if timeoutMinutes <= 0 {
+		timeoutMinutes = 5
+	}
+	s := &AIService{
+		timeout: time.Duration(timeoutMinutes) * time.Minute,
+	}
 	if err := s.ReloadConfig(); err != nil {
 		// 初始加载失败不阻塞启动，但记录日志
 		return s, nil
@@ -60,6 +68,9 @@ func (s *AIService) ReloadConfig() error {
 		config := openai.DefaultConfig(s.activeProvider.APIKey)
 		if s.activeProvider.BaseURL != "" {
 			config.BaseURL = s.activeProvider.BaseURL
+		}
+		config.HTTPClient = &http.Client{
+			Timeout: s.timeout,
 		}
 		s.client = openai.NewClientWithConfig(config)
 	}
@@ -103,6 +114,9 @@ func (s *AIService) getClient(provider *model.AIProvider) *openai.Client {
 	config := openai.DefaultConfig(provider.APIKey)
 	if provider.BaseURL != "" {
 		config.BaseURL = provider.BaseURL
+	}
+	config.HTTPClient = &http.Client{
+		Timeout: s.timeout,
 	}
 	return openai.NewClientWithConfig(config)
 }

@@ -56,7 +56,7 @@ func (s *HistoryService) DeleteHistory(userID uint, historyID uint) error {
 	return DB.Where("id = ? AND user_id = ?", historyID, userID).Delete(&model.TrainingHistory{}).Error
 }
 
-func (s *HistoryService) SaveHistory(userID uint, historyID uint, trainingType string, title string, messages string, isFavorite bool) (uint, error) {
+func (s *HistoryService) SaveHistory(userID uint, historyID uint, trainingType string, customTrainingID *uint, title string, messages string, isFavorite bool) (uint, error) {
 	if historyID > 0 {
 		// Update existing
 		var history model.TrainingHistory
@@ -77,11 +77,12 @@ func (s *HistoryService) SaveHistory(userID uint, historyID uint, trainingType s
 
 	// Create new
 	history := model.TrainingHistory{
-		UserID:       userID,
-		TrainingType: trainingType,
-		Title:        title,
-		IsFavorite:   isFavorite,
-		Messages:     messages,
+		UserID:           userID,
+		TrainingType:     trainingType,
+		CustomTrainingID: customTrainingID,
+		Title:            title,
+		IsFavorite:       isFavorite,
+		Messages:         messages,
 	}
 	if err := DB.Create(&history).Error; err != nil {
 		return 0, err

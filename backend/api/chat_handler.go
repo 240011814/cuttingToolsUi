@@ -15,10 +15,11 @@ import (
 
 // ChatRequest 定义了前端传入的数据格式
 type ChatRequest struct {
-	HistoryID    uint                           `json:"history_id"`
-	TrainingType string                         `json:"training_type"`
-	Model        string                         `json:"model"`
-	Messages     []openai.ChatCompletionMessage `json:"messages" binding:"required"`
+	HistoryID        uint                           `json:"history_id"`
+	TrainingType     string                         `json:"training_type"`
+	CustomTrainingID *uint                          `json:"custom_training_id"`
+	Model            string                         `json:"model"`
+	Messages         []openai.ChatCompletionMessage `json:"messages" binding:"required"`
 }
 
 // HandleChatStream 处理流式聊天请求
@@ -81,7 +82,7 @@ func HandleChatStream(aiService *service.AIService, historyService *service.Hist
 				}
 				// 提取保存逻辑
 				saveFunc := func() {
-					historyID, saveErr := historyService.SaveHistory(userID.(uint), req.HistoryID, req.TrainingType, title, string(messagesBytes), false)
+					historyID, saveErr := historyService.SaveHistory(userID.(uint), req.HistoryID, req.TrainingType, req.CustomTrainingID, title, string(messagesBytes), false)
 					if saveErr == nil && req.HistoryID == 0 {
 						c.SSEvent("history_id", gin.H{"history_id": historyID, "title": title})
 					}

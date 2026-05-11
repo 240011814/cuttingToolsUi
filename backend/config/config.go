@@ -9,6 +9,7 @@ import (
 type Config struct {
 	Database DatabaseConfig `yaml:"database"`
 	Auth     AuthConfig     `yaml:"auth"`
+	AI       AIConfig       `yaml:"ai"`
 }
 
 
@@ -22,6 +23,10 @@ type DatabaseConfig struct {
 
 type AuthConfig struct {
 	JWTSecret string `yaml:"jwt_secret"`
+}
+
+type AIConfig struct {
+	TimeoutMinutes int `yaml:"timeout_minutes"`
 }
 
 // LoadConfig 从指定的文件路径加载配置，并融合环境变量（环境变量优先级更高）
@@ -68,6 +73,9 @@ func LoadConfig(path string) (*Config, error) {
 	}
 	if config.Auth.JWTSecret == "" {
 		config.Auth.JWTSecret = "soybean-admin-secret"
+	}
+	if config.AI.TimeoutMinutes <= 0 {
+		config.AI.TimeoutMinutes = 5
 	}
 
 	return &config, nil

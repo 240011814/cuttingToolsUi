@@ -35,6 +35,7 @@ const props = withDefaults(
     initialMessage: string;
     moduleKey: string;
     trainingType?: string;
+    customTrainingId?: number | null;
     inputPlaceholder?: string;
     assistantColor?: string;
     enableVocabulary?: boolean;
@@ -43,6 +44,7 @@ const props = withDefaults(
   }>(),
   {
     trainingType: "",
+    customTrainingId: null,
     inputPlaceholder: "输入消息... (回车发送，Shift + 回车换行)",
     assistantColor: "#2080f0",
     enableVocabulary: false,
@@ -328,6 +330,7 @@ const sendMessage = async () => {
     const response = await fetchChatStream({
       history_id: historyId.value,
       training_type: routeName,
+      custom_training_id: props.customTrainingId || undefined,
       model: selectedModel.value,
       messages: toApiMessages([systemMessage.value, ...history]),
     });

@@ -70,7 +70,8 @@ export const generatedRoutes: GeneratedRoute[] = [
           title: 'ai_custom-training',
           i18nKey: 'route.ai_custom-training',
           permissions: ['ai:custom-training:view'],
-          hideInMenu: true
+          hideInMenu: true,
+          keepAlive: true
         }
       },
       {

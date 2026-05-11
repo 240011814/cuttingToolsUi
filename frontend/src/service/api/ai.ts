@@ -62,6 +62,7 @@ export function fetchResetUserPrompt(moduleKey: string) {
 export async function fetchChatStream(data: {
   history_id: number;
   training_type: string;
+  custom_training_id?: number;
   model: string;
   messages: any[];
 }): Promise<Response> {

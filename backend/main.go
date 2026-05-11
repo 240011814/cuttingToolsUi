@@ -25,7 +25,7 @@ func main() {
 		log.Fatalf("Failed to initialize Database: %v", err)
 	}
 
-	aiService, err := service.NewAIService()
+	aiService, err := service.NewAIService(cfg.AI.TimeoutMinutes)
 	if err != nil {
 		log.Fatalf("Failed to initialize AI Service: %v", err)
 	}
