@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xxd src/main/java/com/yhy/cutting/cut/controller/CutController.java)"
+    ]
+  }
+}

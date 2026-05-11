@@ -744,6 +744,17 @@ declare namespace App {
           updateSuccess: string;
           passwordChangeSuccess: string;
         };
+        cut: {
+          name: string;
+          type: string;
+          startTime: string;
+          endTime: string;
+          search: string;
+          inputName: string;
+          selectType: string;
+          inputStartTime: string;
+          inputEndTime: string;
+        };
       };
       form: {
         required: string;

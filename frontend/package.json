@@ -55,6 +55,7 @@
     "dayjs": "1.11.20",
     "defu": "6.1.7",
     "echarts": "6.0.0",
+    "html2canvas": "^1.4.1",
     "json5": "2.2.3",
     "markdown-it": "^14.0.0",
     "naive-ui": "2.44.1",

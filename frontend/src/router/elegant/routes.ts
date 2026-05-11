@@ -172,6 +172,69 @@ export const generatedRoutes: GeneratedRoute[] = [
     ]
   },
   {
+    name: 'cut',
+    path: '/cut',
+    component: 'layout.base',
+    meta: {
+      title: 'cut',
+      i18nKey: 'route.cut',
+      icon: 'mdi:scissors-cutting',
+      order: 4
+    },
+    children: [
+      {
+        name: 'cut_bar',
+        path: '/cut/bar',
+        component: 'view.cut_bar',
+        meta: {
+          title: 'cut_bar',
+          i18nKey: 'route.cut_bar',
+          icon: 'mdi:angle-acute'
+        }
+      },
+      {
+        name: 'cut_bar-detail',
+        path: '/cut/bar-detail/:id',
+        component: 'view.cut_bar-detail',
+        meta: {
+          title: 'cut_bar-detail',
+          i18nKey: 'route.cut_bar-detail',
+          hideInMenu: true
+        }
+      },
+      {
+        name: 'cut_history',
+        path: '/cut/history',
+        component: 'view.cut_history',
+        meta: {
+          title: 'cut_history',
+          i18nKey: 'route.cut_history',
+          icon: 'mdi:history'
+        }
+      },
+      {
+        name: 'cut_plane',
+        path: '/cut/plane',
+        component: 'view.cut_plane',
+        meta: {
+          title: 'cut_plane',
+          i18nKey: 'route.cut_plane',
+          icon: 'mdi:grid-large'
+        }
+      },
+      {
+        name: 'cut_plane-detail',
+        path: '/cut/plane-detail/:id',
+        component: 'view.cut_plane-detail',
+        meta: {
+          title: 'cut_plane-detail',
+          i18nKey: 'route.cut_plane-detail',
+          hideInMenu: true
+        }
+      }
+    ]
+  },
+  {
     name: 'home',
     path: '/home',
     component: 'layout.base$view.home',
