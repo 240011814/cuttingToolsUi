@@ -461,7 +461,7 @@ const local: App.I18n.Schema = {
         title: "AI 训练对话",
         send: "发送",
         settings: "设置",
-        mode: "模式",
+        mode: "模型",
         addToVocab: "添加到生词本",
         addNote: "添加笔记",
         suggestions: "智能建议",
