@@ -58,6 +58,12 @@ declare namespace Env {
      * use "," to separate multiple codes
      */
     readonly VITE_SERVICE_EXPIRED_TOKEN_CODES: string;
+    /**
+     * token refresh interval in minutes
+     *
+     * the token will be refreshed automatically
+     */
+    readonly VITE_TOKEN_REFRESH_INTERVAL: string;
     /** when the route mode is static, the defined super role */
     readonly VITE_STATIC_SUPER_ROLE: string;
     /**

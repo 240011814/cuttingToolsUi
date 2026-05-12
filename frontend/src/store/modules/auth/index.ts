@@ -2,7 +2,7 @@ import { computed, reactive, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { defineStore } from 'pinia';
 import { useLoading } from '@sa/hooks';
-import { fetchGetUserInfo, fetchLogin } from '@/service/api';
+import { fetchGetUserInfo, fetchLogin, fetchRefreshToken } from '@/service/api';
 import { useRouterPush } from '@/hooks/common/router';
 import { localStg } from '@/utils/storage';
 import { SetupStoreId } from '@/enum';
@@ -20,6 +20,7 @@ export const useAuthStore = defineStore(SetupStoreId.Auth, () => {
   const { loading: loginLoading, startLoading, endLoading } = useLoading();
 
   const token = ref('');
+  let refreshTimer: ReturnType<typeof setInterval> | null = null;
 
   const userInfo: Api.Auth.UserInfo = reactive({
     userId: '',
@@ -36,12 +37,34 @@ export const useAuthStore = defineStore(SetupStoreId.Auth, () => {
     return VITE_AUTH_ROUTE_MODE === 'static' && userInfo.roles.includes(VITE_STATIC_SUPER_ROLE);
   });
 
+  function startRefreshTimer() {
+    stopRefreshTimer();
+    const interval = Number(import.meta.env.VITE_TOKEN_REFRESH_INTERVAL) || 10;
+    refreshTimer = setInterval(async () => {
+      const rToken = localStg.get('refreshToken');
+      if (!rToken) return;
+      const { data, error } = await fetchRefreshToken(rToken);
+      if (!error) {
+        localStg.set('token', data.token);
+        localStg.set('refreshToken', data.refreshToken);
+      }
+    }, interval * 60 * 1000);
+  }
+
+  function stopRefreshTimer() {
+    if (refreshTimer) {
+      clearInterval(refreshTimer);
+      refreshTimer = null;
+    }
+  }
+
   /** Is login */
   const isLogin = computed(() => Boolean(token.value));
 
   /** Reset auth store */
   async function resetStore() {
     recordUserId();
+    stopRefreshTimer();
 
     clearAuthStorage();
 
@@ -139,6 +162,7 @@ export const useAuthStore = defineStore(SetupStoreId.Auth, () => {
 
     if (pass) {
       token.value = loginToken.token;
+      startRefreshTimer();
 
       return true;
     }
@@ -166,7 +190,9 @@ export const useAuthStore = defineStore(SetupStoreId.Auth, () => {
       token.value = maybeToken;
       const pass = await getUserInfo();
 
-      if (!pass) {
+      if (pass) {
+        startRefreshTimer();
+      } else {
         resetStore();
       }
     }
