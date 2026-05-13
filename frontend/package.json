@@ -29,6 +29,7 @@
   "scripts": {
     "build": "vite build --mode prod",
     "build:test": "vite build --mode test",
+    "build:oracle": "vite build --mode oracle",
     "cleanup": "sa cleanup",
     "commit": "sa git-commit",
     "commit:zh": "sa git-commit -l=zh-cn",
