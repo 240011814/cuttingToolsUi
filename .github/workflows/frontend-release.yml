@@ -48,7 +48,7 @@ jobs:
       - name: Install and Build Frontend
         run: |
           cd frontend
-          pnpm install --frozen-lockfile
+          pnpm install --frozen-lockfile --registry=https://registry.npmjs.org
           pnpm build
         env:
           NODE_OPTIONS: '--max_old_space_size=4096'
