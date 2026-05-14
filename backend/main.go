@@ -55,7 +55,7 @@ func main() {
 	r.GET("/api/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"status":  "ok",
-			"message": "AI English Learning Backend is running",
+			"message": "AI English Learning Backend is  running",
 		})
 	})
 

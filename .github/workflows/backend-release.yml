@@ -67,5 +67,6 @@ jobs:
           key: ${{ secrets.SERVER_KEY }}
           script: |
             cd /home/ubuntu/deployee
-            docker-compose down
-            docker-compose up -d --build
+            docker-compose -f couch.yml  down
+            docker-compose -f couch.yml  down
+            docker-compose -f couch.yml  up -d
