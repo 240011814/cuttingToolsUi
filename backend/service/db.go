@@ -22,11 +22,8 @@ var embedMigrations embed.FS
 
 // InitDB 初始化数据库连接并自动运行迁移
 func InitDB(cfg *config.Config) (*gorm.DB, error) {
-	tls:= "true"	
-	if(cfg.Database.Host == "10.1.6.156"){
-		tls = "false"
-	}
-		
+	tls:= "false"	
+
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local&tls=%s",
 		cfg.Database.User,
 		cfg.Database.Password,
