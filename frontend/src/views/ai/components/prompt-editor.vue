@@ -507,6 +507,19 @@ function getDiffLineClass(line: DiffLine) {
             </div>
 
             <div class="flex justify-end gap-3 pb-2">
+              <NPopconfirm
+                @positive-click="editingPrompt = promptData.default_prompt"
+              >
+                <template #trigger>
+                  <NButton
+                    ghost
+                    :disabled="editingPrompt === promptData.default_prompt"
+                  >
+                    恢复默认
+                  </NButton>
+                </template>
+                确定要将当前编辑的内容恢复为系统默认提示词吗？
+              </NPopconfirm>
               <NButton
                 ghost
                 :disabled="!hasChanges"
