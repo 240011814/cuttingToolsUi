@@ -7,6 +7,7 @@ export interface TrainingHistory {
   title: string;
   is_favorite: boolean;
   messages: string;
+  last_message?: string;
   created_at: string;
   updated_at: string;
 }

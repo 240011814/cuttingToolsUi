@@ -10,6 +10,7 @@ type TrainingHistory struct {
 	Title            string    `json:"title"`
 	IsFavorite       bool      `json:"is_favorite"`
 	Messages         string    `json:"messages"`
+	LastMessage      string    `json:"last_message"`
 	CreatedAt        time.Time `json:"created_at"`
 	UpdatedAt        time.Time `json:"updated_at"`
 }

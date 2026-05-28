@@ -12,7 +12,7 @@ import {
   NPopconfirm,
 } from "naive-ui";
 import type { DataTableColumns } from "naive-ui";
-import { fetchHistoryList, fetchUpdateFavorite, fetchDeleteHistory } from "@/service/api";
+import { fetchHistoryList, fetchHistoryDetail, fetchUpdateFavorite, fetchDeleteHistory } from "@/service/api";
 import { $t } from "@/locales";
 
 import MarkdownIt from "markdown-it";
@@ -83,12 +83,17 @@ const loadData = async () => {
 const showDrawer = ref(false);
 const currentMessages = ref<any[]>([]);
 
-const handleView = (row: any) => {
+const handleView = async (row: any) => {
   try {
-    currentMessages.value = JSON.parse(row.messages || "[]");
-    showDrawer.value = true;
-  } catch {
-    message.error($t("page.ai.history.parseFailed"));
+    const { data: detail } = await fetchHistoryDetail(row.id);
+    if (detail) {
+      currentMessages.value = JSON.parse(detail.messages || "[]");
+      showDrawer.value = true;
+    }
+  } catch (err: any) {
+    message.error(
+      `${$t("page.ai.history.parseFailed")}: ${err?.message || $t("common.error")}`
+    );
   }
 };
 
@@ -176,39 +181,20 @@ const columns = computed<DataTableColumns<any>>(() => {
       key: "last_message",
       minWidth: 200,
       render(row) {
-        try {
-          const msgs = JSON.parse(row.messages || "[]");
-          const lastMsg = msgs[msgs.length - 1];
-          if (!lastMsg)
-            return h(
-              "span",
-              { class: "text-gray-400" },
-              $t("page.ai.history.noChatRecord")
-            );
+        if (!row.last_message)
+          return h(
+            "span",
+            { class: "text-gray-400" },
+            $t("page.ai.history.noChatRecord")
+          );
 
-          let content = lastMsg.content;
-          content = content
-            .replace(/<[^>]*>?/gm, "")
-            .replace(/[#*`]/g, "")
-            .trim();
-          if (content.length > 50) content = content.slice(0, 50) + "...";
+        const content = row.last_message.length > 50
+          ? row.last_message.slice(0, 50) + "..."
+          : row.last_message;
 
-          return h("div", { class: "text-xs text-gray-500" }, [
-            h(
-              NTag,
-              {
-                size: "small",
-                quaternary: true,
-                type: lastMsg.role === "user" ? "success" : "info",
-                class: "mr-1",
-              },
-              { default: () => (lastMsg.role === "user" ? "U" : "AI") }
-            ),
-            h("span", content),
-          ]);
-        } catch {
-          return h("span", { class: "text-error" }, $t("page.ai.history.parseFailed"));
-        }
+        return h("div", { class: "text-xs text-gray-500" }, [
+          h("span", content),
+        ]);
       },
     },
     {
