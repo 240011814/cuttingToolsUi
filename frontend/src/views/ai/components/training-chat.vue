@@ -453,11 +453,9 @@ const loadHistory = async (id: number) => {
   try {
     const { data } = await fetchHistoryDetail(id);
     if (data) {
-      const parsedMessages = JSON.parse(data.messages || "[]");
       historyId.value = data.id;
       historyTitle.value = data.title;
-      // 过滤掉系统提示词，只显示用户和助手的消息
-      messages.value = parsedMessages
+      messages.value = (data.messages || [])
         .filter((msg: any) => msg.role !== "system")
         .map((msg: any) => createChatMessage(msg.role, msg.content));
       isFavorite.value = data.is_favorite;

@@ -1,12 +1,21 @@
 import { request } from '../request';
 
+export interface TrainingMessage {
+  id: number;
+  history_id: number;
+  role: string;
+  content: string;
+  sort_order: number;
+  created_at: string;
+}
+
 export interface TrainingHistory {
   id: number;
   user_id: number;
   training_type: string;
   title: string;
   is_favorite: boolean;
-  messages: string;
+  messages: TrainingMessage[];
   last_message?: string;
   created_at: string;
   updated_at: string;

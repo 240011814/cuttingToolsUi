@@ -87,7 +87,7 @@ const handleView = async (row: any) => {
   try {
     const { data: detail } = await fetchHistoryDetail(row.id);
     if (detail) {
-      currentMessages.value = JSON.parse(detail.messages || "[]");
+      currentMessages.value = detail.messages || [];
       showDrawer.value = true;
     }
   } catch (err: any) {
