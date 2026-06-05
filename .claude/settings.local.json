@@ -3,7 +3,8 @@
     "allow": [
       "Bash(xxd src/main/java/com/yhy/cutting/cut/controller/CutController.java)",
       "Bash(grep \"\\\\.java$\")",
-      "Bash(go vet *)"
+      "Bash(go vet *)",
+      "Bash(go build *)"
     ]
   }
 }

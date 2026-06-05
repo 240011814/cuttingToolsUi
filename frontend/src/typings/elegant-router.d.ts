@@ -27,6 +27,7 @@ declare module "@elegant-router/types" {
     "ai_emergency": "/ai/emergency";
     "ai_exercise": "/ai/exercise";
     "ai_history": "/ai/history";
+    "ai_memory": "/ai/memory";
     "ai_note": "/ai/note";
     "ai_social": "/ai/social";
     "ai_training": "/ai/training";
@@ -111,6 +112,7 @@ declare module "@elegant-router/types" {
     | "ai_emergency"
     | "ai_exercise"
     | "ai_history"
+    | "ai_memory"
     | "ai_note"
     | "ai_social"
     | "ai_training"

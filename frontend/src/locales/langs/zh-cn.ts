@@ -242,6 +242,7 @@ const local: App.I18n.Schema = {
     ai_vocabulary: "生词本",
     ai_note: "笔记本",
     ai_history: "历史记录",
+    ai_memory: "记忆管理",
     ai_exercise: "练习",
     cut: "切割工具",
     cut_bar: "一维切割",

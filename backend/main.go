@@ -52,6 +52,9 @@ func main() {
 	cutService := service.NewCutService()
 	cutHandler := api.NewCutHandler(cutService)
 
+	mem0Service := service.NewMem0Service(cfg.Mem0)
+	mem0Handler := api.NewMem0Handler(mem0Service)
+
 	r.GET("/api/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"status":  "ok",
@@ -79,7 +82,7 @@ func main() {
 
 		apiGroup.GET("/dashboard/stats", dashboardHandler.GetStats)
 		apiGroup.GET("/ai/models", api.RequirePermission("ai:model:view"), api.HandleListModels(aiService))
-		apiGroup.POST("/chat", api.RequirePermission("ai:chat:send"), api.HandleChatStream(aiService, historyService))
+		apiGroup.POST("/chat", api.RequirePermission("ai:chat:send"), api.HandleChatStream(aiService, historyService, mem0Service))
 
 		// User specific AI prompt management
 		promptGroup := apiGroup.Group("/user-prompts")
@@ -127,6 +130,14 @@ func main() {
 			customTrainingGroup.POST("", api.RequirePermission("ai:custom-training:create"), customTrainingHandler.CreateCustomTraining)
 			customTrainingGroup.PUT("/:id", api.RequirePermission("ai:custom-training:edit"), customTrainingHandler.UpdateCustomTraining)
 			customTrainingGroup.DELETE("/:id", api.RequirePermission("ai:custom-training:delete"), customTrainingHandler.DeleteCustomTraining)
+		}
+
+		// Memory APIs (mem0)
+		memoryGroup := apiGroup.Group("/memories")
+		{
+			memoryGroup.GET("", mem0Handler.HandleListMemories)
+			memoryGroup.POST("/search", mem0Handler.HandleSearchMemories)
+			memoryGroup.DELETE("/:id", mem0Handler.HandleDeleteMemory)
 		}
 
 		// Cut APIs

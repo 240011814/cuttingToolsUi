@@ -123,6 +123,17 @@ export const generatedRoutes: GeneratedRoute[] = [
         }
       },
       {
+        name: 'ai_memory',
+        path: '/ai/memory',
+        component: 'view.ai_memory',
+        meta: {
+          title: 'ai_memory',
+          i18nKey: 'route.ai_memory',
+          icon: 'mdi:brain',
+          order: 9
+        }
+      },
+      {
         name: 'ai_note',
         path: '/ai/note',
         component: 'view.ai_note',

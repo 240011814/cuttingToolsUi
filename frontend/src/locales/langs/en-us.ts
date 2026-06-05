@@ -246,6 +246,7 @@ const local: App.I18n.Schema = {
     ai_vocabulary: "Vocabulary Book",
     ai_note: "Note Book",
     ai_history: "History Records",
+    ai_memory: "Memory",
     ai_exercise: "Exercise",
     cut: "Cutting Tools",
     cut_bar: "1D Cutting",

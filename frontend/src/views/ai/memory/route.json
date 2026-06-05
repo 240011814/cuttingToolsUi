@@ -1,0 +1,8 @@
+{
+  "meta": {
+    "title": "ai_memory",
+    "i18nKey": "route.ai_memory",
+    "icon": "mdi:brain",
+    "order": 9
+  }
+}

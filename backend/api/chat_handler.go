@@ -21,7 +21,7 @@ type ChatRequest struct {
 	Messages         []openai.ChatCompletionMessage `json:"messages" binding:"required"`
 }
 
-func HandleChatStream(aiService *service.AIService, historyService *service.HistoryService) gin.HandlerFunc {
+func HandleChatStream(aiService *service.AIService, historyService *service.HistoryService, mem0Service *service.Mem0Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		requestStart := time.Now()
 		var req ChatRequest
@@ -82,11 +82,33 @@ func HandleChatStream(aiService *service.AIService, historyService *service.Hist
 					}
 				}
 
+				// Save conversation to mem0 as memory
+				saveMemoryFunc := func() {
+					if mem0Service != nil && mem0Service.IsConfigured() {
+						memMessages := make([]service.Mem0Message, 0, len(allMessages))
+						for _, m := range allMessages {
+							if m.Role == openai.ChatMessageRoleSystem {
+								continue
+							}
+							memMessages = append(memMessages, service.Mem0Message{
+								Role:    m.Role,
+								Content: m.Content,
+							})
+						}
+						if len(memMessages) > 0 {
+							if err := mem0Service.AddMemory(userID.(uint), memMessages); err != nil {
+								log.Printf("mem0 save memory failed user=%d err=%v", userID.(uint), err)
+							}
+						}
+					}
+				}
+
 				if req.HistoryID == 0 {
 					saveFunc()
 				} else {
 					go saveFunc()
 				}
+				go saveMemoryFunc()
 
 				return false
 			}
