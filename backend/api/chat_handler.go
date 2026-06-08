@@ -96,7 +96,7 @@ func HandleChatStream(aiService *service.AIService, historyService *service.Hist
 							})
 						}
 						if len(memMessages) > 0 {
-							if err := mem0Service.AddMemory(userID.(uint), memMessages); err != nil {
+							if _, err := mem0Service.AddMemory(userID.(uint), memMessages, nil); err != nil {
 								log.Printf("mem0 save memory failed user=%d err=%v", userID.(uint), err)
 							}
 						}

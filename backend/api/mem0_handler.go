@@ -2,6 +2,7 @@ package api
 
 import (
 	"backend/service"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
@@ -14,6 +15,36 @@ func NewMem0Handler(mem0Service *service.Mem0Service) *Mem0Handler {
 	return &Mem0Handler{
 		mem0Service: mem0Service,
 	}
+}
+
+func (h *Mem0Handler) HandleAddMemory(c *gin.Context) {
+	if !h.mem0Service.IsConfigured() {
+		SendError(c, "503", "记忆服务未配置")
+		return
+	}
+
+	userID, exists := c.Get("userId")
+	if !exists {
+		SendError(c, "401", "Unauthorized")
+		return
+	}
+
+	var req struct {
+		Messages []service.Mem0Message `json:"messages" binding:"required"`
+		Metadata map[string]any        `json:"metadata"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		SendError(c, "400", err.Error())
+		return
+	}
+
+	result, err := h.mem0Service.AddMemory(userID.(uint), req.Messages, req.Metadata)
+	if err != nil {
+		SendError(c, "500", "添加记忆失败: "+err.Error())
+		return
+	}
+
+	SendSuccess(c, result)
 }
 
 func (h *Mem0Handler) HandleSearchMemories(c *gin.Context) {
@@ -58,13 +89,16 @@ func (h *Mem0Handler) HandleListMemories(c *gin.Context) {
 		return
 	}
 
-	memories, err := h.mem0Service.ListMemories(userID.(uint))
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "100"))
+
+	result, err := h.mem0Service.ListMemories(userID.(uint), page, pageSize)
 	if err != nil {
 		SendError(c, "500", "获取记忆列表失败: "+err.Error())
 		return
 	}
 
-	SendSuccess(c, memories)
+	SendSuccess(c, result)
 }
 
 func (h *Mem0Handler) HandleDeleteMemory(c *gin.Context) {

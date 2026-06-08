@@ -136,6 +136,7 @@ func main() {
 		memoryGroup := apiGroup.Group("/memories")
 		{
 			memoryGroup.GET("", mem0Handler.HandleListMemories)
+			memoryGroup.POST("", mem0Handler.HandleAddMemory)
 			memoryGroup.POST("/search", mem0Handler.HandleSearchMemories)
 			memoryGroup.DELETE("/:id", mem0Handler.HandleDeleteMemory)
 		}
