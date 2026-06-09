@@ -4,12 +4,24 @@ import (
 	"backend/model"
 	"regexp"
 	"strings"
+	"unicode/utf8"
 )
 
 var (
 	htmlTagRegex      = regexp.MustCompile(`<[^>]*>`)
 	markdownCharRegex = regexp.MustCompile("[#*`~_]")
 )
+
+// truncateUTF8 按 UTF-8 字符边界安全截断，不会切碎多字节字符
+func truncateUTF8(s string, maxBytes int) string {
+	if len(s) <= maxBytes {
+		return s
+	}
+	for maxBytes > 0 && !utf8.RuneStart(s[maxBytes]) {
+		maxBytes--
+	}
+	return s[:maxBytes]
+}
 
 type HistoryService struct{}
 
@@ -76,6 +88,9 @@ func extractLastMessage(messages []model.OpenAIMessage) string {
 			content = htmlTagRegex.ReplaceAllString(content, "")
 			content = markdownCharRegex.ReplaceAllString(content, "")
 			content = strings.Join(strings.Fields(content), " ")
+			if len(content) > 200 {
+				content = truncateUTF8(content, 200)
+			}
 			return content
 		}
 	}
