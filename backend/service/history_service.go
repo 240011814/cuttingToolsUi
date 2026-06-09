@@ -76,9 +76,6 @@ func extractLastMessage(messages []model.OpenAIMessage) string {
 			content = htmlTagRegex.ReplaceAllString(content, "")
 			content = markdownCharRegex.ReplaceAllString(content, "")
 			content = strings.Join(strings.Fields(content), " ")
-			if len(content) > 200 {
-				content = content[:200]
-			}
 			return content
 		}
 	}

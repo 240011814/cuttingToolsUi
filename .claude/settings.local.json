@@ -5,7 +5,8 @@
       "Bash(grep \"\\\\.java$\")",
       "Bash(go vet *)",
       "Bash(go build *)",
-      "WebFetch(domain:docs.mem0.ai)"
+      "WebFetch(domain:docs.mem0.ai)",
+      "Bash(npx tsc *)"
     ]
   }
 }

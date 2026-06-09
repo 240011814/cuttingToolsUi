@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { nextTick, ref, onBeforeUnmount, onMounted } from "vue";
 import { useMessage, NDrawer, NDrawerContent, NModal, NInput } from "naive-ui";
+import { useAppStore } from "@/store/modules/app";
 import {
   fetchAddVocabulary,
   fetchAddNote,
@@ -61,6 +62,7 @@ const md = new MarkdownIt({
   typographer: true,
 });
 const { hasAuth } = useAuth();
+const appStore = useAppStore();
 
 const renderMarkdown = (content: string) => {
   return md.render(content).trim();
@@ -545,7 +547,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="h-full flex-col flex gap-4 p-4 overflow-hidden">
+  <div class="h-full flex-col flex gap-4 p-4 overflow-hidden" :class="appStore.isMobile ? 'p-2 gap-2' : 'p-4 gap-4'">
     <NCard
       class="flex-1 overflow-hidden"
       content-class="p-0 flex flex-col overflow-hidden"
@@ -554,10 +556,11 @@ onBeforeUnmount(() => {
     >
       <!-- Header inside content to avoid NCard layout issues in flex-1 -->
       <div
-        class="p-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between"
+        class="border-b border-gray-100 dark:border-gray-800 flex items-center justify-between"
+        :class="appStore.isMobile ? 'px-3 py-2 flex-wrap gap-2' : 'p-4'"
       >
-        <div class="flex items-center gap-2">
-          <span class="font-bold text-gray-600 dark:text-gray-300">{{
+        <div class="flex items-center gap-1 min-w-0 flex-1">
+          <span class="font-bold text-gray-600 dark:text-gray-300 truncate text-sm">{{
             historyTitle || "AI 训练对话"
           }}</span>
           <NButton quaternary size="small" @click="handleOpenEditTitle">
@@ -579,7 +582,7 @@ onBeforeUnmount(() => {
             </template>
           </NButton>
         </div>
-        <div class="flex items-center gap-4">
+        <div class="flex items-center gap-2 shrink-0">
           <NButton
             v-if="hasAuth('ai:prompt:manage')"
             type="primary"
@@ -589,45 +592,45 @@ onBeforeUnmount(() => {
           >
             <div class="flex items-center gap-1 px-1">
               <div class="i-mdi:cog-outline" />
-              <span>设置</span>
+              <span v-if="!appStore.isMobile">设置</span>
             </div>
           </NButton>
-          <div class="flex items-center gap-2">
-            <span class="text-xs text-gray-400 font-bold">模式</span>
-            <NSelect
-              v-model:value="selectedModel"
-              :options="modelOptions"
-              size="small"
-              class="w-[140px] shadow-sm"
-            />
-          </div>
+          <NSelect
+            v-model:value="selectedModel"
+            :options="modelOptions"
+            size="small"
+            class="shadow-sm"
+            :style="{ width: appStore.isMobile ? '110px' : '140px' }"
+          />
         </div>
       </div>
 
-      <NScrollbar ref="scrollbarRef" class="flex-1 p-4 bg-gray-50/50 dark:bg-dark">
-        <div class="flex flex-col gap-6 pb-4">
+      <NScrollbar ref="scrollbarRef" class="flex-1 bg-gray-50/50 dark:bg-dark" :class="appStore.isMobile ? 'p-2' : 'p-4'">
+        <div class="flex flex-col pb-4" :class="appStore.isMobile ? 'gap-4' : 'gap-6'">
           <div
             v-for="(msg, index) in messages"
             :key="index"
-            class="flex items-start gap-3"
-            :class="msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'"
+            class="flex items-start"
+            :class="[msg.role === 'user' ? 'flex-row-reverse' : 'flex-row', appStore.isMobile ? 'gap-2' : 'gap-3']"
           >
             <NAvatar
               :color="msg.role === 'user' ? '#6bb8e8' : assistantColor"
               round
               size="large"
+              class="shrink-0 self-start"
             >
               {{ msg.role === "user" ? "U" : "AI" }}
             </NAvatar>
-            <div class="flex flex-col gap-1 max-w-[80%]">
+            <div class="flex flex-col gap-1" :class="appStore.isMobile ? 'max-w-[90%]' : 'max-w-[80%]'">
               <div class="group/btn">
                 <div
-                  class="p-4 rounded-2xl whitespace-pre-wrap leading-relaxed shadow-sm text-[15px]"
-                    :class="
-                      msg.role === 'user'
-                        ? 'bg-[#e8f4fd] text-gray-800 rounded-tr-none dark:bg-blue-900/40 dark:text-gray-200'
-                        : 'bg-white text-gray-800 rounded-tl-none dark:bg-gray-800 dark:text-gray-200'
-                    "
+                  class="rounded-2xl whitespace-pre-wrap leading-relaxed shadow-sm"
+                  :class="[
+                    msg.role === 'user'
+                      ? 'bg-[#e8f4fd] text-gray-800 rounded-tr-none dark:bg-blue-900/40 dark:text-gray-200'
+                      : 'bg-white text-gray-800 rounded-tl-none dark:bg-gray-800 dark:text-gray-200',
+                    appStore.isMobile ? 'p-3 text-[14px]' : 'p-4 text-[15px]'
+                  ]"
                   @mouseup="msg.role === 'assistant' ? handleSelectText() : undefined"
                 >
                   <!-- eslint-disable-next-line vue/no-v-html -->
@@ -644,7 +647,8 @@ onBeforeUnmount(() => {
 
                 <div
                   v-if="msg.content"
-                  class="opacity-0 group-hover/btn:opacity-100 transition-all duration-200 flex items-center gap-0.5 mt-1 justify-end"
+                  class="flex items-center gap-0.5 mt-1 justify-end"
+                  :class="appStore.isMobile ? 'opacity-100' : 'opacity-0 group-hover/btn:opacity-100 transition-all duration-200'"
                 >
                   <ButtonIcon
                     icon="mdi:content-copy"
@@ -696,24 +700,26 @@ onBeforeUnmount(() => {
       </NScrollbar>
 
       <div
-        class="p-4 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-dark flex items-stretch gap-4"
+        class="border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-dark flex items-stretch"
+        :class="appStore.isMobile ? 'p-2 gap-2' : 'p-4 gap-4'"
       >
         <NInput
           v-model:value="inputMessage"
           type="textarea"
-          :autosize="{ minRows: 2, maxRows: 6 }"
+          :autosize="appStore.isMobile ? { minRows: 1, maxRows: 4 } : { minRows: 2, maxRows: 6 }"
           :placeholder="inputPlaceholder"
           class="flex-1 shadow-sm"
-          size="large"
+          :size="appStore.isMobile ? 'medium' : 'large'"
           @keydown="handleEnter"
         />
         <div class="flex flex-col gap-2">
           <NButton
             type="primary"
-            size="large"
+            :size="appStore.isMobile ? 'medium' : 'large'"
             :loading="isGenerating"
             :disabled="!inputMessage.trim()"
-            class="px-8 rounded-lg flex-1"
+            class="rounded-lg flex-1"
+            :class="appStore.isMobile ? 'px-4' : 'px-8'"
             style="align-self: stretch; height: auto"
             @click="sendMessage"
           >
@@ -728,10 +734,11 @@ onBeforeUnmount(() => {
       v-model:show="showVocabModal"
       preset="card"
       title="添加到生词本"
+      :style="{ width: appStore.isMobile ? '95vw' : '' }"
       class="max-w-md"
       :segmented="{ content: 'soft' }"
     >
-      <NForm :model="vocabForm" label-placement="left" label-width="80">
+      <NForm :model="vocabForm" label-placement="left" :label-width="appStore.isMobile ? '60' : '80'">
         <NFormItem label="单词" path="word">
           <div class="flex gap-2 w-full">
             <NInput
@@ -788,24 +795,24 @@ onBeforeUnmount(() => {
       v-model:show="showNoteModal"
       preset="card"
       title="添加笔记"
-      style="width: 800px; max-width: 95vw"
+      :style="{ width: appStore.isMobile ? '95vw' : '800px' }"
       :segmented="{ content: 'soft' }"
     >
-      <NForm :model="noteForm" label-placement="left" label-width="80">
-        <div class="flex gap-4">
+      <NForm :model="noteForm" label-placement="left" :label-width="appStore.isMobile ? '60' : '80'">
+        <div :class="appStore.isMobile ? 'flex flex-col gap-2' : 'flex gap-4'">
           <NFormItem label="标题" path="title" class="flex-1">
             <NInput v-model:value="noteForm.title" placeholder="输入笔记标题" />
           </NFormItem>
-          <NFormItem label="分类" path="category" style="width: 240px">
+          <NFormItem label="分类" path="category" :style="appStore.isMobile ? {} : { width: '240px' }">
             <NInput v-model:value="noteForm.category" placeholder="输入笔记分类" />
           </NFormItem>
         </div>
         <NFormItem label="内容" path="content">
-          <div class="grid grid-cols-2 gap-4 w-full">
+          <div :class="appStore.isMobile ? 'flex flex-col gap-4 w-full' : 'grid grid-cols-2 gap-4 w-full'">
             <NInput
               v-model:value="noteForm.content"
               type="textarea"
-              :autosize="{ minRows: 12, maxRows: 15 }"
+              :autosize="appStore.isMobile ? { minRows: 6, maxRows: 10 } : { minRows: 12, maxRows: 15 }"
               placeholder="输入笔记内容"
             />
             <!-- eslint-disable-next-line vue/no-v-html -->
@@ -843,7 +850,7 @@ onBeforeUnmount(() => {
       />
     </NModal>
 
-    <NDrawer v-model:show="showPromptEditor" :width="600" placement="right">
+    <NDrawer v-model:show="showPromptEditor" :width="appStore.isMobile ? '85vw' : 600" placement="right">
       <NDrawerContent
         :title="`设置 - ${routeTitleMap[route.name as string] || 'AI 助手'}`"
         closable

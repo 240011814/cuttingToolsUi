@@ -32,6 +32,14 @@ function updateExpandedKeys() {
   expandedKeys.value = routeStore.getSelectedMenuKeyPath(selectedKey.value);
 }
 
+function handleMenuUpdate(key: RouteKey) {
+  routerPushByKeyWithMetaQuery(key);
+  // 移动端导航后自动收起侧边栏
+  if (appStore.isMobile) {
+    appStore.setSiderCollapse(true);
+  }
+}
+
 watch(
   () => route.name,
   () => {
@@ -54,7 +62,7 @@ watch(
         :options="routeStore.menus"
         :inverted="inverted"
         :indent="18"
-        @update:value="routerPushByKeyWithMetaQuery"
+        @update:value="handleMenuUpdate"
       />
     </SimpleScrollbar>
   </Teleport>

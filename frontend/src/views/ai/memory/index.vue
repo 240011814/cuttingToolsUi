@@ -49,7 +49,11 @@ const columns: DataTableColumns<Mem0Memory> = [
     width: 200,
     render(row) {
       if (!row.created_at) return h("span", "-");
-      return h("span", { class: "text-gray-500 text-xs" }, new Date(row.created_at).toLocaleString());
+      return h(
+        "span",
+        { class: "text-gray-500 text-xs" },
+        new Date(row.created_at).toLocaleString()
+      );
     },
   },
   {
