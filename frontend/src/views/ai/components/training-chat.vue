@@ -100,25 +100,30 @@ const messages = ref<ChatMessage[]>([
 ]);
 
 const showPromptEditor = ref(false);
+const memorySearchQuery = ref("用户已经训练过的场景和学习进度和用户的偏好");
 
 async function refreshPrompt() {
   const { data } = await fetchGetUserPrompt(props.moduleKey);
   if (data) {
     systemMessage.value.content = data.effective_prompt || props.systemPrompt;
+    if (data.memory_search_query) {
+      memorySearchQuery.value = data.memory_search_query;
+    }
   }
 }
 
 async function loadMemories() {
   try {
+    const query = memorySearchQuery.value?.trim() || "用户已经训练过的场景和学习进度和用户的偏好";
     const { data: memories } = await fetchSearchMemories(
-      "用户已经训练过的场景和学习进度",
+      query,
       100
     );
     if (memories && memories.length > 0) {
       const memoryText = memories.map((m: any) => `- ${m.memory}`).join("\n");
       systemMessage.value = {
         role: "system",
-        content: `${systemMessage.value.content}\n\n---\n以下是该用户的历史训练记忆，请在回答时参考以了解用户的学习进度和已训练过的内容：\n${memoryText}\n---`,
+        content: `${systemMessage.value.content}\n\n---\n以下是基于「${query}」检索到的用户记忆，回答时请参考：\n${memoryText}\n---`,
       };
     }
   } catch {

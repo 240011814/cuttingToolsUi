@@ -18,18 +18,18 @@ func NewPromptService(db *gorm.DB) *PromptService {
 // GetEffectivePrompt returns the currently active custom prompt for a module.
 // If the user has not customized the prompt, the frontend should fall back to
 // the module's built-in default prompt.
-func (s *PromptService) GetEffectivePrompt(userID uint, moduleKey string) (string, error) {
+func (s *PromptService) GetEffectivePrompt(userID uint, moduleKey string) (string, string, error) {
 	var userPrompt model.UserPrompt
 	err := s.db.Where("user_id = ? AND module_key = ? AND is_active = ?", userID, moduleKey, true).First(&userPrompt).Error
 	if err == nil {
-		return userPrompt.CustomPrompt, nil
+		return userPrompt.CustomPrompt, userPrompt.MemorySearchQuery, nil
 	}
 
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return "", nil
+		return "", "", nil
 	}
 
-	return "", err
+	return "", "", err
 }
 
 func (s *PromptService) ListVersions(userID uint, moduleKey string) ([]model.UserPrompt, error) {
@@ -38,7 +38,7 @@ func (s *PromptService) ListVersions(userID uint, moduleKey string) ([]model.Use
 	return list, err
 }
 
-func (s *PromptService) SaveUserPrompt(userID uint, moduleKey, content, remark string) error {
+func (s *PromptService) SaveUserPrompt(userID uint, moduleKey, content, remark, memorySearchQuery string) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Model(&model.UserPrompt{}).
 			Where("user_id = ? AND module_key = ?", userID, moduleKey).
@@ -52,12 +52,13 @@ func (s *PromptService) SaveUserPrompt(userID uint, moduleKey, content, remark s
 			Select("COALESCE(MAX(version), 0)").Scan(&maxVersion)
 
 		newPrompt := model.UserPrompt{
-			UserID:       userID,
-			ModuleKey:    moduleKey,
-			CustomPrompt: content,
-			Version:      maxVersion + 1,
-			IsActive:     true,
-			Remark:       remark,
+			UserID:            userID,
+			ModuleKey:         moduleKey,
+			CustomPrompt:      content,
+			MemorySearchQuery: memorySearchQuery,
+			Version:           maxVersion + 1,
+			IsActive:          true,
+			Remark:            remark,
 		}
 
 		return tx.Create(&newPrompt).Error

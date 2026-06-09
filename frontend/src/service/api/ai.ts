@@ -10,6 +10,7 @@ export function fetchGetAIModels() {
 export function fetchGetUserPrompt(moduleKey: string) {
   return request<{
     effective_prompt: string;
+    memory_search_query: string;
     default_prompt: string;
     versions: any[];
     is_customized: boolean;
@@ -22,11 +23,12 @@ export function fetchSaveUserPrompt(
   moduleKey: string,
   prompt: string,
   remark?: string,
+  memorySearchQuery?: string,
 ) {
   return request({
     url: `/api/user-prompts/${moduleKey}`,
     method: "post",
-    data: { prompt, remark },
+    data: { prompt, remark, memory_search_query: memorySearchQuery },
   });
 }
 
