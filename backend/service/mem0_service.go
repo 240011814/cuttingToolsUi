@@ -1,7 +1,6 @@
 package service
 
 import (
-	"backend/config"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -53,19 +52,24 @@ type Mem0Service struct {
 	client  *http.Client
 }
 
-// NewMem0Service creates a new Mem0Service; returns nil if no API key is configured
-func NewMem0Service(cfg config.Mem0Config) *Mem0Service {
-	if cfg.APIKey == "" {
-		log.Println("mem0 API key not configured, memory features disabled")
-		return nil
+// NewMem0Service creates a new Mem0Service
+func NewMem0Service(cfg Mem0Config) *Mem0Service {
+	if cfg.BaseURL == "" {
+		cfg.BaseURL = "https://api.mem0.ai/v1"
 	}
-	return &Mem0Service{
+	svc := &Mem0Service{
 		apiKey:  cfg.APIKey,
 		baseURL: cfg.BaseURL,
 		client: &http.Client{
 			Timeout: 30 * time.Second,
 		},
 	}
+	if cfg.APIKey == "" {
+		log.Println("mem0 API key not configured, memory features disabled")
+	} else {
+		log.Println("mem0 service initialized")
+	}
+	return svc
 }
 
 // IsConfigured returns whether the mem0 service has a valid API key
@@ -74,13 +78,12 @@ func (s *Mem0Service) IsConfigured() bool {
 }
 
 // ReloadConfig 热更新 mem0 配置，无需重启服务
-func (s *Mem0Service) ReloadConfig(cfg config.Mem0Config) {
-	if s == nil {
-		return
-	}
+func (s *Mem0Service) ReloadConfig(cfg Mem0Config) {
 	s.apiKey = cfg.APIKey
-	s.baseURL = cfg.BaseURL
-	log.Printf("mem0 config reloaded: baseURL=%s", cfg.BaseURL)
+	if cfg.BaseURL != "" {
+		s.baseURL = cfg.BaseURL
+	}
+	log.Printf("mem0 config reloaded: baseURL=%s", s.baseURL)
 }
 
 // v3BaseURL derives the v3 base URL from the configured baseURL.

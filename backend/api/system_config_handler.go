@@ -1,23 +1,20 @@
 package api
 
 import (
-	"backend/config"
 	"backend/service"
 
 	"github.com/gin-gonic/gin"
 )
 
 type SystemConfigHandler struct {
-	configSvc   *service.SystemConfigService
-	mem0Svc     *service.Mem0Service
-	fallbackCfg config.Mem0Config
+	configSvc *service.SystemConfigService
+	mem0Svc   *service.Mem0Service
 }
 
-func NewSystemConfigHandler(configSvc *service.SystemConfigService, mem0Svc *service.Mem0Service, fallbackCfg config.Mem0Config) *SystemConfigHandler {
+func NewSystemConfigHandler(configSvc *service.SystemConfigService, mem0Svc *service.Mem0Service) *SystemConfigHandler {
 	return &SystemConfigHandler{
-		configSvc:   configSvc,
-		mem0Svc:     mem0Svc,
-		fallbackCfg: fallbackCfg,
+		configSvc: configSvc,
+		mem0Svc:   mem0Svc,
 	}
 }
 
@@ -48,7 +45,7 @@ func (h *SystemConfigHandler) Update(c *gin.Context) {
 
 	// mem0 相关配置变更后立即热更新
 	if req.Key == "mem0_api_key" || req.Key == "mem0_base_url" {
-		newCfg := h.configSvc.GetMem0Config(h.fallbackCfg)
+		newCfg := h.configSvc.GetMem0Config()
 		h.mem0Svc.ReloadConfig(newCfg)
 	}
 

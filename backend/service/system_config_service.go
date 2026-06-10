@@ -1,9 +1,14 @@
 package service
 
 import (
-	"backend/config"
 	"backend/model"
 )
+
+// Mem0Config mem0 服务配置
+type Mem0Config struct {
+	APIKey  string
+	BaseURL string
+}
 
 type SystemConfigService struct{}
 
@@ -40,19 +45,14 @@ func (s *SystemConfigService) SetValue(key, value, remark string) error {
 	return DB.Save(&cfg).Error
 }
 
-// GetMem0Config 从数据库读取 mem0 配置，未配置则使用默认值
-func (s *SystemConfigService) GetMem0Config(fallback config.Mem0Config) config.Mem0Config {
+// GetMem0Config 从数据库读取 mem0 配置
+func (s *SystemConfigService) GetMem0Config() Mem0Config {
 	apiKey, _ := s.GetValue("mem0_api_key")
 	baseURL, _ := s.GetValue("mem0_base_url")
-
-	if apiKey == "" {
-		apiKey = fallback.APIKey
-	}
 	if baseURL == "" {
-		baseURL = fallback.BaseURL
+		baseURL = "https://api.mem0.ai/v1"
 	}
-
-	return config.Mem0Config{
+	return Mem0Config{
 		APIKey:  apiKey,
 		BaseURL: baseURL,
 	}
