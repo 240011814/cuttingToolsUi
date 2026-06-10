@@ -21,7 +21,7 @@ const { domRef, updateOptions } = useEcharts(() => ({
     },
   },
   legend: {
-    data: ["训练次数"],
+    data: ["消息数量"],
     top: "0",
   },
   grid: {
@@ -41,7 +41,7 @@ const { domRef, updateOptions } = useEcharts(() => ({
   series: [
     {
       color: "#8e9dff",
-      name: "训练次数",
+      name: "消息数量",
       type: "line",
       smooth: true,
       stack: "Total",
