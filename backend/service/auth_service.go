@@ -20,6 +20,44 @@ func NewAuthService(cfg *config.Config) *AuthService {
 	return &AuthService{cfg: cfg}
 }
 
+func (s *AuthService) Register(username, password string) (*model.LoginResponseData, error) {
+	var existing model.User
+	if err := DB.Where("username = ?", username).First(&existing).Error; err == nil {
+		return nil, errors.New("用户名已存在")
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, errors.New("密码加密失败")
+	}
+
+	user := model.User{
+		Username:     username,
+		PasswordHash: string(hashedPassword),
+		Nickname:     username,
+		Role:         "R_USER",
+	}
+
+	if err := DB.Create(&user).Error; err != nil {
+		return nil, errors.New("注册失败: " + err.Error())
+	}
+
+	token, err := s.generateToken(user, 2*time.Hour)
+	if err != nil {
+		return nil, err
+	}
+
+	refreshToken, err := s.generateToken(user, 7*24*time.Hour)
+	if err != nil {
+		return nil, err
+	}
+
+	return &model.LoginResponseData{
+		Token:        token,
+		RefreshToken: refreshToken,
+	}, nil
+}
+
 func (s *AuthService) Login(username, password string) (*model.LoginResponseData, error) {
 	var user model.User
 	if err := DB.Where("username = ?", username).First(&user).Error; err != nil {

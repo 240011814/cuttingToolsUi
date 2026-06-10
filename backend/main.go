@@ -65,6 +65,7 @@ func main() {
 	authGroup := r.Group("/auth")
 	{
 		authGroup.POST("/login", api.HandleLogin(authService))
+		authGroup.POST("/register", api.HandleRegister(authService))
 		authGroup.GET("/getUserInfo", api.HandleGetUserInfo(authService, cfg.Auth.JWTSecret))
 		authGroup.POST("/refreshToken", api.HandleRefreshToken(authService))
 	}

@@ -53,6 +53,30 @@ func HandleLogin(authService *service.AuthService) gin.HandlerFunc {
 	}
 }
 
+// HandleRegister 注册处理
+func HandleRegister(authService *service.AuthService) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req model.LoginRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			SendError(c, "400", "请求参数错误: "+err.Error())
+			return
+		}
+
+		if req.UserName == "" || req.Password == "" {
+			SendError(c, "400", "用户名和密码不能为空")
+			return
+		}
+
+		res, err := authService.Register(req.UserName, req.Password)
+		if err != nil {
+			SendError(c, "1001", err.Error())
+			return
+		}
+
+		SendSuccess(c, res)
+	}
+}
+
 // HandleGetUserInfo 获取用户信息
 func HandleGetUserInfo(authService *service.AuthService, jwtSecret string) gin.HandlerFunc {
 	return func(c *gin.Context) {

@@ -223,7 +223,9 @@ async function handleDeleteCustomTraining(id: number) {
 }
 
 onMounted(() => {
-  loadCustomTrainings();
+  if (hasAuth('ai:custom-training:view')) {
+    loadCustomTrainings();
+  }
 });
 </script>
 
