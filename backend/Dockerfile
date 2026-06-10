@@ -23,6 +23,13 @@ FROM alpine:latest
 
 WORKDIR /app
 
+# 安装时区数据并设置中国时区
+RUN apk add --no-cache tzdata \
+    && cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
+    && echo "Asia/Shanghai" > /etc/timezone
+
+ENV TZ=Asia/Shanghai
+
 # 复制可执行文件
 COPY --from=builder /app/main .
 
