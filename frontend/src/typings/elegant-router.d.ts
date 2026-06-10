@@ -43,6 +43,7 @@ declare module "@elegant-router/types" {
     "login": "/login/:module(pwd-login|code-login|register|reset-pwd|bind-wechat)?";
     "system": "/system";
     "system_ai-config": "/system/ai-config";
+    "system_config": "/system/config";
     "system_permission": "/system/permission";
     "system_user": "/system/user";
   };
@@ -124,6 +125,7 @@ declare module "@elegant-router/types" {
     | "cut_plane"
     | "home"
     | "system_ai-config"
+    | "system_config"
     | "system_permission"
     | "system_user"
   >;

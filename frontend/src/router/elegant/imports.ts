@@ -38,6 +38,7 @@ export const views: Record<LastLevelRouteKey, RouteComponent | (() => Promise<Ro
   cut_plane: () => import("@/views/cut/plane/index.vue"),
   home: () => import("@/views/home/index.vue"),
   "system_ai-config": () => import("@/views/system/ai-config/index.vue"),
+  system_config: () => import("@/views/system/config/index.vue"),
   system_permission: () => import("@/views/system/permission/index.vue"),
   system_user: () => import("@/views/system/user/index.vue"),
 };

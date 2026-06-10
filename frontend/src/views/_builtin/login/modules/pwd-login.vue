@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, reactive } from "vue";
+import { computed, reactive, ref, onMounted } from "vue";
 import { loginModuleRecord } from "@/constants/app";
 import { useAuthStore } from "@/store/modules/auth";
 import { useRouterPush } from "@/hooks/common/router";
 import { useFormRules, useNaiveForm } from "@/hooks/common/form";
+import { getServiceBaseURL } from "@/utils/service";
 import { $t } from "@/locales";
 
 defineOptions({
@@ -13,6 +14,19 @@ defineOptions({
 const authStore = useAuthStore();
 const { toggleLoginModule } = useRouterPush();
 const { formRef, validate } = useNaiveForm();
+const registerEnabled = ref(false);
+
+onMounted(async () => {
+  try {
+    const isHttpProxy = import.meta.env.DEV && import.meta.env.VITE_HTTP_PROXY === "Y";
+    const { baseURL } = getServiceBaseURL(import.meta.env, isHttpProxy);
+    const resp = await fetch(`${baseURL}/auth/register-status`);
+    const json = await resp.json();
+    registerEnabled.value = json?.data?.enabled ?? false;
+  } catch {
+    registerEnabled.value = false;
+  }
+});
 
 interface FormModel {
   userName: string;
@@ -80,7 +94,7 @@ async function handleSubmit() {
       >
         {{ $t("common.confirm") }}
       </NButton>
-      <NButton block @click="toggleLoginModule('register')">
+      <NButton v-if="registerEnabled" block @click="toggleLoginModule('register')">
         {{ $t(loginModuleRecord.register) }}
       </NButton>
     </NSpace>

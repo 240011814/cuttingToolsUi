@@ -313,6 +313,17 @@ export const generatedRoutes: GeneratedRoute[] = [
         }
       },
       {
+        name: 'system_config',
+        path: '/system/config',
+        component: 'view.system_config',
+        meta: {
+          title: 'system_config',
+          i18nKey: 'route.system_config',
+          icon: 'mdi:tune-variant',
+          permissions: ['R_SUPER']
+        }
+      },
+      {
         name: 'system_permission',
         path: '/system/permission',
         component: 'view.system_permission',

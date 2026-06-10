@@ -52,7 +52,12 @@ func main() {
 	cutService := service.NewCutService()
 	cutHandler := api.NewCutHandler(cutService)
 
-	mem0Service := service.NewMem0Service(cfg.Mem0)
+	systemConfigService := service.NewSystemConfigService()
+	systemConfigHandler := api.NewSystemConfigHandler(systemConfigService)
+
+	// mem0 配置优先从数据库读取，未配置则使用 config.yaml
+	mem0Cfg := systemConfigService.GetMem0Config(cfg.Mem0)
+	mem0Service := service.NewMem0Service(mem0Cfg)
 	mem0Handler := api.NewMem0Handler(mem0Service)
 
 	r.GET("/api/health", func(c *gin.Context) {
@@ -68,6 +73,7 @@ func main() {
 		authGroup.POST("/register", api.HandleRegister(authService))
 		authGroup.GET("/getUserInfo", api.HandleGetUserInfo(authService, cfg.Auth.JWTSecret))
 		authGroup.POST("/refreshToken", api.HandleRefreshToken(authService))
+		authGroup.GET("/register-status", systemConfigHandler.GetRegisterStatus)
 	}
 
 	apiGroup := r.Group("/api")
@@ -191,6 +197,14 @@ func main() {
 			adminGroup.POST("/ai-models", api.RequirePermission("system:ai-model:create"), adminHandler.HandleCreateAIModel)
 			adminGroup.PUT("/ai-models/:id", api.RequirePermission("system:ai-model:update"), adminHandler.HandleUpdateAIModel)
 			adminGroup.DELETE("/ai-models/:id", api.RequirePermission("system:ai-model:delete"), adminHandler.HandleDeleteAIModel)
+
+			// System Config (R_SUPER only)
+			configGroup := adminGroup.Group("/system-config")
+			configGroup.Use(api.RequireRole("R_SUPER"))
+			{
+				configGroup.GET("", systemConfigHandler.GetAll)
+				configGroup.PUT("", systemConfigHandler.Update)
+			}
 		}
 	}
 
