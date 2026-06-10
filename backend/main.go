@@ -53,12 +53,13 @@ func main() {
 	cutHandler := api.NewCutHandler(cutService)
 
 	systemConfigService := service.NewSystemConfigService()
-	systemConfigHandler := api.NewSystemConfigHandler(systemConfigService)
 
 	// mem0 配置优先从数据库读取，未配置则使用 config.yaml
 	mem0Cfg := systemConfigService.GetMem0Config(cfg.Mem0)
 	mem0Service := service.NewMem0Service(mem0Cfg)
 	mem0Handler := api.NewMem0Handler(mem0Service)
+
+	systemConfigHandler := api.NewSystemConfigHandler(systemConfigService, mem0Service, cfg.Mem0)
 
 	r.GET("/api/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{

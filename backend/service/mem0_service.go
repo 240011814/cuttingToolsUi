@@ -73,6 +73,16 @@ func (s *Mem0Service) IsConfigured() bool {
 	return s != nil && s.apiKey != ""
 }
 
+// ReloadConfig 热更新 mem0 配置，无需重启服务
+func (s *Mem0Service) ReloadConfig(cfg config.Mem0Config) {
+	if s == nil {
+		return
+	}
+	s.apiKey = cfg.APIKey
+	s.baseURL = cfg.BaseURL
+	log.Printf("mem0 config reloaded: baseURL=%s", cfg.BaseURL)
+}
+
 // v3BaseURL derives the v3 base URL from the configured baseURL.
 // If baseURL ends with /v1, replaces with /v3; otherwise appends /v3.
 func (s *Mem0Service) v3BaseURL() string {

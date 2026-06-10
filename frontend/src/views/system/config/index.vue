@@ -62,7 +62,7 @@ async function handleSaveMem0() {
   try {
     await saveConfig("mem0_api_key", mem0ApiKey.value, "Mem0 API 密钥");
     await saveConfig("mem0_base_url", mem0BaseUrl.value, "Mem0 API 地址");
-    message.success("Mem0 配置已保存，重启后端后生效");
+    message.success("Mem0 配置已保存并生效");
   } catch (err: any) {
     message.error(`保存失败: ${err?.message || "未知错误"}`);
   } finally {
@@ -131,9 +131,6 @@ onMounted(() => {
                 </NButton>
               </NFormItem>
             </NForm>
-            <div class="text-xs text-gray-400 mt-2">
-              修改后需要重启后端服务才能生效。
-            </div>
           </div>
         </div>
       </NSpin>

@@ -1,17 +1,24 @@
 package api
 
 import (
+	"backend/config"
 	"backend/service"
 
 	"github.com/gin-gonic/gin"
 )
 
 type SystemConfigHandler struct {
-	configSvc *service.SystemConfigService
+	configSvc   *service.SystemConfigService
+	mem0Svc     *service.Mem0Service
+	fallbackCfg config.Mem0Config
 }
 
-func NewSystemConfigHandler(configSvc *service.SystemConfigService) *SystemConfigHandler {
-	return &SystemConfigHandler{configSvc: configSvc}
+func NewSystemConfigHandler(configSvc *service.SystemConfigService, mem0Svc *service.Mem0Service, fallbackCfg config.Mem0Config) *SystemConfigHandler {
+	return &SystemConfigHandler{
+		configSvc:   configSvc,
+		mem0Svc:     mem0Svc,
+		fallbackCfg: fallbackCfg,
+	}
 }
 
 func (h *SystemConfigHandler) GetAll(c *gin.Context) {
@@ -38,6 +45,13 @@ func (h *SystemConfigHandler) Update(c *gin.Context) {
 		SendError(c, "500", "更新配置失败: "+err.Error())
 		return
 	}
+
+	// mem0 相关配置变更后立即热更新
+	if req.Key == "mem0_api_key" || req.Key == "mem0_base_url" {
+		newCfg := h.configSvc.GetMem0Config(h.fallbackCfg)
+		h.mem0Svc.ReloadConfig(newCfg)
+	}
+
 	SendSuccess(c, nil)
 }
 
@@ -45,7 +59,6 @@ func (h *SystemConfigHandler) Update(c *gin.Context) {
 func (h *SystemConfigHandler) GetRegisterStatus(c *gin.Context) {
 	val, err := h.configSvc.GetValue("register_enabled")
 	if err != nil {
-		// 默认开启
 		SendSuccess(c, gin.H{"enabled": true})
 		return
 	}
