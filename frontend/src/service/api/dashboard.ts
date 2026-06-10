@@ -1,8 +1,8 @@
 import { request } from '../request';
 
 export interface DashboardStats {
-  today_trainings: number;
-  total_trainings: number;
+  today_messages: number;
+  total_messages: number;
   total_vocabulary: number;
   total_notes: number;
   total_favorites: number;

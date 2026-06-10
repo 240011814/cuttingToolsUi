@@ -90,7 +90,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <NCard :bordered="false" class="card-wrapper" title="近7天训练趋势">
+  <NCard :bordered="false" class="card-wrapper" title="近7天消息趋势">
     <div ref="domRef" class="h-360px overflow-hidden"></div>
   </NCard>
 </template>

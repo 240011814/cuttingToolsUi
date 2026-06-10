@@ -1,8 +1,8 @@
 package model
 
 type DashboardStats struct {
-	TodayTrainings    int64            `json:"today_trainings"`
-	TotalTrainings    int64            `json:"total_trainings"`
+	TodayMessages     int64            `json:"today_messages"`
+	TotalMessages     int64            `json:"total_messages"`
 	TotalVocabulary   int64            `json:"total_vocabulary"`
 	TotalNotes        int64            `json:"total_notes"`
 	TotalFavorites    int64            `json:"total_favorites"`

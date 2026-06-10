@@ -14,16 +14,18 @@ func NewDashboardService() *DashboardService {
 func (s *DashboardService) GetStats(userID uint) (*model.DashboardStats, error) {
 	stats := &model.DashboardStats{}
 
-	// 今日训练次数
+	// 今日对话消息数量
 	today := time.Now().Format("2006-01-02")
-	DB.Model(&model.TrainingHistory{}).
-		Where("user_id = ? AND DATE(created_at) = ?", userID, today).
-		Count(&stats.TodayTrainings)
+	DB.Model(&model.TrainingMessage{}).
+		Joins("JOIN training_histories ON training_histories.id = training_messages.history_id").
+		Where("training_histories.user_id = ? AND DATE(training_messages.created_at) = ?", userID, today).
+		Count(&stats.TodayMessages)
 
-	// 累计训练次数
-	DB.Model(&model.TrainingHistory{}).
-		Where("user_id = ?", userID).
-		Count(&stats.TotalTrainings)
+	// 累计对话消息数量
+	DB.Model(&model.TrainingMessage{}).
+		Joins("JOIN training_histories ON training_histories.id = training_messages.history_id").
+		Where("training_histories.user_id = ?", userID).
+		Count(&stats.TotalMessages)
 
 	// 生词本词汇量
 	DB.Model(&model.Vocabulary{}).
@@ -40,12 +42,13 @@ func (s *DashboardService) GetStats(userID uint) (*model.DashboardStats, error) 
 		Where("user_id = ? AND is_favorite = ?", userID, true).
 		Count(&stats.TotalFavorites)
 
-	// 近7天训练趋势
+	// 近7天消息趋势
 	for i := 6; i >= 0; i-- {
 		date := time.Now().AddDate(0, 0, -i).Format("2006-01-02")
 		var count int64
-		DB.Model(&model.TrainingHistory{}).
-			Where("user_id = ? AND DATE(created_at) = ?", userID, date).
+		DB.Model(&model.TrainingMessage{}).
+			Joins("JOIN training_histories ON training_histories.id = training_messages.history_id").
+			Where("training_histories.user_id = ? AND DATE(training_messages.created_at) = ?", userID, date).
 			Count(&count)
 		stats.TrainingTrend = append(stats.TrainingTrend, model.TrendItem{
 			Date:  date,

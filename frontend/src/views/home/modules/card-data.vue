@@ -32,26 +32,26 @@ const loadStats = async () => {
 
 const cardData = computed<CardData[]>(() => [
   {
-    key: "todayTrainings",
-    title: "今日训练",
-    value: stats.value?.today_trainings || 0,
+    key: "todayMessages",
+    title: "今日消息",
+    value: stats.value?.today_messages || 0,
     unit: "",
     color: {
       start: "#ec4786",
       end: "#b955a4",
     },
-    icon: "mdi:calendar-check",
+    icon: "mdi:message-text-outline",
   },
   {
-    key: "totalTrainings",
-    title: "累计训练",
-    value: stats.value?.total_trainings || 0,
+    key: "totalMessages",
+    title: "累计消息",
+    value: stats.value?.total_messages || 0,
     unit: "",
     color: {
       start: "#865ec0",
       end: "#5144b4",
     },
-    icon: "mdi:chart-line",
+    icon: "mdi:message-outline",
   },
   {
     key: "totalVocabulary",
