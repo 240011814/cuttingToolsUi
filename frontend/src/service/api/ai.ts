@@ -12,6 +12,7 @@ export function fetchGetUserPrompt(moduleKey: string) {
     effective_prompt: string;
     memory_search_query: string;
     memory_search_top_k: number;
+    mem0_enabled: boolean;
     default_prompt: string;
     versions: any[];
     is_customized: boolean;

@@ -1,14 +1,24 @@
 <script setup lang="ts">
 import { h, onMounted, ref, computed } from "vue";
-import { NButton, NPopconfirm, useMessage } from "naive-ui";
+import { NButton, NPopconfirm, NEmpty, useMessage } from "naive-ui";
 import type { DataTableColumns } from "naive-ui";
-import { fetchListMemories, fetchDeleteMemory } from "@/service/api";
+import { fetchListMemories, fetchDeleteMemory, fetchMem0Status } from "@/service/api";
 import type { Mem0Memory } from "@/service/api/memory";
 
 const message = useMessage();
 const loading = ref(false);
+const mem0Enabled = ref(true);
 const data = ref<Mem0Memory[]>([]);
 const keyword = ref("");
+
+const loadStatus = async () => {
+  try {
+    const { data: res } = await fetchMem0Status();
+    mem0Enabled.value = res?.enabled !== false;
+  } catch {
+    mem0Enabled.value = false;
+  }
+};
 
 const loadData = async () => {
   loading.value = true;
@@ -88,8 +98,11 @@ const filteredData = computed(() => {
   return data.value.filter((m) => m.memory.toLowerCase().includes(kw));
 });
 
-onMounted(() => {
-  loadData();
+onMounted(async () => {
+  await loadStatus();
+  if (mem0Enabled.value) {
+    loadData();
+  }
 });
 </script>
 
@@ -99,10 +112,22 @@ onMounted(() => {
       <template #header>
         <div class="flex items-center gap-4">
           <span class="text-18px font-bold">记忆管理</span>
-          <NTag type="info" size="small">{{ data.length }} 条记忆</NTag>
+          <NTag v-if="mem0Enabled" type="info" size="small">{{ data.length }} 条记忆</NTag>
+          <NTag v-else type="warning" size="small">已关闭</NTag>
         </div>
       </template>
-      <div class="flex flex-col h-full gap-4">
+
+      <div v-if="!mem0Enabled" class="flex-1 flex items-center justify-center">
+        <NEmpty description="Mem0 记忆服务已关闭，请在系统配置中开启">
+          <template #extra>
+            <NButton type="primary" size="small" @click="$router.push('/system/config')">
+              前往系统配置
+            </NButton>
+          </template>
+        </NEmpty>
+      </div>
+
+      <div v-else class="flex flex-col h-full gap-4">
         <div class="flex justify-between items-center">
           <NInput
             v-model:value="keyword"

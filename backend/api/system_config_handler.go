@@ -44,7 +44,7 @@ func (h *SystemConfigHandler) Update(c *gin.Context) {
 	}
 
 	// mem0 相关配置变更后立即热更新
-	if req.Key == "mem0_api_key" || req.Key == "mem0_base_url" {
+	if req.Key == "mem0_api_key" || req.Key == "mem0_base_url" || req.Key == "mem0_enabled" {
 		newCfg := h.configSvc.GetMem0Config()
 		h.mem0Svc.ReloadConfig(newCfg)
 	}

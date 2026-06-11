@@ -47,6 +47,7 @@ type mem0ListV3Response struct {
 
 // Mem0Service provides interactions with the mem0 REST API
 type Mem0Service struct {
+	enabled bool
 	apiKey  string
 	baseURL string
 	client  *http.Client
@@ -58,13 +59,16 @@ func NewMem0Service(cfg Mem0Config) *Mem0Service {
 		cfg.BaseURL = "https://api.mem0.ai/v1"
 	}
 	svc := &Mem0Service{
+		enabled: cfg.Enabled,
 		apiKey:  cfg.APIKey,
 		baseURL: cfg.BaseURL,
 		client: &http.Client{
 			Timeout: 30 * time.Second,
 		},
 	}
-	if cfg.APIKey == "" {
+	if !cfg.Enabled {
+		log.Println("mem0 service disabled by config")
+	} else if cfg.APIKey == "" {
 		log.Println("mem0 API key not configured, memory features disabled")
 	} else {
 		log.Println("mem0 service initialized")
@@ -72,18 +76,24 @@ func NewMem0Service(cfg Mem0Config) *Mem0Service {
 	return svc
 }
 
-// IsConfigured returns whether the mem0 service has a valid API key
+// IsConfigured returns whether the mem0 service is enabled and has a valid API key
 func (s *Mem0Service) IsConfigured() bool {
-	return s != nil && s.apiKey != ""
+	return s != nil && s.enabled && s.apiKey != ""
+}
+
+// GetEnabled returns whether the mem0 service is enabled (regardless of API key)
+func (s *Mem0Service) GetEnabled() bool {
+	return s != nil && s.enabled
 }
 
 // ReloadConfig 热更新 mem0 配置，无需重启服务
 func (s *Mem0Service) ReloadConfig(cfg Mem0Config) {
+	s.enabled = cfg.Enabled
 	s.apiKey = cfg.APIKey
 	if cfg.BaseURL != "" {
 		s.baseURL = cfg.BaseURL
 	}
-	log.Printf("mem0 config reloaded: baseURL=%s", s.baseURL)
+	log.Printf("mem0 config reloaded: enabled=%v baseURL=%s", s.enabled, s.baseURL)
 }
 
 // v3BaseURL derives the v3 base URL from the configured baseURL.

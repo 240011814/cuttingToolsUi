@@ -9,6 +9,7 @@ const message = useMessage();
 const loading = ref(false);
 const saving = ref(false);
 const registerEnabled = ref(false);
+const mem0Enabled = ref(true);
 const mem0ApiKey = ref("");
 const mem0BaseUrl = ref("");
 const showApiKey = ref(false);
@@ -22,6 +23,9 @@ async function loadConfig() {
     if (data) {
       const registerConfig = data.find((c: any) => c.key === "register_enabled");
       registerEnabled.value = registerConfig?.value === "true";
+
+      const mem0EnabledConfig = data.find((c: any) => c.key === "mem0_enabled");
+      mem0Enabled.value = mem0EnabledConfig?.value !== "false";
 
       const apiKeyConfig = data.find((c: any) => c.key === "mem0_api_key");
       mem0ApiKey.value = apiKeyConfig?.value || "";
@@ -51,6 +55,19 @@ async function handleToggleRegister(val: boolean) {
     message.success(val ? "注册功能已开启" : "注册功能已关闭");
   } catch (err: any) {
     registerEnabled.value = !val;
+    message.error(`保存失败: ${err?.message || "未知错误"}`);
+  } finally {
+    saving.value = false;
+  }
+}
+
+async function handleToggleMem0(val: boolean) {
+  saving.value = true;
+  try {
+    await saveConfig("mem0_enabled", val ? "true" : "false", "Mem0 记忆服务开关");
+    message.success(val ? "Mem0 记忆服务已开启" : "Mem0 记忆服务已关闭");
+  } catch (err: any) {
+    mem0Enabled.value = !val;
     message.error(`保存失败: ${err?.message || "未知错误"}`);
   } finally {
     saving.value = false;
@@ -102,13 +119,29 @@ onMounted(() => {
 
           <!-- Mem0 配置 -->
           <div class="p-4 rounded-lg border border-gray-200 dark:border-gray-700">
-            <div class="font-bold text-gray-800 dark:text-gray-200 mb-4">Mem0 记忆服务配置</div>
+            <div class="flex items-center justify-between mb-4">
+              <div>
+                <div class="font-bold text-gray-800 dark:text-gray-200">Mem0 记忆服务</div>
+                <div class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  关闭后将停止所有记忆功能，包括对话记忆保存和记忆搜索。
+                </div>
+              </div>
+              <NSwitch
+                v-model:value="mem0Enabled"
+                :loading="saving"
+                @update:value="handleToggleMem0"
+              >
+                <template #checked>开启</template>
+                <template #unchecked>关闭</template>
+              </NSwitch>
+            </div>
             <NForm label-placement="left" label-width="100">
               <NFormItem label="API Key">
                 <NInput
                   v-model:value="mem0ApiKey"
                   :type="showApiKey ? 'text' : 'password'"
                   placeholder="输入 Mem0 API Key"
+                  :disabled="!mem0Enabled"
                 >
                   <template #suffix>
                     <div
@@ -123,10 +156,11 @@ onMounted(() => {
                 <NInput
                   v-model:value="mem0BaseUrl"
                   placeholder="https://api.mem0.ai/v1"
+                  :disabled="!mem0Enabled"
                 />
               </NFormItem>
               <NFormItem>
-                <NButton type="primary" :loading="saving" @click="handleSaveMem0">
+                <NButton type="primary" :loading="saving" :disabled="!mem0Enabled" @click="handleSaveMem0">
                   保存 Mem0 配置
                 </NButton>
               </NFormItem>

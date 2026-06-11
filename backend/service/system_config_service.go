@@ -6,6 +6,7 @@ import (
 
 // Mem0Config mem0 服务配置
 type Mem0Config struct {
+	Enabled bool
 	APIKey  string
 	BaseURL string
 }
@@ -47,12 +48,15 @@ func (s *SystemConfigService) SetValue(key, value, remark string) error {
 
 // GetMem0Config 从数据库读取 mem0 配置
 func (s *SystemConfigService) GetMem0Config() Mem0Config {
+	enabledStr, _ := s.GetValue("mem0_enabled")
+	enabled := enabledStr != "false" // 默认开启
 	apiKey, _ := s.GetValue("mem0_api_key")
 	baseURL, _ := s.GetValue("mem0_base_url")
 	if baseURL == "" {
 		baseURL = "https://api.mem0.ai/v1"
 	}
 	return Mem0Config{
+		Enabled: enabled,
 		APIKey:  apiKey,
 		BaseURL: baseURL,
 	}

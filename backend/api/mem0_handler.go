@@ -17,6 +17,10 @@ func NewMem0Handler(mem0Service *service.Mem0Service) *Mem0Handler {
 	}
 }
 
+func (h *Mem0Handler) HandleStatus(c *gin.Context) {
+	SendSuccess(c, gin.H{"enabled": h.mem0Service.GetEnabled()})
+}
+
 func (h *Mem0Handler) HandleAddMemory(c *gin.Context) {
 	if !h.mem0Service.IsConfigured() {
 		SendError(c, "503", "记忆服务未配置")

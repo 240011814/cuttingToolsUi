@@ -41,7 +41,6 @@ func main() {
 	noteHandler := api.NewNoteHandler(noteService)
 
 	promptService := service.NewPromptService(service.DB)
-	promptHandler := api.NewPromptHandler(promptService)
 
 	customTrainingService := service.NewCustomTrainingService()
 	customTrainingHandler := api.NewCustomTrainingHandler(customTrainingService)
@@ -53,6 +52,7 @@ func main() {
 	cutHandler := api.NewCutHandler(cutService)
 
 	systemConfigService := service.NewSystemConfigService()
+	promptHandler := api.NewPromptHandler(promptService, systemConfigService)
 
 	// mem0 配置从数据库读取
 	mem0Cfg := systemConfigService.GetMem0Config()
@@ -143,6 +143,7 @@ func main() {
 		// Memory APIs (mem0)
 		memoryGroup := apiGroup.Group("/memories")
 		{
+			memoryGroup.GET("/status", mem0Handler.HandleStatus)
 			memoryGroup.GET("", mem0Handler.HandleListMemories)
 			memoryGroup.POST("", mem0Handler.HandleAddMemory)
 			memoryGroup.POST("/search", mem0Handler.HandleSearchMemories)

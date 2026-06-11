@@ -7,11 +7,12 @@ import (
 )
 
 type PromptHandler struct {
-	promptSvc *service.PromptService
+	promptSvc  *service.PromptService
+	configSvc  *service.SystemConfigService
 }
 
-func NewPromptHandler(promptSvc *service.PromptService) *PromptHandler {
-	return &PromptHandler{promptSvc: promptSvc}
+func NewPromptHandler(promptSvc *service.PromptService, configSvc *service.SystemConfigService) *PromptHandler {
+	return &PromptHandler{promptSvc: promptSvc, configSvc: configSvc}
 }
 
 // GetUserPrompt 获取用户针对某个模块的当前生效提示词及所有版本
@@ -33,10 +34,13 @@ func (h *PromptHandler) GetUserPrompt(c *gin.Context) {
 		return
 	}
 
+	mem0Cfg := h.configSvc.GetMem0Config()
+
 	SendSuccess(c, gin.H{
 		"effective_prompt":       effectivePrompt,
 		"memory_search_query":   memorySearchQuery,
 		"memory_search_top_k":   memorySearchTopK,
+		"mem0_enabled":          mem0Cfg.Enabled,
 		"default_prompt":        "",
 		"versions":              versions,
 		"is_customized":         len(versions) > 0,

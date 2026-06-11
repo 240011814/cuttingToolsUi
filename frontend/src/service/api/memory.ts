@@ -29,6 +29,13 @@ export interface Mem0PaginatedResponse {
   results: Mem0Memory[];
 }
 
+/** 获取 mem0 服务状态 */
+export function fetchMem0Status() {
+  return request<{ enabled: boolean }>({
+    url: "/api/memories/status",
+  });
+}
+
 /** 添加记忆 (v3 异步接口) */
 export function fetchAddMemory(messages: Mem0Message[], metadata?: Record<string, any>) {
   return request<Mem0AddV3Response>({
