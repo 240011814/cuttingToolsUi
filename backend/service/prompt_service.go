@@ -18,18 +18,22 @@ func NewPromptService(db *gorm.DB) *PromptService {
 // GetEffectivePrompt returns the currently active custom prompt for a module.
 // If the user has not customized the prompt, the frontend should fall back to
 // the module's built-in default prompt.
-func (s *PromptService) GetEffectivePrompt(userID uint, moduleKey string) (string, string, error) {
+func (s *PromptService) GetEffectivePrompt(userID uint, moduleKey string) (string, string, int, error) {
 	var userPrompt model.UserPrompt
 	err := s.db.Where("user_id = ? AND module_key = ? AND is_active = ?", userID, moduleKey, true).First(&userPrompt).Error
 	if err == nil {
-		return userPrompt.CustomPrompt, userPrompt.MemorySearchQuery, nil
+		topK := userPrompt.MemorySearchTopK
+		if topK <= 0 {
+			topK = 30
+		}
+		return userPrompt.CustomPrompt, userPrompt.MemorySearchQuery, topK, nil
 	}
 
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return "", "", nil
+		return "", "", 30, nil
 	}
 
-	return "", "", err
+	return "", "", 30, err
 }
 
 func (s *PromptService) ListVersions(userID uint, moduleKey string) ([]model.UserPrompt, error) {
@@ -38,7 +42,7 @@ func (s *PromptService) ListVersions(userID uint, moduleKey string) ([]model.Use
 	return list, err
 }
 
-func (s *PromptService) SaveUserPrompt(userID uint, moduleKey, content, remark, memorySearchQuery string) error {
+func (s *PromptService) SaveUserPrompt(userID uint, moduleKey, content, remark, memorySearchQuery string, memorySearchTopK int) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Model(&model.UserPrompt{}).
 			Where("user_id = ? AND module_key = ?", userID, moduleKey).
@@ -51,11 +55,16 @@ func (s *PromptService) SaveUserPrompt(userID uint, moduleKey, content, remark, 
 			Where("user_id = ? AND module_key = ?", userID, moduleKey).
 			Select("COALESCE(MAX(version), 0)").Scan(&maxVersion)
 
+		if memorySearchTopK <= 0 {
+			memorySearchTopK = 30
+		}
+
 		newPrompt := model.UserPrompt{
 			UserID:            userID,
 			ModuleKey:         moduleKey,
 			CustomPrompt:      content,
 			MemorySearchQuery: memorySearchQuery,
+			MemorySearchTopK:  memorySearchTopK,
 			Version:           maxVersion + 1,
 			IsActive:          true,
 			Remark:            remark,

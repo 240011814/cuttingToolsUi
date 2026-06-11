@@ -8,6 +8,7 @@ import {
   NTag,
   NButton,
   NInput,
+  NInputNumber,
   NScrollbar,
   NModal,
   NBadge,
@@ -38,6 +39,7 @@ const saving = ref(false);
 const promptData = ref({
   effective_prompt: "",
   memory_search_query: "",
+  memory_search_top_k: 30,
   default_prompt: props.defaultPrompt,
   versions: [] as any[],
   is_customized: false,
@@ -45,6 +47,7 @@ const promptData = ref({
 
 const editingPrompt = ref("");
 const memorySearchQuery = ref("");
+const memorySearchTopK = ref(30);
 const remark = ref("");
 const showDefault = ref(false);
 const activeTab = ref("editor"); // 'editor' | 'history'
@@ -96,6 +99,9 @@ async function loadPrompt() {
       if (!memorySearchQuery.value) {
         memorySearchQuery.value = data.memory_search_query || "";
       }
+      if (memorySearchTopK.value === 30) {
+        memorySearchTopK.value = data.memory_search_top_k || 30;
+      }
     }
   } catch (err: any) {
     message.error(`加载失败: ${err?.message || "未知错误"}`);
@@ -111,7 +117,7 @@ async function handleSave() {
   }
   saving.value = true;
   try {
-    await fetchSaveUserPrompt(props.moduleKey, editingPrompt.value, remark.value, memorySearchQuery.value);
+    await fetchSaveUserPrompt(props.moduleKey, editingPrompt.value, remark.value, memorySearchQuery.value, memorySearchTopK.value);
     message.success("新版本已保存并启用");
     remark.value = "";
     await loadPrompt();
@@ -155,6 +161,7 @@ async function handleReset() {
     message.success("已恢复系统默认设置");
     editingPrompt.value = "";
     memorySearchQuery.value = "";
+    memorySearchTopK.value = 30;
     await loadPrompt();
     emit("updated");
   } catch (err: any) {
@@ -195,7 +202,8 @@ onMounted(() => {
 const hasChanges = computed(() => {
   return (
     editingPrompt.value !== promptData.value.effective_prompt ||
-    memorySearchQuery.value !== (promptData.value.memory_search_query || "")
+    memorySearchQuery.value !== (promptData.value.memory_search_query || "") ||
+    memorySearchTopK.value !== (promptData.value.memory_search_top_k || 30)
   );
 });
 
@@ -529,6 +537,25 @@ function getDiffLineClass(line: DiffLine) {
               />
               <div class="text-xs text-gray-400 mt-1">
                 留空则使用默认搜索词
+              </div>
+            </div>
+
+            <div
+              class="p-3 bg-blue-50/10 dark:bg-blue-900/5 border border-dashed border-blue-200 dark:border-blue-800 rounded-lg"
+            >
+              <div class="text-xs text-gray-500 mb-2 font-bold flex items-center gap-1">
+                <div class="i-mdi:counter" />
+                记忆搜索数量
+              </div>
+              <NInputNumber
+                v-model:value="memorySearchTopK"
+                :min="1"
+                :max="500"
+                placeholder="搜索返回的记忆条数"
+                size="small"
+              />
+              <div class="text-xs text-gray-400 mt-1">
+                控制每次搜索返回的记忆条数，默认 30
               </div>
             </div>
 

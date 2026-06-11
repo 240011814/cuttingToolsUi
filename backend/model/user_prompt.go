@@ -9,6 +9,7 @@ type UserPrompt struct {
 	ModuleKey         string    `gorm:"size:50;not null;index:idx_user_module" json:"module_key"`
 	CustomPrompt      string    `gorm:"type:text;not null" json:"custom_prompt"`
 	MemorySearchQuery string    `gorm:"size:500;default:''" json:"memory_search_query"`
+	MemorySearchTopK  int       `gorm:"default:30" json:"memory_search_top_k"`
 	Version           int       `gorm:"not null;default:1" json:"version"`
 	IsActive          bool      `gorm:"default:false" json:"is_active"`
 	Remark            string    `gorm:"size:255" json:"remark"`

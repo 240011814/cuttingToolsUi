@@ -11,6 +11,7 @@ export function fetchGetUserPrompt(moduleKey: string) {
   return request<{
     effective_prompt: string;
     memory_search_query: string;
+    memory_search_top_k: number;
     default_prompt: string;
     versions: any[];
     is_customized: boolean;
@@ -24,11 +25,12 @@ export function fetchSaveUserPrompt(
   prompt: string,
   remark?: string,
   memorySearchQuery?: string,
+  memorySearchTopK?: number,
 ) {
   return request({
     url: `/api/user-prompts/${moduleKey}`,
     method: "post",
-    data: { prompt, remark, memory_search_query: memorySearchQuery },
+    data: { prompt, remark, memory_search_query: memorySearchQuery, memory_search_top_k: memorySearchTopK },
   });
 }
 

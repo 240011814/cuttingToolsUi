@@ -27,18 +27,19 @@ func (h *PromptHandler) GetUserPrompt(c *gin.Context) {
 	}
 
 	// 2. 获取生效提示词
-	effectivePrompt, memorySearchQuery, err := h.promptSvc.GetEffectivePrompt(userID, moduleKey)
+	effectivePrompt, memorySearchQuery, memorySearchTopK, err := h.promptSvc.GetEffectivePrompt(userID, moduleKey)
 	if err != nil {
 		SendError(c, "500", "获取提示词失败: "+err.Error())
 		return
 	}
 
 	SendSuccess(c, gin.H{
-		"effective_prompt":      effectivePrompt,
-		"memory_search_query":  memorySearchQuery,
-		"default_prompt":       "",
-		"versions":             versions,
-		"is_customized":        len(versions) > 0,
+		"effective_prompt":       effectivePrompt,
+		"memory_search_query":   memorySearchQuery,
+		"memory_search_top_k":   memorySearchTopK,
+		"default_prompt":        "",
+		"versions":              versions,
+		"is_customized":         len(versions) > 0,
 	})
 }
 
@@ -51,13 +52,14 @@ func (h *PromptHandler) SaveUserPrompt(c *gin.Context) {
 		Prompt            string `json:"prompt" binding:"required"`
 		Remark            string `json:"remark"`
 		MemorySearchQuery string `json:"memory_search_query"`
+		MemorySearchTopK  int    `json:"memory_search_top_k"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		SendError(c, "400", "无效的请求参数")
 		return
 	}
 
-	if err := h.promptSvc.SaveUserPrompt(userID, moduleKey, req.Prompt, req.Remark, req.MemorySearchQuery); err != nil {
+	if err := h.promptSvc.SaveUserPrompt(userID, moduleKey, req.Prompt, req.Remark, req.MemorySearchQuery, req.MemorySearchTopK); err != nil {
 		SendError(c, "500", "保存失败: "+err.Error())
 		return
 	}

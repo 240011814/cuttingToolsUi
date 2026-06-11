@@ -101,6 +101,7 @@ const messages = ref<ChatMessage[]>([
 
 const showPromptEditor = ref(false);
 const memorySearchQuery = ref("用户已经训练过的场景和学习进度和用户的偏好");
+const memorySearchTopK = ref(30);
 
 async function refreshPrompt() {
   const { data } = await fetchGetUserPrompt(props.moduleKey);
@@ -108,6 +109,9 @@ async function refreshPrompt() {
     systemMessage.value.content = data.effective_prompt || props.systemPrompt;
     if (data.memory_search_query) {
       memorySearchQuery.value = data.memory_search_query;
+    }
+    if (data.memory_search_top_k) {
+      memorySearchTopK.value = data.memory_search_top_k;
     }
   }
 }
@@ -117,7 +121,7 @@ async function loadMemories() {
     const query = memorySearchQuery.value?.trim() || "用户已经训练过的场景和学习进度和用户的偏好";
     const { data: memories } = await fetchSearchMemories(
       query,
-      100
+      memorySearchTopK.value
     );
     if (memories && memories.length > 0) {
       const memoryText = memories.map((m: any) => `- ${m.memory}`).join("\n");
