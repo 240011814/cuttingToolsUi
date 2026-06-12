@@ -257,6 +257,7 @@ const local: App.I18n.Schema = {
     system_config: "系统配置",
     user: "用户",
     user_profile: "个人中心",
+    share: "分享对话",
   },
   page: {
     login: {
@@ -534,6 +535,11 @@ const local: App.I18n.Schema = {
         deleteSuccess: "删除成功",
         deleteFailed: "删除失败",
         operationFailed: "操作失败",
+        share: "分享",
+        shareSuccess: "分享链接已复制到剪贴板",
+        copyLink: "复制链接",
+        revokeShare: "取消分享",
+        revokeShareSuccess: "已取消分享",
       },
       vocabulary: {
         title: "词汇管理",
@@ -616,6 +622,9 @@ const local: App.I18n.Schema = {
         backToVocab: "返回生词本",
         practiceAgain: "再练一遍",
       },
+      share: {
+        notFound: "分享的对话不存在或已取消分享",
+      },
     },
     userProfile: {
       title: "个人信息",
@@ -654,6 +663,9 @@ const local: App.I18n.Schema = {
       selectType: "请选择类型",
       inputStartTime: "请选择开始时间",
       inputEndTime: "请选择结束时间",
+    },
+    share: {
+      notFound: "分享的对话不存在或已取消分享",
     },
   },
   form: {

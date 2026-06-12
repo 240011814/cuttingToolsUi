@@ -41,6 +41,7 @@ declare module "@elegant-router/types" {
     "home": "/home";
     "iframe-page": "/iframe-page/:url";
     "login": "/login/:module(pwd-login|code-login|register|reset-pwd|bind-wechat)?";
+    "share": "/share/:token";
     "system": "/system";
     "system_ai-config": "/system/ai-config";
     "system_config": "/system/config";
@@ -87,6 +88,7 @@ declare module "@elegant-router/types" {
     | "home"
     | "iframe-page"
     | "login"
+    | "share"
     | "system"
     | "user"
   >;
@@ -127,6 +129,7 @@ declare module "@elegant-router/types" {
     | "cut_plane-detail"
     | "cut_plane"
     | "home"
+    | "share"
     | "system_ai-config"
     | "system_config"
     | "system_permission"

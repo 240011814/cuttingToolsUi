@@ -8,6 +8,7 @@ import {
   fetchHistoryDetail,
   fetchUpdateFavorite,
   fetchUpdateHistoryTitle,
+  fetchGenerateShareToken,
 } from "@/service/api";
 import { fetchGetAIModels, fetchGetUserPrompt, fetchChatStream } from "@/service/api/ai";
 import { fetchSearchMemories } from "@/service/api/memory";
@@ -139,6 +140,7 @@ async function loadMemories() {
 }
 const historyId = ref<number>(0);
 const isFavorite = ref(false);
+const shareToken = ref<string | null>(null);
 const historyTitle = ref("");
 const showTitleModal = ref(false);
 const editTitle = ref("");
@@ -492,6 +494,7 @@ const loadHistory = async (id: number) => {
         .filter((msg: any) => msg.role !== "system")
         .map((msg: any) => createChatMessage(msg.role, msg.content));
       isFavorite.value = data.is_favorite;
+      shareToken.value = data.share_token || null;
     }
   } catch (err: any) {
     message.error(`加载历史记录失败: ${err?.message || "未知错误"}`);
@@ -507,6 +510,30 @@ const handleToggleFavorite = async () => {
     await fetchUpdateFavorite(historyId.value, !isFavorite.value);
     isFavorite.value = !isFavorite.value;
     message.success(isFavorite.value ? "已收藏" : "已取消收藏");
+  } catch (err: any) {
+    message.error(`操作失败: ${err?.message || "未知错误"}`);
+  }
+};
+
+const handleShare = async () => {
+  if (!historyId.value) {
+    message.warning("请先发送消息后再分享");
+    return;
+  }
+  try {
+    if (shareToken.value) {
+      const shareUrl = `${window.location.origin}/share/${shareToken.value}`;
+      await navigator.clipboard.writeText(shareUrl);
+      message.success("分享链接已复制到剪贴板");
+    } else {
+      const { data } = await fetchGenerateShareToken(historyId.value);
+      if (data?.share_token) {
+        shareToken.value = data.share_token;
+        const shareUrl = `${window.location.origin}/share/${data.share_token}`;
+        await navigator.clipboard.writeText(shareUrl);
+        message.success("分享链接已复制到剪贴板");
+      }
+    }
   } catch (err: any) {
     message.error(`操作失败: ${err?.message || "未知错误"}`);
   }
@@ -591,6 +618,16 @@ onBeforeUnmount(() => {
                 :icon="isFavorite ? 'mdi:star' : 'mdi:star-outline'"
                 class="text-lg"
               />
+            </template>
+          </NButton>
+          <NButton
+            quaternary
+            size="small"
+            :type="shareToken ? 'info' : 'default'"
+            @click="handleShare"
+          >
+            <template #icon>
+              <SvgIcon icon="mdi:share-variant" class="text-lg" />
             </template>
           </NButton>
         </div>

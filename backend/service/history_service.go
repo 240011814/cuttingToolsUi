@@ -2,6 +2,8 @@ package service
 
 import (
 	"backend/model"
+	"crypto/rand"
+	"encoding/hex"
 	"regexp"
 	"strings"
 	"unicode/utf8"
@@ -165,4 +167,48 @@ func (s *HistoryService) SaveHistory(userID uint, historyID uint, trainingType s
 	}
 
 	return history.ID, nil
+}
+
+func (s *HistoryService) GenerateShareToken(userID uint, historyID uint) (string, error) {
+	var history model.TrainingHistory
+	if err := DB.Where("id = ? AND user_id = ?", historyID, userID).First(&history).Error; err != nil {
+		return "", err
+	}
+
+	// 如果已有 token，直接返回
+	if history.ShareToken != nil {
+		return *history.ShareToken, nil
+	}
+
+	// 生成 16 字节随机 token
+	bytes := make([]byte, 16)
+	if _, err := rand.Read(bytes); err != nil {
+		return "", err
+	}
+	token := hex.EncodeToString(bytes)
+
+	if err := DB.Model(&history).Update("share_token", token).Error; err != nil {
+		return "", err
+	}
+
+	return token, nil
+}
+
+func (s *HistoryService) RevokeShareToken(userID uint, historyID uint) error {
+	return DB.Model(&model.TrainingHistory{}).Where("id = ? AND user_id = ?", historyID, userID).Update("share_token", nil).Error
+}
+
+func (s *HistoryService) GetSharedHistory(shareToken string) (*model.TrainingHistory, error) {
+	var history model.TrainingHistory
+	if err := DB.Where("share_token = ?", shareToken).First(&history).Error; err != nil {
+		return nil, err
+	}
+
+	var messages []model.TrainingMessage
+	if err := DB.Where("history_id = ?", history.ID).Order("sort_order ASC").Find(&messages).Error; err != nil {
+		return nil, err
+	}
+	history.Messages = messages
+
+	return &history, nil
 }

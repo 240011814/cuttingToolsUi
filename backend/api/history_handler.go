@@ -143,3 +143,66 @@ func (h *HistoryHandler) DeleteHistory(c *gin.Context) {
 
 	SendSuccess(c, nil)
 }
+
+func (h *HistoryHandler) GenerateShare(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		SendError(c, "400", "Invalid history ID")
+		return
+	}
+
+	userID, exists := c.Get("userId")
+	if !exists {
+		SendError(c, "401", "Unauthorized")
+		return
+	}
+
+	token, err := h.historyService.GenerateShareToken(userID.(uint), uint(id))
+	if err != nil {
+		SendError(c, "500", "Failed to generate share token")
+		return
+	}
+
+	SendSuccess(c, gin.H{"share_token": token})
+}
+
+func (h *HistoryHandler) RevokeShare(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		SendError(c, "400", "Invalid history ID")
+		return
+	}
+
+	userID, exists := c.Get("userId")
+	if !exists {
+		SendError(c, "401", "Unauthorized")
+		return
+	}
+
+	if err := h.historyService.RevokeShareToken(userID.(uint), uint(id)); err != nil {
+		SendError(c, "500", "Failed to revoke share token")
+		return
+	}
+
+	SendSuccess(c, nil)
+}
+
+func HandleGetSharedHistory(historyService *service.HistoryService) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		token := c.Param("token")
+		if token == "" {
+			SendError(c, "400", "Share token is required")
+			return
+		}
+
+		history, err := historyService.GetSharedHistory(token)
+		if err != nil {
+			SendError(c, "404", "Shared conversation not found")
+			return
+		}
+
+		SendSuccess(c, history)
+	}
+}

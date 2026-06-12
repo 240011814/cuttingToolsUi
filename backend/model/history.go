@@ -15,6 +15,7 @@ type TrainingHistory struct {
 	Title            string            `json:"title"`
 	IsFavorite       bool              `json:"is_favorite"`
 	LastMessage      string            `json:"last_message"`
+	ShareToken       *string           `json:"share_token,omitempty" gorm:"uniqueIndex"`
 	Messages         []TrainingMessage `json:"messages" gorm:"foreignKey:HistoryID"`
 	CreatedAt        time.Time         `json:"created_at"`
 	UpdatedAt        time.Time         `json:"updated_at"`

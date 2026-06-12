@@ -688,6 +688,7 @@ declare namespace App {
           };
           chat: Record<string, string>;
           history: Record<string, string>;
+          share: Record<string, string>;
           vocabulary: Record<string, string>;
           note: {
             title: string;
@@ -755,6 +756,9 @@ declare namespace App {
           selectType: string;
           inputStartTime: string;
           inputEndTime: string;
+        };
+        share: {
+          notFound: string;
         };
       };
       form: {

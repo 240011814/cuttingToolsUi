@@ -61,6 +61,9 @@ func main() {
 
 	systemConfigHandler := api.NewSystemConfigHandler(systemConfigService, mem0Service)
 
+	historyService := service.NewHistoryService()
+	historyHandler := api.NewHistoryHandler(historyService)
+
 	r.GET("/api/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"status":  "ok",
@@ -88,9 +91,6 @@ func main() {
 		apiGroup.GET("/user/profile", api.HandleGetUserProfile(authService))
 		apiGroup.PUT("/user/profile", api.HandleUpdateProfile(authService))
 		apiGroup.PUT("/user/password", api.HandleChangePassword(authService))
-
-		historyService := service.NewHistoryService()
-		historyHandler := api.NewHistoryHandler(historyService)
 
 		apiGroup.GET("/dashboard/stats", dashboardHandler.GetStats)
 		apiGroup.GET("/ai/models", api.RequirePermission("ai:model:view"), api.HandleListModels(aiService))
@@ -132,6 +132,8 @@ func main() {
 			historyGroup.PUT("/:id/favorite", api.RequirePermission("ai:history:favorite"), historyHandler.UpdateFavorite)
 			historyGroup.PUT("/:id/title", api.RequirePermission("ai:history:edit"), historyHandler.UpdateTitle)
 			historyGroup.DELETE("/:id", api.RequirePermission("ai:history:delete"), historyHandler.DeleteHistory)
+		historyGroup.POST("/:id/share", api.RequirePermission("ai:history:edit"), historyHandler.GenerateShare)
+		historyGroup.DELETE("/:id/share", api.RequirePermission("ai:history:edit"), historyHandler.RevokeShare)
 		}
 
 		customTrainingGroup := apiGroup.Group("/custom-trainings")
@@ -213,6 +215,9 @@ func main() {
 			}
 		}
 	}
+
+	// Public share route (no auth required)
+	r.GET("/share/:token", api.HandleGetSharedHistory(historyService))
 
 	r.Run(":8080")
 }

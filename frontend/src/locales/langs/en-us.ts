@@ -261,6 +261,7 @@ const local: App.I18n.Schema = {
     system_config: "System Config",
     user: "User",
     user_profile: "Profile",
+    share: "Shared Conversation",
   },
   page: {
     login: {
@@ -540,6 +541,11 @@ const local: App.I18n.Schema = {
         deleteSuccess: "Deleted successfully",
         deleteFailed: "Delete failed",
         operationFailed: "Operation failed",
+        share: "Share",
+        shareSuccess: "Share link copied to clipboard",
+        copyLink: "Copy Link",
+        revokeShare: "Revoke Share",
+        revokeShareSuccess: "Share revoked successfully",
       },
       vocabulary: {
         title: "Vocabulary Management",
@@ -622,6 +628,9 @@ const local: App.I18n.Schema = {
         backToVocab: "Back to Vocabulary",
         practiceAgain: "Practice Again",
       },
+      share: {
+        notFound: "Shared conversation not found or has been revoked",
+      },
     },
     userProfile: {
       title: "Profile",
@@ -660,6 +669,9 @@ const local: App.I18n.Schema = {
       selectType: "Please select type",
       inputStartTime: "Please select start time",
       inputEndTime: "Please select end time",
+    },
+    share: {
+      notFound: "Shared conversation not found or has been revoked",
     },
   },
   form: {

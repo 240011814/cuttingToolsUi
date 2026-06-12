@@ -12,7 +12,7 @@ import {
   NPopconfirm,
 } from "naive-ui";
 import type { DataTableColumns } from "naive-ui";
-import { fetchHistoryList, fetchHistoryDetail, fetchUpdateFavorite, fetchDeleteHistory } from "@/service/api";
+import { fetchHistoryList, fetchHistoryDetail, fetchUpdateFavorite, fetchDeleteHistory, fetchGenerateShareToken, fetchRevokeShareToken } from "@/service/api";
 import { $t } from "@/locales";
 
 import MarkdownIt from "markdown-it";
@@ -150,6 +150,42 @@ const handleDelete = async (row: any) => {
   }
 };
 
+const handleShare = async (row: any) => {
+  try {
+    const { data } = await fetchGenerateShareToken(row.id);
+    if (data?.share_token) {
+      const shareUrl = `${window.location.origin}/share/${data.share_token}`;
+      await navigator.clipboard.writeText(shareUrl);
+      message.success($t("page.ai.history.shareSuccess"));
+      loadData();
+    }
+  } catch (err: any) {
+    message.error(
+      `${$t("page.ai.history.operationFailed")}: ${err?.message || $t("common.error")}`
+    );
+  }
+};
+
+const handleCopyShareLink = async (row: any) => {
+  if (row.share_token) {
+    const shareUrl = `${window.location.origin}/share/${row.share_token}`;
+    await navigator.clipboard.writeText(shareUrl);
+    message.success($t("page.ai.history.shareSuccess"));
+  }
+};
+
+const handleRevokeShare = async (row: any) => {
+  try {
+    await fetchRevokeShareToken(row.id);
+    message.success($t("page.ai.history.revokeShareSuccess"));
+    loadData();
+  } catch (err: any) {
+    message.error(
+      `${$t("page.ai.history.operationFailed")}: ${err?.message || $t("common.error")}`
+    );
+  }
+};
+
 const columns = computed<DataTableColumns<any>>(() => {
   return [
     {
@@ -232,7 +268,7 @@ const columns = computed<DataTableColumns<any>>(() => {
     {
       title: $t("page.ai.history.actions"),
       key: "actions",
-      width: 200,
+      width: 280,
       fixed: "right",
       render(row) {
         return h("div", { class: "flex gap-2" }, [
@@ -256,6 +292,39 @@ const columns = computed<DataTableColumns<any>>(() => {
             },
             { default: () => $t("page.ai.history.continueTraining") }
           ),
+          row.share_token
+            ? h(
+                NButton,
+                {
+                  size: "small",
+                  type: "info",
+                  quaternary: true,
+                  onClick: () => handleCopyShareLink(row),
+                },
+                { default: () => $t("page.ai.history.copyLink") }
+              )
+            : h(
+                NButton,
+                {
+                  size: "small",
+                  type: "info",
+                  quaternary: true,
+                  onClick: () => handleShare(row),
+                },
+                { default: () => $t("page.ai.history.share") }
+              ),
+          row.share_token
+            ? h(
+                NButton,
+                {
+                  size: "small",
+                  type: "warning",
+                  quaternary: true,
+                  onClick: () => handleRevokeShare(row),
+                },
+                { default: () => $t("page.ai.history.revokeShare") }
+              )
+            : null,
           h(
             NPopconfirm,
             { onPositiveClick: () => handleDelete(row) },

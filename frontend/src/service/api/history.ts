@@ -70,3 +70,24 @@ export function fetchDeleteHistory(id: number) {
     method: 'delete'
   });
 }
+
+export function fetchGenerateShareToken(id: number) {
+  return request<{ share_token: string }>({
+    url: `/api/histories/${id}/share`,
+    method: 'post'
+  });
+}
+
+export function fetchRevokeShareToken(id: number) {
+  return request({
+    url: `/api/histories/${id}/share`,
+    method: 'delete'
+  });
+}
+
+export function fetchSharedHistory(token: string) {
+  return request<TrainingHistory>({
+    url: `/share/${token}`,
+    method: 'get'
+  });
+}
