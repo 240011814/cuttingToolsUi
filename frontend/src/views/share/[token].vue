@@ -16,8 +16,10 @@ const md = new MarkdownIt({
   typographer: true
 });
 
+/** 移除 vocabs 标签和尾部空白，渲染 markdown */
 const renderMarkdown = (content: string) => {
-  return md.render(content || "");
+  const cleaned = content.replace(/<vocabs>[\s\S]*?<\/vocabs>/g, "").trim();
+  return md.render(cleaned);
 };
 
 const loading = ref(true);
@@ -85,7 +87,7 @@ onMounted(() => {
                       class="p-3 rounded-2xl rounded-tr-none whitespace-pre-wrap leading-relaxed shadow-sm text-sm bg-[#18a058] text-white"
                     >
                       <!-- eslint-disable-next-line vue/no-v-html -->
-                      <div v-html="renderMarkdown(msg.content)"></div>
+                      <div class="msg-content" v-html="renderMarkdown(msg.content)"></div>
                     </div>
                   </div>
                 </template>
@@ -101,7 +103,7 @@ onMounted(() => {
                       class="p-3 rounded-2xl rounded-tl-none whitespace-pre-wrap leading-relaxed shadow-sm text-sm bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200"
                     >
                       <!-- eslint-disable-next-line vue/no-v-html -->
-                      <div v-html="renderMarkdown(msg.content)"></div>
+                      <div class="msg-content" v-html="renderMarkdown(msg.content)"></div>
                     </div>
                   </div>
                 </template>
@@ -114,4 +116,8 @@ onMounted(() => {
   </div>
 </template>
 
-<style scoped></style>
+<style scoped>
+.msg-content :deep(p:last-child) {
+  margin-bottom: 0;
+}
+</style>
