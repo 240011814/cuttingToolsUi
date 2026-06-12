@@ -41,4 +41,5 @@ export const views: Record<LastLevelRouteKey, RouteComponent | (() => Promise<Ro
   system_config: () => import("@/views/system/config/index.vue"),
   system_permission: () => import("@/views/system/permission/index.vue"),
   system_user: () => import("@/views/system/user/index.vue"),
+  user_profile: () => import("@/views/user/profile/index.vue"),
 };

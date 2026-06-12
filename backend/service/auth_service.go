@@ -97,6 +97,10 @@ func (s *AuthService) Login(username, password string) (interface{}, error) {
 		return nil, err
 	}
 
+	// Update last login time
+	now := time.Now()
+	DB.Model(&user).Update("last_login_at", now)
+
 	return &model.LoginResponseData{
 		Token:        token,
 		RefreshToken: refreshToken,
@@ -189,12 +193,13 @@ func (s *AuthService) GetUserProfile(userId uint) (*model.UserProfileResponse, e
 	}
 
 	return &model.UserProfileResponse{
-		UserId:    user.ID,
-		UserName:  user.Username,
-		Nickname:  user.Nickname,
-		Role:      user.Role,
-		CreatedAt: user.CreatedAt,
-		UpdatedAt: user.UpdatedAt,
+		UserId:      user.ID,
+		UserName:    user.Username,
+		Nickname:    user.Nickname,
+		Role:        user.Role,
+		LastLoginAt: user.LastLoginAt,
+		CreatedAt:   user.CreatedAt,
+		UpdatedAt:   user.UpdatedAt,
 	}, nil
 }
 
@@ -321,6 +326,10 @@ func (s *AuthService) VerifyTOTP(userId uint, code string) (*model.LoginResponse
 	if err != nil {
 		return nil, err
 	}
+
+	// Update last login time
+	now := time.Now()
+	DB.Model(&user).Update("last_login_at", now)
 
 	return &model.LoginResponseData{
 		Token:        token,

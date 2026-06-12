@@ -46,6 +46,8 @@ declare module "@elegant-router/types" {
     "system_config": "/system/config";
     "system_permission": "/system/permission";
     "system_user": "/system/user";
+    "user": "/user";
+    "user_profile": "/user/profile";
   };
 
   /**
@@ -86,6 +88,7 @@ declare module "@elegant-router/types" {
     | "iframe-page"
     | "login"
     | "system"
+    | "user"
   >;
 
   /**
@@ -128,6 +131,7 @@ declare module "@elegant-router/types" {
     | "system_config"
     | "system_permission"
     | "system_user"
+    | "user_profile"
   >;
 
   /**

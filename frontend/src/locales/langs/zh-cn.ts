@@ -255,6 +255,8 @@ const local: App.I18n.Schema = {
     system_permission: "权限管理",
     "system_ai-config": "AI 配置管理",
     system_config: "系统配置",
+    user: "用户",
+    user_profile: "个人中心",
   },
   page: {
     login: {
@@ -625,6 +627,7 @@ const local: App.I18n.Schema = {
       role: "角色",
       createdAt: "创建时间",
       updatedAt: "更新时间",
+      lastLoginAt: "最近登录",
       nicknamePlaceholder: "请输入昵称",
       nicknameRequired: "请输入昵称",
       oldPassword: "原密码",

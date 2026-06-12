@@ -258,6 +258,9 @@ const local: App.I18n.Schema = {
     system_user: "User Management",
     system_permission: "Permission Management",
     "system_ai-config": "AI Config Management",
+    system_config: "System Config",
+    user: "User",
+    user_profile: "Profile",
   },
   page: {
     login: {
@@ -630,6 +633,7 @@ const local: App.I18n.Schema = {
       role: "Role",
       createdAt: "Created At",
       updatedAt: "Updated At",
+      lastLoginAt: "Last Login",
       nicknamePlaceholder: "Please enter nickname",
       nicknameRequired: "Please enter nickname",
       oldPassword: "Old Password",

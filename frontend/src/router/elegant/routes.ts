@@ -346,5 +346,25 @@ export const generatedRoutes: GeneratedRoute[] = [
         }
       }
     ]
+  },
+  {
+    name: 'user',
+    path: '/user',
+    component: 'layout.base',
+    meta: {
+      title: 'user',
+      i18nKey: 'route.user'
+    },
+    children: [
+      {
+        name: 'user_profile',
+        path: '/user/profile',
+        component: 'view.user_profile',
+        meta: {
+          title: 'user_profile',
+          i18nKey: 'route.user_profile'
+        }
+      }
+    ]
   }
 ];

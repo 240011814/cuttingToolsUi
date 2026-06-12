@@ -1,11 +1,10 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed } from 'vue';
 import type { VNode } from 'vue';
 import { useAuthStore } from '@/store/modules/auth';
 import { useRouterPush } from '@/hooks/common/router';
 import { useSvgIcon } from '@/hooks/common/icon';
 import { $t } from '@/locales';
-import UserProfileModal from './user-profile-modal.vue';
 
 defineOptions({
   name: 'UserAvatar'
@@ -14,8 +13,6 @@ defineOptions({
 const authStore = useAuthStore();
 const { routerPushByKey, toLogin } = useRouterPush();
 const { SvgIconVNode } = useSvgIcon();
-
-const showProfileModal = ref(false);
 
 function loginOrRegister() {
   toLogin();
@@ -71,7 +68,7 @@ function handleDropdown(key: DropdownKey) {
   if (key === 'logout') {
     logout();
   } else if (key === 'userProfile') {
-    showProfileModal.value = true;
+    routerPushByKey('user_profile');
   } else {
     routerPushByKey(key);
   }
@@ -91,7 +88,6 @@ function handleDropdown(key: DropdownKey) {
     </div>
   </NDropdown>
 
-  <UserProfileModal v-model:show="showProfileModal" />
 </template>
 
 <style scoped></style>

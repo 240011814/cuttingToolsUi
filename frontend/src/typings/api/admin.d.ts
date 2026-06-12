@@ -32,6 +32,7 @@ declare namespace Api {
       userName: string;
       nickname: string;
       role: string;
+      lastLoginAt: string | null;
       createdAt: string;
       updatedAt: string;
     }

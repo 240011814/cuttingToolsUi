@@ -728,6 +728,7 @@ declare namespace App {
           role: string;
           createdAt: string;
           updatedAt: string;
+          lastLoginAt: string;
           nicknamePlaceholder: string;
           nicknameRequired: string;
           oldPassword: string;

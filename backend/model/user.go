@@ -6,14 +6,15 @@ import (
 
 // User 用户实体类 (GORM Model)
 type User struct {
-	ID           uint      `gorm:"primaryKey;autoIncrement" json:"userId"`
-	Username     string    `gorm:"size:50;not null;unique" json:"userName"`
-	PasswordHash string    `gorm:"size:255;not null" json:"-"`
-	Nickname     string    `gorm:"size:100" json:"nickname"`
-	Role         string    `gorm:"size:20;default:'R_USER'" json:"role"`
-	TotpSecret   *string   `gorm:"column:totp_secret;size:64" json:"-"` // TOTP secret, nil = not set up
-	CreatedAt    time.Time `json:"createdAt"`
-	UpdatedAt    time.Time `json:"updatedAt"`
+	ID           uint       `gorm:"primaryKey;autoIncrement" json:"userId"`
+	Username     string     `gorm:"size:50;not null;unique" json:"userName"`
+	PasswordHash string     `gorm:"size:255;not null" json:"-"`
+	Nickname     string     `gorm:"size:100" json:"nickname"`
+	Role         string     `gorm:"size:20;default:'R_USER'" json:"role"`
+	TotpSecret   *string    `gorm:"column:totp_secret;size:64" json:"-"` // TOTP secret, nil = not set up
+	LastLoginAt  *time.Time `json:"lastLoginAt"`
+	CreatedAt    time.Time  `json:"createdAt"`
+	UpdatedAt    time.Time  `json:"updatedAt"`
 }
 
 // TableName 指定表名
@@ -66,12 +67,13 @@ type UpdateUserRequest struct {
 
 // UserProfileResponse 用户详细信息响应
 type UserProfileResponse struct {
-	UserId    uint      `json:"userId"`
-	UserName  string    `json:"userName"`
-	Nickname  string    `json:"nickname"`
-	Role      string    `json:"role"`
-	CreatedAt time.Time `json:"createdAt"`
-	UpdatedAt time.Time `json:"updatedAt"`
+	UserId      uint       `json:"userId"`
+	UserName    string     `json:"userName"`
+	Nickname    string     `json:"nickname"`
+	Role        string     `json:"role"`
+	LastLoginAt *time.Time `json:"lastLoginAt"`
+	CreatedAt   time.Time  `json:"createdAt"`
+	UpdatedAt   time.Time  `json:"updatedAt"`
 }
 
 // UpdateProfileRequest 更新当前用户信息请求

@@ -191,7 +191,9 @@ const routeMap: RouteMap = {
   "system_ai-config": "/system/ai-config",
   "system_config": "/system/config",
   "system_permission": "/system/permission",
-  "system_user": "/system/user"
+  "system_user": "/system/user",
+  "user": "/user",
+  "user_profile": "/user/profile"
 };
 
 /**
