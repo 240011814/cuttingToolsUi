@@ -216,8 +216,8 @@ func main() {
 		}
 	}
 
-	// Public share route (no auth required)
-	r.GET("/share/:token", api.HandleGetSharedHistory(historyService))
+	// Public share route (no auth required, under /api for reverse proxy compatibility)
+	r.GET("/api/share/:token", api.HandleGetSharedHistory(historyService))
 
 	r.Run(":8080")
 }

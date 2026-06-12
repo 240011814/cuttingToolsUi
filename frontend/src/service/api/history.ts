@@ -87,7 +87,7 @@ export function fetchRevokeShareToken(id: number) {
 
 export function fetchSharedHistory(token: string) {
   return request<TrainingHistory>({
-    url: `/share/${token}`,
+    url: `/api/share/${token}`,
     method: 'get'
   });
 }
