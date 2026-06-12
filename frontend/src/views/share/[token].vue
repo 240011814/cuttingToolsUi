@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
 import { useRoute } from "vue-router";
-import { NResult, NTag, NSpin } from "naive-ui";
+import { NResult, NTag, NSpin, NButton } from "naive-ui";
 import { fetchSharedHistory } from "@/service/api";
 import type { TrainingHistory } from "@/service/api";
 import { $t } from "@/locales";
@@ -20,6 +20,11 @@ const md = new MarkdownIt({
 const renderMarkdown = (content: string) => {
   const cleaned = content.replace(/<vocabs>[\s\S]*?<\/vocabs>/g, "").trim();
   return md.render(cleaned);
+};
+
+/** 获取纯文本内容（去除 vocabs 标签） */
+const getPlainContent = (content: string) => {
+  return content.replace(/<vocabs>[\s\S]*?<\/vocabs>/g, "").trim();
 };
 
 const loading = ref(true);
@@ -47,6 +52,15 @@ const loadHistory = async () => {
     error.value = true;
   } finally {
     loading.value = false;
+  }
+};
+
+const copyToClipboard = async (content: string) => {
+  try {
+    await navigator.clipboard.writeText(getPlainContent(content));
+    window.$message?.success("已复制");
+  } catch {
+    window.$message?.error("复制失败");
   }
 };
 
@@ -82,13 +96,23 @@ onMounted(() => {
                       U
                     </div>
                   </div>
-                  <div class="flex justify-end">
+                  <div class="flex flex-col items-end gap-1">
                     <div
                       class="p-3 rounded-2xl rounded-tr-none whitespace-pre-wrap leading-relaxed shadow-sm text-sm bg-[#18a058] text-white"
                     >
                       <!-- eslint-disable-next-line vue/no-v-html -->
                       <div class="msg-content" v-html="renderMarkdown(msg.content)"></div>
                     </div>
+                    <NButton
+                      quaternary
+                      size="tiny"
+                      class="copy-btn"
+                      @click="copyToClipboard(msg.content)"
+                    >
+                      <template #icon>
+                        <SvgIcon icon="mdi:content-copy" class="text-xs" />
+                      </template>
+                    </NButton>
                   </div>
                 </template>
                 <!-- AI: avatar left, bubble left -->
@@ -98,12 +122,24 @@ onMounted(() => {
                       AI
                     </div>
                   </div>
-                  <div class="flex justify-start">
+                  <div class="flex flex-col gap-1">
                     <div
                       class="p-3 rounded-2xl rounded-tl-none whitespace-pre-wrap leading-relaxed shadow-sm text-sm bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200"
                     >
                       <!-- eslint-disable-next-line vue/no-v-html -->
                       <div class="msg-content" v-html="renderMarkdown(msg.content)"></div>
+                    </div>
+                    <div class="flex justify-end">
+                      <NButton
+                        quaternary
+                        size="tiny"
+                        class="copy-btn"
+                        @click="copyToClipboard(msg.content)"
+                      >
+                        <template #icon>
+                          <SvgIcon icon="mdi:content-copy" class="text-xs" />
+                        </template>
+                      </NButton>
                     </div>
                   </div>
                 </template>
@@ -119,5 +155,12 @@ onMounted(() => {
 <style scoped>
 .msg-content :deep(p:last-child) {
   margin-bottom: 0;
+}
+.copy-btn {
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+div:hover > .copy-btn {
+  opacity: 1;
 }
 </style>
