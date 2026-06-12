@@ -39,5 +39,7 @@ declare namespace StorageType {
     };
     /** The last login user id */
     lastLoginUserId: string;
+    /** Temporary token for 2FA verification */
+    temp2faToken: string;
   }
 }

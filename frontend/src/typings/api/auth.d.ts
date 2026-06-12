@@ -17,5 +17,10 @@ declare namespace Api {
       buttons: string[];
       permissions?: string[];
     }
+
+    interface TwoFactorSetupInfo {
+      qrCodeUrl: string;
+      secret: string;
+    }
   }
 }

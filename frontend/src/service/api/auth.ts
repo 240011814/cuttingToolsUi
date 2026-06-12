@@ -63,3 +63,34 @@ export function fetchRefreshToken(refreshToken: string) {
 export function fetchCustomBackendError(code: string, msg: string) {
   return request({ url: '/auth/error', params: { code, msg } });
 }
+
+/**
+ * Setup 2FA (get QR code URL)
+ * Uses tempToken in Authorization header
+ */
+export function fetchTwoFactorSetup(tempToken: string) {
+  return request<Api.Auth.TwoFactorSetupInfo>({
+    url: '/auth/2fa/setup',
+    method: 'post',
+    headers: {
+      Authorization: `Bearer ${tempToken}`
+    }
+  });
+}
+
+/**
+ * Verify 2FA code
+ * Uses tempToken in Authorization header, code in body
+ */
+export function fetchTwoFactorVerify(tempToken: string, code: string) {
+  return request<Api.Auth.LoginToken>({
+    url: '/auth/2fa/verify',
+    method: 'post',
+    headers: {
+      Authorization: `Bearer ${tempToken}`
+    },
+    data: {
+      code
+    }
+  });
+}

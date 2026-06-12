@@ -11,6 +11,7 @@ type User struct {
 	PasswordHash string    `gorm:"size:255;not null" json:"-"`
 	Nickname     string    `gorm:"size:100" json:"nickname"`
 	Role         string    `gorm:"size:20;default:'R_USER'" json:"role"`
+	TotpSecret   *string   `gorm:"column:totp_secret;size:64" json:"-"` // TOTP secret, nil = not set up
 	CreatedAt    time.Time `json:"createdAt"`
 	UpdatedAt    time.Time `json:"updatedAt"`
 }
@@ -82,4 +83,22 @@ type UpdateProfileRequest struct {
 type ChangePasswordRequest struct {
 	OldPassword string `json:"oldPassword" binding:"required"`
 	NewPassword string `json:"newPassword" binding:"required,min=6"`
+}
+
+// TwoFactorLoginResponse 2FA required response after password login
+type TwoFactorLoginResponse struct {
+	Need2FA   bool   `json:"need2fa"`
+	TempToken string `json:"tempToken,omitempty"`
+	NeedSetup bool   `json:"needSetup,omitempty"`
+}
+
+// TwoFactorSetupResponse contains QR code URL for first-time TOTP setup
+type TwoFactorSetupResponse struct {
+	QRCodeURL string `json:"qrCodeUrl"`
+	Secret    string `json:"secret"`
+}
+
+// TwoFactorVerifyRequest request body for 2FA verification
+type TwoFactorVerifyRequest struct {
+	Code string `json:"code" binding:"required"`
 }

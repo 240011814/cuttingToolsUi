@@ -9,6 +9,7 @@ const message = useMessage();
 const loading = ref(false);
 const saving = ref(false);
 const registerEnabled = ref(false);
+const admin2faEnabled = ref(false);
 const mem0Enabled = ref(true);
 const mem0ApiKey = ref("");
 const mem0BaseUrl = ref("");
@@ -26,6 +27,9 @@ async function loadConfig() {
 
       const mem0EnabledConfig = data.find((c: any) => c.key === "mem0_enabled");
       mem0Enabled.value = mem0EnabledConfig?.value !== "false";
+
+      const admin2faConfig = data.find((c: any) => c.key === "admin_2fa_enabled");
+      admin2faEnabled.value = admin2faConfig?.value === "true";
 
       const apiKeyConfig = data.find((c: any) => c.key === "mem0_api_key");
       mem0ApiKey.value = apiKeyConfig?.value || "";
@@ -55,6 +59,19 @@ async function handleToggleRegister(val: boolean) {
     message.success(val ? "注册功能已开启" : "注册功能已关闭");
   } catch (err: any) {
     registerEnabled.value = !val;
+    message.error(`保存失败: ${err?.message || "未知错误"}`);
+  } finally {
+    saving.value = false;
+  }
+}
+
+async function handleToggleAdmin2FA(val: boolean) {
+  saving.value = true;
+  try {
+    await saveConfig("admin_2fa_enabled", val ? "true" : "false", "管理员二次验证(TOTP)开关");
+    message.success(val ? "管理员二次验证已开启" : "管理员二次验证已关闭");
+  } catch (err: any) {
+    admin2faEnabled.value = !val;
     message.error(`保存失败: ${err?.message || "未知错误"}`);
   } finally {
     saving.value = false;
@@ -111,6 +128,26 @@ onMounted(() => {
               v-model:value="registerEnabled"
               :loading="saving"
               @update:value="handleToggleRegister"
+            >
+              <template #checked>开启</template>
+              <template #unchecked>关闭</template>
+            </NSwitch>
+          </div>
+
+          <!-- Admin 2FA 开关 -->
+          <div
+            class="flex items-center justify-between p-4 rounded-lg border border-gray-200 dark:border-gray-700"
+          >
+            <div>
+              <div class="font-bold text-gray-800 dark:text-gray-200">管理员二次验证 (2FA)</div>
+              <div class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                开启后，超级管理员登录时需要输入 TOTP 动态验证码。首次开启时需扫描二维码绑定验证器。
+              </div>
+            </div>
+            <NSwitch
+              v-model:value="admin2faEnabled"
+              :loading="saving"
+              @update:value="handleToggleAdmin2FA"
             >
               <template #checked>开启</template>
               <template #unchecked>关闭</template>

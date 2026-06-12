@@ -9,6 +9,7 @@ import (
 	"backend/model"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/pquerna/otp/totp"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -58,7 +59,7 @@ func (s *AuthService) Register(username, password string) (*model.LoginResponseD
 	}, nil
 }
 
-func (s *AuthService) Login(username, password string) (*model.LoginResponseData, error) {
+func (s *AuthService) Login(username, password string) (interface{}, error) {
 	var user model.User
 	if err := DB.Where("username = ?", username).First(&user).Error; err != nil {
 		return nil, errors.New("用户名或密码错误")
@@ -68,6 +69,24 @@ func (s *AuthService) Login(username, password string) (*model.LoginResponseData
 		return nil, errors.New("用户名或密码错误")
 	}
 
+	// Check if 2FA is required for R_SUPER users
+	if user.Role == "R_SUPER" {
+		twoFAEnabled, _ := NewSystemConfigService().GetValue("admin_2fa_enabled")
+		if twoFAEnabled == "true" {
+			tempToken, err := s.generate2FATempToken(user)
+			if err != nil {
+				return nil, errors.New("生成临时令牌失败")
+			}
+			needSetup := user.TotpSecret == nil
+			return &model.TwoFactorLoginResponse{
+				Need2FA:   true,
+				TempToken: tempToken,
+				NeedSetup: needSetup,
+			}, nil
+		}
+	}
+
+	// Normal login (no 2FA)
 	token, err := s.generateToken(user, 2*time.Hour)
 	if err != nil {
 		return nil, err
@@ -210,6 +229,103 @@ func (s *AuthService) ChangePassword(userId uint, oldPassword, newPassword strin
 		return result.Error
 	}
 	return nil
+}
+
+// generate2FATempToken generates a short-lived JWT for 2FA verification
+func (s *AuthService) generate2FATempToken(user model.User) (string, error) {
+	claims := jwt.MapClaims{
+		"userId":  user.ID,
+		"purpose": "2fa",
+		"exp":     time.Now().Add(10 * time.Minute).Unix(),
+		"iat":     time.Now().Unix(),
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString([]byte(s.cfg.Auth.JWTSecret))
+}
+
+// Validate2FATempToken validates a 2FA temp token and returns the userId
+func (s *AuthService) Validate2FATempToken(tempTokenStr string) (uint, error) {
+	token, err := jwt.Parse(tempTokenStr, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, errors.New("unexpected signing method")
+		}
+		return []byte(s.cfg.Auth.JWTSecret), nil
+	})
+	if err != nil || !token.Valid {
+		return 0, errors.New("临时令牌无效或已过期")
+	}
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return 0, errors.New("无效的令牌声明")
+	}
+	purpose, _ := claims["purpose"].(string)
+	if purpose != "2fa" {
+		return 0, errors.New("无效的令牌用途")
+	}
+	userId, ok := claims["userId"].(float64)
+	if !ok {
+		return 0, errors.New("无法获取用户ID")
+	}
+	return uint(userId), nil
+}
+
+// SetupTOTP generates a TOTP secret and returns QR code URL
+func (s *AuthService) SetupTOTP(userId uint) (*model.TwoFactorSetupResponse, error) {
+	var user model.User
+	if err := DB.First(&user, userId).Error; err != nil {
+		return nil, errors.New("用户不存在")
+	}
+
+	key, err := totp.Generate(totp.GenerateOpts{
+		Issuer:      "SaberOne",
+		AccountName: user.Username,
+		SecretSize:  20,
+	})
+	if err != nil {
+		return nil, errors.New("生成TOTP密钥失败")
+	}
+
+	secret := key.Secret()
+	result := DB.Model(&user).Update("totp_secret", secret)
+	if result.Error != nil {
+		return nil, errors.New("保存TOTP密钥失败")
+	}
+
+	return &model.TwoFactorSetupResponse{
+		QRCodeURL: key.URL(),
+		Secret:    secret,
+	}, nil
+}
+
+// VerifyTOTP validates a TOTP code and returns real login tokens
+func (s *AuthService) VerifyTOTP(userId uint, code string) (*model.LoginResponseData, error) {
+	var user model.User
+	if err := DB.First(&user, userId).Error; err != nil {
+		return nil, errors.New("用户不存在")
+	}
+
+	if user.TotpSecret == nil || *user.TotpSecret == "" {
+		return nil, errors.New("TOTP未配置")
+	}
+
+	if !totp.Validate(code, *user.TotpSecret) {
+		return nil, errors.New("验证码错误")
+	}
+
+	token, err := s.generateToken(user, 2*time.Hour)
+	if err != nil {
+		return nil, err
+	}
+
+	refreshToken, err := s.generateToken(user, 7*24*time.Hour)
+	if err != nil {
+		return nil, err
+	}
+
+	return &model.LoginResponseData{
+		Token:        token,
+		RefreshToken: refreshToken,
+	}, nil
 }
 
 func (s *AuthService) getPermissionsByRole(role string) ([]string, error) {

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"backend/model"
 	"backend/service"
 
 	"github.com/gin-gonic/gin"
@@ -47,6 +48,11 @@ func (h *SystemConfigHandler) Update(c *gin.Context) {
 	if req.Key == "mem0_api_key" || req.Key == "mem0_base_url" || req.Key == "mem0_enabled" {
 		newCfg := h.configSvc.GetMem0Config()
 		h.mem0Svc.ReloadConfig(newCfg)
+	}
+
+	// 当关闭 2FA 时，清除所有用户的 TOTP 密钥，确保重新开启时需要重新绑定
+	if req.Key == "admin_2fa_enabled" && req.Value == "false" {
+		service.DB.Model(&model.User{}).Where("totp_secret IS NOT NULL").Update("totp_secret", nil)
 	}
 
 	SendSuccess(c, nil)

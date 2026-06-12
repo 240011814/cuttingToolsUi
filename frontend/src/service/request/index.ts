@@ -27,7 +27,9 @@ export const request = createFlatRequest(
     },
     async onRequest(config) {
       const Authorization = getAuthorization();
-      Object.assign(config.headers, { Authorization });
+      if (Authorization) {
+        Object.assign(config.headers, { Authorization });
+      }
 
       return config;
     },

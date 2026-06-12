@@ -75,6 +75,10 @@ func main() {
 		authGroup.GET("/getUserInfo", api.HandleGetUserInfo(authService, cfg.Auth.JWTSecret))
 		authGroup.POST("/refreshToken", api.HandleRefreshToken(authService))
 		authGroup.GET("/register-status", systemConfigHandler.GetRegisterStatus)
+
+		// 2FA endpoints (temp token in Authorization header, no full auth required)
+		authGroup.POST("/2fa/setup", api.Handle2FASetup(authService))
+		authGroup.POST("/2fa/verify", api.Handle2FAVerify(authService))
 	}
 
 	apiGroup := r.Group("/api")

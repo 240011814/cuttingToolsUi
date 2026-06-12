@@ -200,3 +200,68 @@ func HandleRefreshToken(authService *service.AuthService) gin.HandlerFunc {
 		SendSuccess(c, res)
 	}
 }
+
+// extractTempToken extracts temp token from Authorization header
+func extractTempToken(c *gin.Context) string {
+	authHeader := c.GetHeader("Authorization")
+	if strings.HasPrefix(authHeader, "Bearer ") {
+		return strings.TrimPrefix(authHeader, "Bearer ")
+	}
+	return ""
+}
+
+// Handle2FASetup generates TOTP secret and returns QR code URL
+func Handle2FASetup(authService *service.AuthService) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		tempToken := extractTempToken(c)
+		if tempToken == "" {
+			SendError(c, "401", "缺少临时令牌")
+			return
+		}
+
+		userId, err := authService.Validate2FATempToken(tempToken)
+		if err != nil {
+			SendError(c, "401", err.Error())
+			return
+		}
+
+		res, err := authService.SetupTOTP(userId)
+		if err != nil {
+			SendError(c, "500", err.Error())
+			return
+		}
+
+		SendSuccess(c, res)
+	}
+}
+
+// Handle2FAVerify validates TOTP code and returns real login tokens
+func Handle2FAVerify(authService *service.AuthService) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		tempToken := extractTempToken(c)
+		if tempToken == "" {
+			SendError(c, "401", "缺少临时令牌")
+			return
+		}
+
+		userId, err := authService.Validate2FATempToken(tempToken)
+		if err != nil {
+			SendError(c, "401", err.Error())
+			return
+		}
+
+		var req model.TwoFactorVerifyRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			SendError(c, "400", "请求参数错误: "+err.Error())
+			return
+		}
+
+		res, err := authService.VerifyTOTP(userId, req.Code)
+		if err != nil {
+			SendError(c, "1001", err.Error())
+			return
+		}
+
+		SendSuccess(c, res)
+	}
+}

@@ -22,6 +22,12 @@ export const useAuthStore = defineStore(SetupStoreId.Auth, () => {
   const token = ref('');
   let refreshTimer: ReturnType<typeof setInterval> | null = null;
 
+  const twoFAState = reactive({
+    need2FA: false,
+    needSetup: false,
+    tempToken: ''
+  });
+
   const userInfo: Api.Auth.UserInfo = reactive({
     userId: '',
     userName: '',
@@ -67,6 +73,11 @@ export const useAuthStore = defineStore(SetupStoreId.Auth, () => {
     stopRefreshTimer();
 
     clearAuthStorage();
+
+    // Reset 2FA state
+    twoFAState.need2FA = false;
+    twoFAState.needSetup = false;
+    twoFAState.tempToken = '';
 
     authStore.$reset();
 
@@ -123,12 +134,24 @@ export const useAuthStore = defineStore(SetupStoreId.Auth, () => {
   async function login(userName: string, password: string, redirect = true) {
     startLoading();
 
-    const { data: loginToken, error } = await fetchLogin(userName, password);
+    const { data: loginResult, error } = await fetchLogin(userName, password);
 
     if (!error) {
-      const pass = await loginByToken(loginToken);
+      // Check if 2FA is required
+      if (loginResult && 'need2fa' in loginResult && (loginResult as any).need2fa) {
+        twoFAState.need2FA = true;
+        twoFAState.needSetup = (loginResult as any).needSetup || false;
+        twoFAState.tempToken = (loginResult as any).tempToken || '';
+        localStg.set('temp2faToken', (loginResult as any).tempToken || '');
+        endLoading();
+        return;
+      }
+
+      // Normal login (no 2FA)
+      const pass = await loginByToken(loginResult as Api.Auth.LoginToken);
 
       if (pass) {
+        twoFAState.need2FA = false;
         // Check if the tab needs to be cleared
         const isClear = checkTabClear();
         let needRedirect = redirect;
@@ -198,14 +221,34 @@ export const useAuthStore = defineStore(SetupStoreId.Auth, () => {
     }
   }
 
+  async function completeTwoFactorLogin(loginToken: Api.Auth.LoginToken) {
+    twoFAState.need2FA = false;
+    twoFAState.needSetup = false;
+    twoFAState.tempToken = '';
+    localStg.remove('temp2faToken');
+
+    const pass = await loginByToken(loginToken);
+    if (pass) {
+      checkTabClear();
+      await redirectFromLogin(true);
+      window.$notification?.success({
+        title: $t('page.login.common.loginSuccess'),
+        content: $t('page.login.common.welcomeBack', { userName: userInfo.userName }),
+        duration: 4500
+      });
+    }
+  }
+
   return {
     token,
     userInfo,
     isStaticSuper,
     isLogin,
     loginLoading,
+    twoFAState,
     resetStore,
     login,
+    completeTwoFactorLogin,
     initUserInfo
   };
 });
