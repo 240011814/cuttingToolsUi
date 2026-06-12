@@ -515,6 +515,12 @@ const handleToggleFavorite = async () => {
   }
 };
 
+const getShareUrl = (token: string) => {
+  const isHashMode = import.meta.env.VITE_ROUTER_HISTORY_MODE === 'hash';
+  const basePath = isHashMode ? '/#/' : '/';
+  return `${window.location.origin}${basePath}share/${token}`;
+};
+
 const handleShare = async () => {
   if (!historyId.value) {
     message.warning("请先发送消息后再分享");
@@ -522,14 +528,14 @@ const handleShare = async () => {
   }
   try {
     if (shareToken.value) {
-      const shareUrl = `${window.location.origin}/share/${shareToken.value}`;
+      const shareUrl = getShareUrl(shareToken.value);
       await navigator.clipboard.writeText(shareUrl);
       message.success("分享链接已复制到剪贴板");
     } else {
       const { data } = await fetchGenerateShareToken(historyId.value);
       if (data?.share_token) {
         shareToken.value = data.share_token;
-        const shareUrl = `${window.location.origin}/share/${data.share_token}`;
+        const shareUrl = getShareUrl(data.share_token);
         await navigator.clipboard.writeText(shareUrl);
         message.success("分享链接已复制到剪贴板");
       }

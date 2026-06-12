@@ -150,11 +150,17 @@ const handleDelete = async (row: any) => {
   }
 };
 
+const getShareUrl = (token: string) => {
+  const isHashMode = import.meta.env.VITE_ROUTER_HISTORY_MODE === 'hash';
+  const basePath = isHashMode ? '/#/' : '/';
+  return `${window.location.origin}${basePath}share/${token}`;
+};
+
 const handleShare = async (row: any) => {
   try {
     const { data } = await fetchGenerateShareToken(row.id);
     if (data?.share_token) {
-      const shareUrl = `${window.location.origin}/share/${data.share_token}`;
+      const shareUrl = getShareUrl(data.share_token);
       await navigator.clipboard.writeText(shareUrl);
       message.success($t("page.ai.history.shareSuccess"));
       loadData();
@@ -168,7 +174,7 @@ const handleShare = async (row: any) => {
 
 const handleCopyShareLink = async (row: any) => {
   if (row.share_token) {
-    const shareUrl = `${window.location.origin}/share/${row.share_token}`;
+    const shareUrl = getShareUrl(row.share_token);
     await navigator.clipboard.writeText(shareUrl);
     message.success($t("page.ai.history.shareSuccess"));
   }
