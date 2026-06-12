@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
 import { useRoute } from "vue-router";
-import { NCard, NResult, NAvatar, NTag, NSpin } from "naive-ui";
+import { NResult, NTag, NSpin } from "naive-ui";
 import { fetchSharedHistory } from "@/service/api";
 import type { TrainingHistory } from "@/service/api";
 import { $t } from "@/locales";
@@ -55,58 +55,59 @@ onMounted(() => {
 
 <template>
   <div class="min-h-screen bg-gray-50 dark:bg-gray-900">
-    <div class="max-w-4xl mx-auto py-8 px-4">
+    <div class="max-w-3xl mx-auto py-6 px-4">
       <NSpin :show="loading">
         <template v-if="error">
           <NResult status="404" :title="$t('page.share.notFound')" class="mt-20" />
         </template>
         <template v-else-if="history">
-          <NCard :bordered="false" shadow="sm">
-            <template #header>
-              <div class="flex items-center gap-3">
-                <span class="text-lg font-bold">{{ history.title }}</span>
-                <NTag type="info" :bordered="false" size="small">
-                  {{ typeMap[history.training_type] || history.training_type }}
-                </NTag>
-              </div>
-            </template>
-            <div class="flex flex-col gap-4">
-              <div
-                v-for="(msg, index) in history.messages"
-                :key="index"
-                class="flex flex-col gap-2"
-              >
-                <template v-if="msg.role !== 'system'">
-                  <div
-                    class="flex items-start gap-3"
-                    :class="msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'"
-                  >
-                    <NAvatar
-                      :color="msg.role === 'user' ? '#18a058' : '#2080f0'"
-                      round
-                      size="small"
-                      class="flex-shrink-0"
+          <!-- Header -->
+          <div class="mb-6">
+            <h1 class="text-xl font-bold text-gray-800 dark:text-gray-100 mb-2">{{ history.title }}</h1>
+            <NTag type="info" :bordered="false" size="small">
+              {{ typeMap[history.training_type] || history.training_type }}
+            </NTag>
+          </div>
+
+          <!-- Messages -->
+          <div class="flex flex-col gap-6">
+            <template v-for="(msg, index) in history.messages" :key="index">
+              <div v-if="msg.role !== 'system'" class="flex flex-col gap-2">
+                <!-- User: avatar right, bubble right -->
+                <template v-if="msg.role === 'user'">
+                  <div class="flex justify-end">
+                    <div class="w-8 h-8 rounded-full bg-[#18a058] flex items-center justify-center text-white text-xs font-bold">
+                      U
+                    </div>
+                  </div>
+                  <div class="flex justify-end">
+                    <div
+                      class="p-3 rounded-2xl rounded-tr-none whitespace-pre-wrap leading-relaxed shadow-sm text-sm bg-[#18a058] text-white"
                     >
-                      {{ msg.role === "user" ? "U" : "AI" }}
-                    </NAvatar>
-                    <div class="flex flex-col gap-1 max-w-[80%]">
-                      <div
-                        class="p-3 rounded-2xl whitespace-pre-wrap leading-relaxed shadow-sm text-sm relative"
-                        :class="
-                          msg.role === 'user'
-                            ? 'bg-[#18a058] text-white rounded-tr-none'
-                            : 'bg-gray-100 text-gray-800 rounded-tl-none dark:bg-gray-800 dark:text-gray-200'
-                        "
-                      >
-                        <!-- eslint-disable-next-line vue/no-v-html -->
-                        <div v-html="renderMarkdown(msg.content)"></div>
-                      </div>
+                      <!-- eslint-disable-next-line vue/no-v-html -->
+                      <div v-html="renderMarkdown(msg.content)"></div>
+                    </div>
+                  </div>
+                </template>
+                <!-- AI: avatar left, bubble left -->
+                <template v-else>
+                  <div class="flex justify-start">
+                    <div class="w-8 h-8 rounded-full bg-[#2080f0] flex items-center justify-center text-white text-xs font-bold">
+                      AI
+                    </div>
+                  </div>
+                  <div class="flex justify-start">
+                    <div
+                      class="p-3 rounded-2xl rounded-tl-none whitespace-pre-wrap leading-relaxed shadow-sm text-sm bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200"
+                    >
+                      <!-- eslint-disable-next-line vue/no-v-html -->
+                      <div v-html="renderMarkdown(msg.content)"></div>
                     </div>
                   </div>
                 </template>
               </div>
-            </div>
-          </NCard>
+            </template>
+          </div>
         </template>
       </NSpin>
     </div>
