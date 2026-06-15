@@ -1,5 +1,9 @@
 <script setup lang="ts">
 import { ref, watch } from "vue";
+
+defineOptions({
+  name: 'ai_custom-training'
+});
 import { useRoute } from "vue-router";
 import TrainingChat from "../components/training-chat.vue";
 import { fetchCustomTrainingDetail } from "@/service/api";

@@ -165,7 +165,8 @@ export const generatedRoutes: GeneratedRoute[] = [
           title: 'ai_training',
           i18nKey: 'route.ai_training',
           icon: 'mdi:school-outline',
-          order: 1
+          order: 1,
+          keepAlive: true
         }
       },
       {
