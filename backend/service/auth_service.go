@@ -134,6 +134,7 @@ func (s *AuthService) GetUserInfo(userId uint) (*model.UserInfoResponseData, err
 	return &model.UserInfoResponseData{
 		UserId:      fmt.Sprintf("%d", user.ID),
 		UserName:    user.Username,
+		Nickname:    user.Nickname,
 		Roles:       []string{user.Role},
 		Buttons:     permissions,
 		Permissions: permissions,
