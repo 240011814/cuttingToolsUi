@@ -496,8 +496,8 @@ declare namespace App {
           };
         };
         configOperation: {
-          copyConfig: string;
-          copySuccessMsg: string;
+          saveConfig: string;
+          saveSuccessMsg: string;
           resetConfig: string;
           resetSuccessMsg: string;
         };
@@ -724,6 +724,7 @@ declare namespace App {
           basicInfo: string;
           editNickname: string;
           changePassword: string;
+          themeSettings: string;
           userName: string;
           nickname: string;
           role: string;

@@ -222,11 +222,10 @@ const local: App.I18n.Schema = {
       },
     },
     configOperation: {
-      copyConfig: "Copy Config",
-      copySuccessMsg:
-        'Copy Success, Please replace the variable "themeSettings" in "src/theme/settings.ts"',
-      resetConfig: "Reset Config",
-      resetSuccessMsg: "Reset Success",
+      saveConfig: "Save",
+      saveSuccessMsg: "Theme settings saved",
+      resetConfig: "Restore Default",
+      resetSuccessMsg: "Restored to default settings",
     },
   },
   route: {
@@ -637,6 +636,7 @@ const local: App.I18n.Schema = {
       basicInfo: "Basic Information",
       editNickname: "Edit Nickname",
       changePassword: "Change Password",
+      themeSettings: "Theme Settings",
       userName: "Username",
       nickname: "Nickname",
       role: "Role",

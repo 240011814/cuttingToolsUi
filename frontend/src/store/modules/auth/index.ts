@@ -9,6 +9,7 @@ import { SetupStoreId } from '@/enum';
 import { $t } from '@/locales';
 import { useRouteStore } from '../route';
 import { useTabStore } from '../tab';
+import { useThemeStore } from '../theme';
 import { clearAuthStorage, getToken } from './shared';
 
 export const useAuthStore = defineStore(SetupStoreId.Auth, () => {
@@ -187,6 +188,10 @@ export const useAuthStore = defineStore(SetupStoreId.Auth, () => {
       token.value = loginToken.token;
       startRefreshTimer();
 
+      // 3. load theme settings from server
+      const themeStore = useThemeStore();
+      themeStore.loadFromServer();
+
       return true;
     }
 
@@ -215,6 +220,9 @@ export const useAuthStore = defineStore(SetupStoreId.Auth, () => {
 
       if (pass) {
         startRefreshTimer();
+        // load theme settings from server on page refresh
+        const themeStore = useThemeStore();
+        themeStore.loadFromServer();
       } else {
         resetStore();
       }

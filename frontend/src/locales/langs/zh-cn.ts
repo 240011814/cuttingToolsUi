@@ -218,11 +218,10 @@ const local: App.I18n.Schema = {
       },
     },
     configOperation: {
-      copyConfig: "复制配置",
-      copySuccessMsg:
-        "复制成功，请替换 src/theme/settings.ts 中的变量 themeSettings",
-      resetConfig: "重置配置",
-      resetSuccessMsg: "重置成功",
+      saveConfig: "保存",
+      saveSuccessMsg: "主题配置已保存",
+      resetConfig: "恢复默认",
+      resetSuccessMsg: "已恢复默认配置",
     },
   },
   route: {
@@ -631,6 +630,7 @@ const local: App.I18n.Schema = {
       basicInfo: "基本信息",
       editNickname: "修改昵称",
       changePassword: "修改密码",
+      themeSettings: "主题设置",
       userName: "用户名",
       nickname: "昵称",
       role: "角色",

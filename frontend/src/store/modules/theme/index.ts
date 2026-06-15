@@ -1,10 +1,13 @@
 import { computed, effectScope, onScopeDispose, ref, toRefs, watch } from 'vue';
 import type { Ref } from 'vue';
-import { useDateFormat, useEventListener, useNow, usePreferredColorScheme } from '@vueuse/core';
+import { useDateFormat, useDebounceFn, useEventListener, useNow, usePreferredColorScheme } from '@vueuse/core';
+import { defu } from 'defu';
 import { defineStore } from 'pinia';
 import { getPaletteColorByNumber } from '@sa/color';
 import { localStg } from '@/utils/storage';
 import { SetupStoreId } from '@/enum';
+import { fetchGetThemePreference, fetchSaveThemePreference } from '@/service/api';
+import { themeSettings as defaultThemeSettings } from '@/theme/settings';
 import { useAuthStore } from '../auth';
 import {
   addThemeVarsToGlobal,
@@ -87,11 +90,12 @@ export const useThemeStore = defineStore(SetupStoreId.Theme, () => {
     return watermark.text;
   });
 
-  /** Reset store */
-  function resetStore() {
-    const themeStore = useThemeStore();
-
-    themeStore.$reset();
+  /** Reset store to defaults and save to backend */
+  async function resetStore() {
+    Object.assign(settings.value, defaultThemeSettings);
+    naiveThemeOverrides.value = undefined;
+    localStg.set('themeSettings', settings.value);
+    await saveToServerImmediate();
   }
 
   /**
@@ -231,9 +235,44 @@ export const useThemeStore = defineStore(SetupStoreId.Theme, () => {
     localStg.set('themeSettings', settings.value);
   }
 
+  /** Save theme settings to backend (debounced) */
+  const saveToServer = useDebounceFn(async () => {
+    try {
+      await fetchSaveThemePreference(settings.value);
+    } catch {
+      // silent fail — localStorage still serves as fallback
+    }
+  }, 2000);
+
+  /** Save theme settings to backend immediately (for manual save) */
+  async function saveToServerImmediate() {
+    try {
+      await fetchSaveThemePreference(settings.value);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /** Load theme settings from backend and merge into current settings */
+  async function loadFromServer() {
+    try {
+      const { data, error } = await fetchGetThemePreference();
+      if (!error && data) {
+        // Merge server settings into current settings (server values take priority)
+        Object.assign(settings.value, defu(data, settings.value));
+        // Persist to localStorage as well
+        localStg.set('themeSettings', settings.value);
+      }
+    } catch {
+      // silent fail — use local settings as fallback
+    }
+  }
+
   // cache theme settings when page is closed or refreshed
   useEventListener(window, 'beforeunload', () => {
     cacheThemeSettings();
+    // Synchronous save via sendBeacon is not supported for JSON PUT, so rely on the debounced save
   });
 
   // watch store
@@ -274,6 +313,17 @@ export const useThemeStore = defineStore(SetupStoreId.Theme, () => {
       },
       { immediate: true }
     );
+
+    // watch settings changes to sync to backend (only when logged in)
+    watch(
+      settings,
+      () => {
+        if (authStore.isLogin) {
+          saveToServer();
+        }
+      },
+      { deep: true }
+    );
   });
 
   /** On scope dispose */
@@ -297,6 +347,8 @@ export const useThemeStore = defineStore(SetupStoreId.Theme, () => {
     setThemeLayout,
     setWatermarkEnableUserName,
     setWatermarkEnableTime,
-    setNaiveThemeOverrides
+    setNaiveThemeOverrides,
+    loadFromServer,
+    saveToServerImmediate
   };
 });

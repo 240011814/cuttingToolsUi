@@ -61,6 +61,9 @@ func main() {
 
 	systemConfigHandler := api.NewSystemConfigHandler(systemConfigService, mem0Service)
 
+	userPrefService := service.NewUserPreferenceService()
+	userPrefHandler := api.NewUserPreferenceHandler(userPrefService)
+
 	historyService := service.NewHistoryService()
 	historyHandler := api.NewHistoryHandler(historyService)
 
@@ -91,6 +94,10 @@ func main() {
 		apiGroup.GET("/user/profile", api.HandleGetUserProfile(authService))
 		apiGroup.PUT("/user/profile", api.HandleUpdateProfile(authService))
 		apiGroup.PUT("/user/password", api.HandleChangePassword(authService))
+
+		// User Preferences
+		apiGroup.GET("/user/preferences/theme", userPrefHandler.GetThemePreference)
+		apiGroup.PUT("/user/preferences/theme", userPrefHandler.SaveThemePreference)
 
 		apiGroup.GET("/dashboard/stats", dashboardHandler.GetStats)
 		apiGroup.GET("/ai/models", api.RequirePermission("ai:model:view"), api.HandleListModels(aiService))

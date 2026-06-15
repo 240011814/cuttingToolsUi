@@ -5,6 +5,11 @@ import type { FormInst, FormRules } from 'naive-ui';
 import { fetchChangePassword, fetchGetUserProfile, fetchUpdateProfile } from '@/service/api';
 import { useAuthStore } from '@/store/modules/auth';
 import { $t } from '@/locales';
+import AppearanceSettings from '@/layouts/modules/theme-drawer/modules/appearance/index.vue';
+import LayoutSettings from '@/layouts/modules/theme-drawer/modules/layout/index.vue';
+import GeneralSettings from '@/layouts/modules/theme-drawer/modules/general/index.vue';
+import PresetSettings from '@/layouts/modules/theme-drawer/modules/preset/index.vue';
+import ConfigOperation from '@/layouts/modules/theme-drawer/modules/config-operation.vue';
 
 defineOptions({ name: 'UserProfile' });
 
@@ -16,6 +21,7 @@ const activeTab = ref('profile');
 
 const profileFormRef = ref<FormInst | null>(null);
 const passwordFormRef = ref<FormInst | null>(null);
+const themeTab = ref('appearance');
 
 const profileForm = reactive({
   nickname: ''
@@ -227,6 +233,27 @@ loadProfile();
                     {{ $t('page.userProfile.changePassword') }}
                   </NButton>
                 </div>
+              </div>
+            </NTabPane>
+
+            <NTabPane name="theme" :tab="$t('page.userProfile.themeSettings')">
+              <div class="py-4">
+                <NTabs v-model:value="themeTab" type="segment" size="small" class="mb-16px">
+                  <NTab name="appearance" :tab="$t('theme.tabs.appearance')"></NTab>
+                  <NTab name="layout" :tab="$t('theme.tabs.layout')"></NTab>
+                  <NTab name="general" :tab="$t('theme.tabs.general')"></NTab>
+                  <NTab name="preset" :tab="$t('theme.tabs.preset')"></NTab>
+                </NTabs>
+                <div class="min-h-300px">
+                  <KeepAlive>
+                    <AppearanceSettings v-if="themeTab === 'appearance'" />
+                    <LayoutSettings v-else-if="themeTab === 'layout'" />
+                    <GeneralSettings v-else-if="themeTab === 'general'" />
+                    <PresetSettings v-else-if="themeTab === 'preset'" />
+                  </KeepAlive>
+                </div>
+                <NDivider />
+                <ConfigOperation />
               </div>
             </NTabPane>
           </NTabs>
