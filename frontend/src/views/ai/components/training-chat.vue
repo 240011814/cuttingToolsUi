@@ -14,6 +14,8 @@ import { fetchGetAIModels, fetchGetUserPrompt, fetchChatStream } from "@/service
 import { fetchSearchMemories } from "@/service/api/memory";
 import { useAuth } from "@/hooks/business/auth";
 import MarkdownIt from "markdown-it";
+import markdownItKatex from "markdown-it-katex";
+import "katex/dist/katex.min.css";
 import { useRoute } from "vue-router";
 import PromptEditor from "./prompt-editor.vue";
 
@@ -61,7 +63,7 @@ const md = new MarkdownIt({
   html: true,
   linkify: true,
   typographer: true,
-});
+}).use(markdownItKatex);
 const { hasAuth } = useAuth();
 const appStore = useAppStore();
 

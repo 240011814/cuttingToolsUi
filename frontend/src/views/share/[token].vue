@@ -6,6 +6,8 @@ import { fetchSharedHistory } from "@/service/api";
 import type { TrainingHistory } from "@/service/api";
 import { $t } from "@/locales";
 import MarkdownIt from "markdown-it";
+import markdownItKatex from "markdown-it-katex";
+import "katex/dist/katex.min.css";
 
 const route = useRoute();
 const token = route.params.token as string;
@@ -14,7 +16,7 @@ const md = new MarkdownIt({
   html: true,
   linkify: true,
   typographer: true
-});
+}).use(markdownItKatex);
 
 /** 移除 vocabs 标签和尾部空白，渲染 markdown */
 const renderMarkdown = (content: string) => {
