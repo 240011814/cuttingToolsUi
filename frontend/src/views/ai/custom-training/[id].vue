@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from "vue";
+import { ref, nextTick, onActivated } from "vue";
 
 defineOptions({
   name: 'ai_custom-training'
@@ -11,33 +11,36 @@ import { fetchCustomTrainingDetail } from "@/service/api";
 const route = useRoute();
 const loading = ref(true);
 const training = ref<any>(null);
-const chatKey = ref(0);
+const loadedId = ref<number | null>(null);
 
-const loadTraining = async () => {
-  const id = route.params.id;
-  if (id) {
-    loading.value = true;
-    try {
-      const { data } = await fetchCustomTrainingDetail(Number(id));
-      if (data) {
-        training.value = data;
-        chatKey.value++;
-      }
-    } catch (err: any) {
-      console.error("加载训练失败:", err);
-    } finally {
-      loading.value = false;
+const loadTraining = async (id: string | string[]) => {
+  const numId = Number(id);
+  if (!id || loadedId.value === numId) return;
+
+  loading.value = true;
+  try {
+    const { data } = await fetchCustomTrainingDetail(numId);
+    if (data) {
+      training.value = data;
+      loadedId.value = numId;
     }
+  } catch (err: any) {
+    console.error("加载训练失败:", err);
+  } finally {
+    loading.value = false;
   }
 };
 
-watch(
-  () => route.params.id,
-  () => {
-    loadTraining();
-  },
-  { immediate: true }
-);
+// 首次加载
+loadTraining(route.params.id);
+
+// 从 KeepAlive 恢复时，检查 id 是否变化
+onActivated(() => {
+  const id = route.params.id;
+  if (id && Number(id) !== loadedId.value) {
+    loadTraining(id);
+  }
+});
 </script>
 
 <template>
@@ -46,7 +49,6 @@ watch(
   </div>
   <TrainingChat
     v-else-if="training"
-    :key="chatKey"
     :module-key="'custom_' + training.id"
     :training-type="training.title"
     :custom-training-id="training.id"
