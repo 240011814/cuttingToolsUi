@@ -592,23 +592,23 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="h-full flex-col flex gap-4 p-4 overflow-hidden" :class="appStore.isMobile ? 'p-2 gap-2' : 'p-4 gap-4'">
+  <div class="h-full flex-col flex overflow-hidden" :class="appStore.isMobile ? 'p-1 gap-1' : 'p-4 gap-4'">
     <NCard
       class="flex-1 overflow-hidden"
       content-class="p-0 flex flex-col overflow-hidden"
       :bordered="false"
-      shadow="sm"
+      :shadow="appStore.isMobile ? false : 'sm'"
     >
       <!-- Header inside content to avoid NCard layout issues in flex-1 -->
       <div
         class="border-b border-gray-100 dark:border-gray-800 flex items-center justify-between"
-        :class="appStore.isMobile ? 'px-3 py-2 flex-wrap gap-2' : 'p-4'"
+        :class="appStore.isMobile ? 'px-2 py-1.5 flex-wrap gap-1' : 'p-4'"
       >
         <div class="flex items-center gap-1 min-w-0 flex-1">
           <span class="font-bold text-gray-600 dark:text-gray-300 truncate text-sm">{{
             historyTitle || "AI 训练对话"
           }}</span>
-          <NButton quaternary size="small" @click="handleOpenEditTitle">
+          <NButton v-if="!appStore.isMobile" quaternary size="small" @click="handleOpenEditTitle">
             <template #icon>
               <SvgIcon icon="mdi:pencil-outline" class="text-lg" />
             </template>
@@ -639,7 +639,7 @@ onBeforeUnmount(() => {
         </div>
         <div class="flex items-center gap-2 shrink-0">
           <NButton
-            v-if="hasAuth('ai:prompt:manage')"
+            v-if="hasAuth('ai:prompt:manage') && !appStore.isMobile"
             type="primary"
             size="small"
             class="rounded-lg shadow-sm"
@@ -660,7 +660,7 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
-      <NScrollbar ref="scrollbarRef" class="flex-1 bg-gray-50/50 dark:bg-dark" :class="appStore.isMobile ? 'p-2' : 'p-4'">
+      <NScrollbar ref="scrollbarRef" class="flex-1 bg-gray-50/50 dark:bg-dark" :class="appStore.isMobile ? 'px-1.5 py-1' : 'p-4'">
         <div class="flex flex-col pb-4" :class="appStore.isMobile ? 'gap-4' : 'gap-6'">
           <div
             v-for="(msg, index) in messages"
@@ -668,42 +668,126 @@ onBeforeUnmount(() => {
             class="flex items-start"
             :class="[msg.role === 'user' ? 'flex-row-reverse' : 'flex-row', appStore.isMobile ? 'gap-2' : 'gap-3']"
           >
-            <NAvatar
-              :color="msg.role === 'user' ? '#6bb8e8' : assistantColor"
-              round
-              size="large"
-              class="shrink-0 self-start"
-            >
-              {{ msg.role === "user" ? "U" : "AI" }}
-            </NAvatar>
-            <div class="flex flex-col gap-1" :class="appStore.isMobile ? 'max-w-[90%]' : 'max-w-[80%]'">
-              <div class="group/btn">
-                <div
-                  class="rounded-2xl whitespace-pre-wrap leading-relaxed shadow-sm"
-                  :class="[
-                    msg.role === 'user'
-                      ? 'bg-[#e8f4fd] text-gray-800 rounded-tr-none dark:bg-blue-900/40 dark:text-gray-200'
-                      : 'bg-white text-gray-800 rounded-tl-none dark:bg-gray-800 dark:text-gray-200',
-                    appStore.isMobile ? 'p-3 text-[14px]' : 'p-4 text-[15px]'
-                  ]"
-                  @mouseup="msg.role === 'assistant' ? handleSelectText() : undefined"
-                >
-                  <!-- eslint-disable-next-line vue/no-v-html -->
-                  <div class="msg-content" v-html="msg.renderedContent"></div>
-                  <span
-                    v-if="
-                      isGenerating && index === messages.length - 1 && msg.content === ''
+            <!-- PC: 水平布局（头像+气泡并排） -->
+            <template v-if="!appStore.isMobile">
+              <NAvatar
+                :color="msg.role === 'user' ? '#6bb8e8' : assistantColor"
+                round
+                size="large"
+                class="shrink-0 self-start"
+              >
+                {{ msg.role === "user" ? "U" : "AI" }}
+              </NAvatar>
+              <div class="flex flex-col gap-1 max-w-[80%]">
+                <div class="group/btn">
+                  <div
+                    class="p-4 text-[15px] rounded-2xl whitespace-pre-wrap leading-relaxed shadow-sm"
+                    :class="
+                      msg.role === 'user'
+                        ? 'bg-[#e8f4fd] text-gray-800 rounded-tr-none dark:bg-blue-900/40 dark:text-gray-200'
+                        : 'bg-white text-gray-800 rounded-tl-none dark:bg-gray-800 dark:text-gray-200'
                     "
-                    class="inline-block mt-1"
+                    @mouseup="msg.role === 'assistant' ? handleSelectText() : undefined"
                   >
-                    <NSpin size="small" />
-                  </span>
+                    <!-- eslint-disable-next-line vue/no-v-html -->
+                    <div class="msg-content" v-html="msg.renderedContent"></div>
+                    <span
+                      v-if="
+                        isGenerating && index === messages.length - 1 && msg.content === ''
+                      "
+                      class="inline-block mt-1"
+                    >
+                      <NSpin size="small" />
+                    </span>
+                  </div>
+
+                  <div
+                    v-if="msg.content"
+                    class="flex items-center gap-0.5 mt-1 justify-end opacity-0 group-hover/btn:opacity-100 transition-all duration-200"
+                  >
+                    <ButtonIcon
+                      icon="mdi:content-copy"
+                      class="!h-28px !w-28px text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
+                      tooltip-content="复制"
+                      @click.stop="copyToClipboard(msg.content)"
+                    />
+                    <ButtonIcon
+                      v-if="enableVocabulary && msg.role === 'assistant'"
+                      icon="mdi:star-outline"
+                      class="!h-28px !w-28px text-gray-400 hover:text-amber-500 dark:text-gray-500 dark:hover:text-amber-400"
+                      tooltip-content="添加到生词本"
+                      @click.stop="openVocabModal()"
+                    />
+                    <ButtonIcon
+                      v-if="msg.role === 'assistant'"
+                      icon="mdi:notebook-edit-outline"
+                      class="!h-28px !w-28px text-gray-400 hover:text-blue-500 dark:text-gray-500 dark:hover:text-blue-400"
+                      tooltip-content="添加笔记"
+                      @click.stop="openNoteModal(msg.content)"
+                    />
+                  </div>
                 </div>
 
                 <div
+                  v-if="enableVocabulary && msg.suggestions?.length"
+                  class="flex flex-wrap gap-2 mt-2"
+                >
+                  <span class="text-xs text-gray-400 self-center">智能建议:</span>
+                  <NTag
+                    v-for="(vocab, vocabIndex) in msg.suggestions"
+                    :key="vocabIndex"
+                    size="small"
+                    round
+                    type="info"
+                    check-strategy="child"
+                    class="cursor-pointer hover:shadow-sm transition-shadow"
+                    @click="handleApplySuggestion(vocab)"
+                  >
+                    <template #icon>
+                      <div class="i-mdi:plus" />
+                    </template>
+                    {{ vocab.word }}
+                  </NTag>
+                </div>
+              </div>
+            </template>
+
+            <!-- 移动端: 垂直布局（头像独占一行，气泡占满宽度） -->
+            <template v-else>
+              <div class="flex flex-col gap-2 w-full">
+                <div class="flex" :class="msg.role === 'user' ? 'justify-end' : 'justify-start'">
+                  <div
+                    class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+                    :style="{ backgroundColor: msg.role === 'user' ? '#6bb8e8' : assistantColor }"
+                  >
+                    {{ msg.role === "user" ? "U" : "AI" }}
+                  </div>
+                </div>
+                <div class="flex" :class="msg.role === 'user' ? 'justify-end' : 'justify-start'">
+                  <div
+                    class="p-3 text-[14px] rounded-2xl whitespace-pre-wrap leading-relaxed shadow-sm w-full"
+                    :class="
+                      msg.role === 'user'
+                        ? 'bg-[#e8f4fd] text-gray-800 rounded-tr-none dark:bg-blue-900/40 dark:text-gray-200'
+                        : 'bg-white text-gray-800 rounded-tl-none dark:bg-gray-800 dark:text-gray-200'
+                    "
+                    @mouseup="msg.role === 'assistant' ? handleSelectText() : undefined"
+                  >
+                    <!-- eslint-disable-next-line vue/no-v-html -->
+                    <div class="msg-content" v-html="msg.renderedContent"></div>
+                    <span
+                      v-if="
+                        isGenerating && index === messages.length - 1 && msg.content === ''
+                      "
+                      class="inline-block mt-1"
+                    >
+                      <NSpin size="small" />
+                    </span>
+                  </div>
+                </div>
+                <div
                   v-if="msg.content"
-                  class="flex items-center gap-0.5 mt-1 justify-end"
-                  :class="appStore.isMobile ? 'opacity-100' : 'opacity-0 group-hover/btn:opacity-100 transition-all duration-200'"
+                  class="flex items-center gap-0.5 justify-end"
                 >
                   <ButtonIcon
                     icon="mdi:content-copy"
@@ -726,30 +810,30 @@ onBeforeUnmount(() => {
                     @click.stop="openNoteModal(msg.content)"
                   />
                 </div>
-              </div>
 
-              <div
-                v-if="enableVocabulary && msg.suggestions?.length"
-                class="flex flex-wrap gap-2 mt-2"
-              >
-                <span class="text-xs text-gray-400 self-center">智能建议:</span>
-                <NTag
-                  v-for="(vocab, vocabIndex) in msg.suggestions"
-                  :key="vocabIndex"
-                  size="small"
-                  round
-                  type="info"
-                  check-strategy="child"
-                  class="cursor-pointer hover:shadow-sm transition-shadow"
-                  @click="handleApplySuggestion(vocab)"
+                <div
+                  v-if="enableVocabulary && msg.suggestions?.length"
+                  class="flex flex-wrap gap-2 mt-2"
                 >
-                  <template #icon>
-                    <div class="i-mdi:plus" />
-                  </template>
-                  {{ vocab.word }}
-                </NTag>
+                  <span class="text-xs text-gray-400 self-center">智能建议:</span>
+                  <NTag
+                    v-for="(vocab, vocabIndex) in msg.suggestions"
+                    :key="vocabIndex"
+                    size="small"
+                    round
+                    type="info"
+                    check-strategy="child"
+                    class="cursor-pointer hover:shadow-sm transition-shadow"
+                    @click="handleApplySuggestion(vocab)"
+                  >
+                    <template #icon>
+                      <div class="i-mdi:plus" />
+                    </template>
+                    {{ vocab.word }}
+                  </NTag>
+                </div>
               </div>
-            </div>
+            </template>
           </div>
         </div>
       </NScrollbar>

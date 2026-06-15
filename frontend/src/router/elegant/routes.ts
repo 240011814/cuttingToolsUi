@@ -365,7 +365,9 @@ export const generatedRoutes: GeneratedRoute[] = [
     component: 'layout.base',
     meta: {
       title: 'user',
-      i18nKey: 'route.user'
+      i18nKey: 'route.user',
+      icon: 'mdi:account-outline',
+      order: 99
     },
     children: [
       {
@@ -374,7 +376,8 @@ export const generatedRoutes: GeneratedRoute[] = [
         component: 'view.user_profile',
         meta: {
           title: 'user_profile',
-          i18nKey: 'route.user_profile'
+          i18nKey: 'route.user_profile',
+          icon: 'mdi:account-circle-outline'
         }
       }
     ]
