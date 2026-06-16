@@ -4,13 +4,16 @@ import { NButton, NPopconfirm, useMessage, NTag } from "naive-ui";
 import type { DataTableColumns } from "naive-ui";
 import { fetchDeleteNote, fetchGetNoteList, fetchUpdateNote } from "@/service/api";
 import MarkdownIt from "markdown-it";
+import texmath from "markdown-it-texmath";
+import katex from "katex";
+import "katex/dist/katex.min.css";
 import { $t } from "@/locales";
 
 const md = new MarkdownIt({
   html: true,
   linkify: true,
   typographer: true,
-});
+}).use(texmath, { engine: katex, delimiters: 'dollars' });
 
 const message = useMessage();
 const loading = ref(false);

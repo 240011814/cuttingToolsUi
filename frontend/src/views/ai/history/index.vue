@@ -16,13 +16,16 @@ import { fetchHistoryList, fetchHistoryDetail, fetchUpdateFavorite, fetchDeleteH
 import { $t } from "@/locales";
 
 import MarkdownIt from "markdown-it";
+import texmath from "markdown-it-texmath";
+import katex from "katex";
+import "katex/dist/katex.min.css";
 
 const router = useRouter();
 const md = new MarkdownIt({
   html: true,
   linkify: true,
   typographer: true,
-});
+}).use(texmath, { engine: katex, delimiters: 'dollars' });
 
 const renderMarkdown = (content: string) => {
   return md.render(content || "");

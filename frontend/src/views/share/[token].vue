@@ -6,7 +6,8 @@ import { fetchSharedHistory } from "@/service/api";
 import type { TrainingHistory } from "@/service/api";
 import { $t } from "@/locales";
 import MarkdownIt from "markdown-it";
-import markdownItKatex from "markdown-it-katex";
+import texmath from "markdown-it-texmath";
+import katex from "katex";
 import "katex/dist/katex.min.css";
 
 const route = useRoute();
@@ -16,7 +17,7 @@ const md = new MarkdownIt({
   html: true,
   linkify: true,
   typographer: true
-}).use(markdownItKatex);
+}).use(texmath, { engine: katex, delimiters: 'dollars' });
 
 /** 移除 vocabs 标签和尾部空白，渲染 markdown */
 const renderMarkdown = (content: string) => {

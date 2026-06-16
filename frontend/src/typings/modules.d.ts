@@ -1,5 +1,5 @@
-declare module 'markdown-it-katex' {
+declare module 'markdown-it-texmath' {
   import type MarkdownIt from 'markdown-it';
-  const markdownItKatex: MarkdownIt.PluginSimple;
-  export default markdownItKatex;
+  const texmath: MarkdownIt.PluginWithOptions;
+  export default texmath;
 }
