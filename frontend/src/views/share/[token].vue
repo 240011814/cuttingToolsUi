@@ -16,8 +16,8 @@ const token = route.params.token as string;
 const md = new MarkdownIt({
   html: true,
   linkify: true,
-  typographer: true
-}).use(texmath, { engine: katex, delimiters: 'dollars' });
+  typographer: true,
+}).use(texmath, { engine: katex, delimiters: "dollars" });
 
 /** 移除 vocabs 标签和尾部空白，渲染 markdown */
 const renderMarkdown = (content: string) => {
@@ -38,7 +38,7 @@ const typeMap: Record<string, string> = {
   ai_chat: $t("route.ai_chat"),
   ai_decision: $t("route.ai_decision"),
   ai_social: $t("route.ai_social"),
-  ai_emergency: $t("route.ai_emergency")
+  ai_emergency: $t("route.ai_emergency"),
 };
 
 const loadHistory = async () => {
@@ -82,7 +82,9 @@ onMounted(() => {
         <template v-else-if="history">
           <!-- Header -->
           <div class="mb-6">
-            <h1 class="text-xl font-bold text-gray-800 dark:text-gray-100 mb-2">{{ history.title }}</h1>
+            <h1 class="text-xl font-bold text-gray-800 dark:text-gray-100 mb-2">
+              {{ history.title }}
+            </h1>
             <NTag type="info" :bordered="false" size="small">
               {{ typeMap[history.training_type] || history.training_type }}
             </NTag>
@@ -95,13 +97,15 @@ onMounted(() => {
                 <!-- User: avatar right, bubble right -->
                 <template v-if="msg.role === 'user'">
                   <div class="flex justify-end">
-                    <div class="w-8 h-8 rounded-full bg-[#18a058] flex items-center justify-center text-white text-xs font-bold">
+                    <div
+                      class="w-8 h-8 rounded-full bg-[#18a058] flex items-center justify-center text-white text-xs font-bold"
+                    >
                       U
                     </div>
                   </div>
                   <div class="flex flex-col items-end gap-1">
                     <div
-                      class="p-3 rounded-2xl rounded-tr-none whitespace-pre-wrap leading-relaxed shadow-sm text-sm bg-[#18a058] text-white"
+                      class="p-3 rounded-2xl rounded-tr-none leading-relaxed shadow-sm text-sm bg-[#18a058] text-white"
                     >
                       <!-- eslint-disable-next-line vue/no-v-html -->
                       <div class="msg-content" v-html="renderMarkdown(msg.content)"></div>
@@ -121,13 +125,15 @@ onMounted(() => {
                 <!-- AI: avatar left, bubble left -->
                 <template v-else>
                   <div class="flex justify-start">
-                    <div class="w-8 h-8 rounded-full bg-[#2080f0] flex items-center justify-center text-white text-xs font-bold">
+                    <div
+                      class="w-8 h-8 rounded-full bg-[#2080f0] flex items-center justify-center text-white text-xs font-bold"
+                    >
                       AI
                     </div>
                   </div>
                   <div class="flex flex-col gap-1">
                     <div
-                      class="p-3 rounded-2xl rounded-tl-none whitespace-pre-wrap leading-relaxed shadow-sm text-sm bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200"
+                      class="p-3 rounded-2xl rounded-tl-none leading-relaxed shadow-sm text-sm bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200"
                     >
                       <!-- eslint-disable-next-line vue/no-v-html -->
                       <div class="msg-content" v-html="renderMarkdown(msg.content)"></div>
@@ -156,8 +162,11 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.msg-content :deep(p:last-child) {
-  margin-bottom: 0;
+:deep(.msg-content p) {
+  margin: 0;
+}
+:deep(.msg-content p + p) {
+  margin-top: 1em;
 }
 .copy-btn {
   opacity: 0;
