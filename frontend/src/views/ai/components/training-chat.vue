@@ -1266,9 +1266,6 @@ onBeforeUnmount(() => {
   color: #4b5563;
   padding-left: 6px !important;
   padding-right: 18px !important;
-  max-width: 180px;
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 .dark :deep(.model-select .n-base-selection .n-base-selection-label) {
