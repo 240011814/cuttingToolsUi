@@ -75,7 +75,11 @@ const renderMarkdown = (content: string) => {
 function formatDisplayContent(content: string) {
   if (!props.enableVocabulary) return content;
 
-  return content.replace(/<vocabs>[\s\S]*?<\/vocabs>/g, "").trim();
+  // 移除完整的 <vocabs>...</vocabs> 标签
+  let cleaned = content.replace(/<vocabs>[\s\S]*?<\/vocabs>/g, "");
+  // 移除不完整的 <vocabs> 标签（流式响应时可能出现）
+  cleaned = cleaned.replace(/<vocabs>[\s\S]*$/, "");
+  return cleaned.trim();
 }
 
 const renderMessageContent = (content: string) => {
