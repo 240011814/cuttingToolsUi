@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { h, onMounted, ref, computed } from "vue";
-import { NButton, NPopconfirm, useMessage, NTag } from "naive-ui";
+import { h, onMounted, ref, computed, resolveComponent } from "vue";
+import { NButton, NDropdown, useMessage, NTag } from "naive-ui";
 import type { DataTableColumns } from "naive-ui";
 import { fetchDeleteNote, fetchGetNoteList, fetchUpdateNote } from "@/service/api";
 import MarkdownIt from "markdown-it";
@@ -39,100 +39,6 @@ const pagination = ref({
     // eslint-disable-next-line @typescript-eslint/no-use-before-define
     loadData();
   },
-});
-
-const columns = computed<DataTableColumns<any>>(() => {
-  return [
-    {
-      title: $t("page.ai.note.noteTitle"),
-      key: "title",
-      width: 200,
-      render(row) {
-        return h("span", { class: "font-bold" }, row.title || $t("page.ai.note.noTitle"));
-      },
-    },
-    {
-      title: $t("page.ai.note.category"),
-      key: "category",
-      width: 120,
-      render(row) {
-        return h(
-          NTag,
-          { type: "info", bordered: false },
-          { default: () => row.category }
-        );
-      },
-    },
-    {
-      title: $t("page.ai.note.content"),
-      key: "content",
-      minWidth: 300,
-      render(row) {
-        return h("div", {
-          class:
-            "prose dark:prose-invert max-w-none max-h-24 overflow-y-auto p-2 bg-gray-50/50 dark:bg-dark-100 rounded-md text-sm leading-relaxed",
-          innerHTML: md.render(row.content || ""),
-        });
-      },
-    },
-    {
-      title: $t("page.ai.note.createdAt"),
-      key: "createdAt",
-      width: 180,
-      render(row) {
-        return h("span", new Date(row.createdAt).toLocaleString());
-      },
-    },
-    {
-      title: $t("page.ai.note.actions"),
-      key: "actions",
-      width: 200,
-      fixed: "right",
-      render(row) {
-        return h("div", { class: "flex gap-2" }, [
-          h(
-            NButton,
-            {
-              size: "small",
-              type: "primary",
-              quaternary: true,
-              // eslint-disable-next-line @typescript-eslint/no-use-before-define
-              onClick: () => handleView(row),
-            },
-            { default: () => $t("page.ai.note.view") }
-          ),
-          h(
-            NButton,
-            {
-              size: "small",
-              type: "info",
-              quaternary: true,
-              // eslint-disable-next-line @typescript-eslint/no-use-before-define
-              onClick: () => handleEdit(row),
-            },
-            { default: () => $t("page.ai.note.edit") }
-          ),
-          h(
-            NPopconfirm,
-            {
-              // eslint-disable-next-line @typescript-eslint/no-use-before-define
-              onPositiveClick: () => handleDelete(row.id),
-              trigger: "click",
-            },
-            {
-              trigger: () =>
-                h(
-                  NButton,
-                  { size: "small", type: "error", quaternary: true },
-                  { default: () => $t("common.delete") }
-                ),
-              default: () => $t("page.ai.note.deleteConfirm"),
-            }
-          ),
-        ]);
-      },
-    },
-  ];
 });
 
 const loadData = async () => {
@@ -241,6 +147,127 @@ const submitEdit = async () => {
   }
 };
 
+const getMobileDropdownOptions = () => {
+  return [
+    { label: $t("page.ai.note.edit"), key: "edit" },
+    { type: "divider" as const, key: "d1" },
+    { label: $t("common.delete"), key: "delete" },
+  ];
+};
+
+const handleMobileDropdownSelect = (key: string, row: any) => {
+  switch (key) {
+    case "edit":
+      handleEdit(row);
+      break;
+    case "delete":
+      handleDelete(row.id);
+      break;
+  }
+};
+
+const columns = computed<DataTableColumns<any>>(() => {
+  return [
+    {
+      title: $t("page.ai.note.noteTitle"),
+      key: "title",
+      width: 180,
+      ellipsis: { tooltip: true },
+      render(row) {
+        return h("span", { class: "font-bold" }, row.title || $t("page.ai.note.noTitle"));
+      },
+    },
+    {
+      title: $t("page.ai.note.category"),
+      key: "category",
+      width: 100,
+      render(row) {
+        return h(
+          NTag,
+          { type: "info", bordered: false, size: "small" },
+          { default: () => row.category }
+        );
+      },
+    },
+    {
+      title: $t("page.ai.note.content"),
+      key: "content",
+      minWidth: 200,
+      ellipsis: { tooltip: true },
+      render(row) {
+        const text = (row.content || "").replace(/[#*`\n]/g, " ").slice(0, 100);
+        return h("span", { class: "text-sm text-gray-600 dark:text-gray-400" }, text);
+      },
+    },
+    {
+      title: $t("page.ai.note.createdAt"),
+      key: "createdAt",
+      width: 150,
+      render(row) {
+        return h("span", { class: "text-sm" }, new Date(row.createdAt).toLocaleString());
+      },
+    },
+    {
+      title: $t("page.ai.note.actions"),
+      key: "actions",
+      width: 120,
+      fixed: "right",
+      render(row) {
+        const dropdownOptions = [
+          { label: $t("page.ai.note.edit"), key: "edit" },
+          { type: "divider" as const, key: "d1" },
+          { label: $t("common.delete"), key: "delete" },
+        ];
+
+        const handleDropdownSelect = (key: string) => {
+          switch (key) {
+            case "edit":
+              handleEdit(row);
+              break;
+            case "delete":
+              handleDelete(row.id);
+              break;
+          }
+        };
+
+        return h("div", { class: "flex gap-1" }, [
+          h(
+            NButton,
+            {
+              size: "small",
+              type: "primary",
+              quaternary: true,
+              onClick: () => handleView(row),
+            },
+            { default: () => $t("page.ai.note.view") }
+          ),
+          h(
+            NDropdown,
+            {
+              options: dropdownOptions,
+              onSelect: handleDropdownSelect,
+              trigger: "click",
+            },
+            {
+              default: () =>
+                h(
+                  NButton,
+                  { size: "small", quaternary: true },
+                  {
+                    icon: () =>
+                      h(resolveComponent("SvgIcon"), {
+                        icon: "mdi:dots-vertical",
+                      }),
+                  }
+                ),
+            }
+          ),
+        ]);
+      },
+    },
+  ];
+});
+
 onMounted(() => {
   loadData();
 });
@@ -347,42 +374,38 @@ onMounted(() => {
         <!-- Mobile: Card List -->
         <NSpin v-if="appStore.isMobile && loading" class="flex justify-center py-8" />
         <div v-else-if="appStore.isMobile" class="flex flex-col gap-3">
-          <NCard
+          <div
             v-for="row in data"
             :key="row.id"
-            size="small"
-            :bordered="true"
+            class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-3"
           >
-            <div class="flex flex-col gap-2">
+            <div class="flex flex-col gap-1.5">
               <div class="flex items-center justify-between">
-                <span class="font-bold text-base">{{ row.title || $t("page.ai.note.noTitle") }}</span>
-                <NTag type="info" :bordered="false" size="small">{{ row.category }}</NTag>
-              </div>
-              <div
-                class="prose dark:prose-invert max-w-none max-h-20 overflow-y-auto text-xs leading-relaxed"
-                v-html="md.render(row.content || '')"
-              ></div>
-              <div class="flex items-center justify-between mt-1">
-                <span class="text-xs text-gray-400">{{ new Date(row.createdAt).toLocaleDateString() }}</span>
-                <div class="flex gap-1">
-                  <NButton size="tiny" type="primary" quaternary @click="handleView(row)">
-                    {{ $t("page.ai.note.view") }}
-                  </NButton>
-                  <NButton size="tiny" type="info" quaternary @click="handleEdit(row)">
-                    {{ $t("page.ai.note.edit") }}
-                  </NButton>
-                  <NPopconfirm @positive-click="handleDelete(row.id)">
-                    <template #trigger>
-                      <NButton size="tiny" type="error" quaternary>
-                        {{ $t("common.delete") }}
-                      </NButton>
-                    </template>
-                    {{ $t("page.ai.note.deleteConfirm") }}
-                  </NPopconfirm>
+                <div class="flex items-center gap-2">
+                  <span class="font-bold text-sm">{{ row.title || $t("page.ai.note.noTitle") }}</span>
+                  <NTag type="info" :bordered="false" size="small">{{ row.category }}</NTag>
                 </div>
+                <span class="text-xs text-gray-400">{{ new Date(row.createdAt).toLocaleDateString() }}</span>
+              </div>
+              <div class="text-xs text-gray-500 line-clamp-2">
+                {{ (row.content || "").replace(/[#*`\n]/g, " ").slice(0, 80) }}
+              </div>
+              <div class="flex gap-1 justify-end mt-1">
+                <NButton size="tiny" type="primary" quaternary @click="handleView(row)">
+                  {{ $t("page.ai.note.view") }}
+                </NButton>
+                <NDropdown
+                  trigger="click"
+                  :options="getMobileDropdownOptions()"
+                  @select="(key: string) => handleMobileDropdownSelect(key, row)"
+                >
+                  <NButton size="tiny" quaternary>
+                    <SvgIcon icon="mdi:dots-vertical" />
+                  </NButton>
+                </NDropdown>
               </div>
             </div>
-          </NCard>
+          </div>
           <NEmpty v-if="data.length === 0" class="py-8" />
           <!-- Mobile Pagination -->
           <div v-if="data.length > 0" class="flex justify-center mt-2">

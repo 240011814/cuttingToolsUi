@@ -9,7 +9,7 @@ import {
   NDrawerContent,
   NAvatar,
   NSelect,
-  NPopconfirm,
+  NDropdown,
 } from "naive-ui";
 import type { DataTableColumns } from "naive-ui";
 import { fetchHistoryList, fetchHistoryDetail, fetchUpdateFavorite, fetchDeleteHistory, fetchGenerateShareToken, fetchRevokeShareToken } from "@/service/api";
@@ -164,9 +164,9 @@ const getShareUrl = (token: string) => {
 
 const handleShare = async (row: any) => {
   try {
-    const { data } = await fetchGenerateShareToken(row.id);
-    if (data?.share_token) {
-      const shareUrl = getShareUrl(data.share_token);
+    const { data: res } = await fetchGenerateShareToken(row.id);
+    if (res?.share_token) {
+      const shareUrl = getShareUrl(res.share_token);
       await navigator.clipboard.writeText(shareUrl);
       message.success($t("page.ai.history.shareSuccess"));
       loadData();
@@ -195,6 +195,36 @@ const handleRevokeShare = async (row: any) => {
     message.error(
       `${$t("page.ai.history.operationFailed")}: ${err?.message || $t("common.error")}`
     );
+  }
+};
+
+const getMobileDropdownOptions = (row: any) => {
+  return [
+    row.share_token
+      ? { label: $t("page.ai.history.copyLink"), key: "copyLink" }
+      : { label: $t("page.ai.history.share"), key: "share" },
+    row.share_token
+      ? { label: $t("page.ai.history.revokeShare"), key: "revokeShare" }
+      : null,
+    { type: "divider" as const, key: "d1" },
+    { label: $t("common.delete"), key: "delete" },
+  ].filter((item): item is NonNullable<typeof item> => item !== null);
+};
+
+const handleMobileDropdownSelect = (key: string, row: any) => {
+  switch (key) {
+    case "share":
+      handleShare(row);
+      break;
+    case "copyLink":
+      handleCopyShareLink(row);
+      break;
+    case "revokeShare":
+      handleRevokeShare(row);
+      break;
+    case "delete":
+      handleDelete(row);
+      break;
   }
 };
 
@@ -232,12 +262,14 @@ const columns = computed<DataTableColumns<any>>(() => {
     {
       title: $t("page.ai.history.titleContent"),
       key: "title",
-      minWidth: 150,
+      width: 200,
+      ellipsis: { tooltip: true },
     },
     {
       title: $t("page.ai.history.recentChat"),
       key: "last_message",
-      minWidth: 200,
+      minWidth: 250,
+      ellipsis: { tooltip: true },
       render(row) {
         if (!row.last_message)
           return h(
@@ -246,12 +278,8 @@ const columns = computed<DataTableColumns<any>>(() => {
             $t("page.ai.history.noChatRecord")
           );
 
-        const content = row.last_message.length > 50
-          ? row.last_message.slice(0, 50) + "..."
-          : row.last_message;
-
         return h("div", { class: "text-xs text-gray-500" }, [
-          h("span", content),
+          h("span", row.last_message),
         ]);
       },
     },
@@ -290,10 +318,38 @@ const columns = computed<DataTableColumns<any>>(() => {
     {
       title: $t("page.ai.history.actions"),
       key: "actions",
-      width: 280,
+      width: 180,
       fixed: "right",
       render(row) {
-        return h("div", { class: "flex gap-2" }, [
+        const dropdownOptions = [
+          row.share_token
+            ? { label: $t("page.ai.history.copyLink"), key: "copyLink" }
+            : { label: $t("page.ai.history.share"), key: "share" },
+          row.share_token
+            ? { label: $t("page.ai.history.revokeShare"), key: "revokeShare" }
+            : null,
+          { type: "divider" as const, key: "d1" },
+          { label: $t("common.delete"), key: "delete" },
+        ].filter((item): item is NonNullable<typeof item> => item !== null);
+
+        const handleDropdownSelect = (key: string) => {
+          switch (key) {
+            case "share":
+              handleShare(row);
+              break;
+            case "copyLink":
+              handleCopyShareLink(row);
+              break;
+            case "revokeShare":
+              handleRevokeShare(row);
+              break;
+            case "delete":
+              handleDelete(row);
+              break;
+          }
+        };
+
+        return h("div", { class: "flex gap-1" }, [
           h(
             NButton,
             {
@@ -314,50 +370,25 @@ const columns = computed<DataTableColumns<any>>(() => {
             },
             { default: () => $t("page.ai.history.continueTraining") }
           ),
-          row.share_token
-            ? h(
-                NButton,
-                {
-                  size: "small",
-                  type: "info",
-                  quaternary: true,
-                  onClick: () => handleCopyShareLink(row),
-                },
-                { default: () => $t("page.ai.history.copyLink") }
-              )
-            : h(
-                NButton,
-                {
-                  size: "small",
-                  type: "info",
-                  quaternary: true,
-                  onClick: () => handleShare(row),
-                },
-                { default: () => $t("page.ai.history.share") }
-              ),
-          row.share_token
-            ? h(
-                NButton,
-                {
-                  size: "small",
-                  type: "warning",
-                  quaternary: true,
-                  onClick: () => handleRevokeShare(row),
-                },
-                { default: () => $t("page.ai.history.revokeShare") }
-              )
-            : null,
           h(
-            NPopconfirm,
-            { onPositiveClick: () => handleDelete(row) },
+            NDropdown,
             {
-              trigger: () =>
+              options: dropdownOptions,
+              onSelect: handleDropdownSelect,
+              trigger: "click",
+            },
+            {
+              default: () =>
                 h(
                   NButton,
-                  { size: "small", type: "error", quaternary: true },
-                  { default: () => $t("common.delete") }
+                  { size: "small", quaternary: true },
+                  {
+                    icon: () =>
+                      h(resolveComponent("SvgIcon"), {
+                        icon: "mdi:dots-vertical",
+                      }),
+                  }
                 ),
-              default: () => $t("page.ai.history.deleteConfirm"),
             }
           ),
         ]);
@@ -498,22 +529,15 @@ onMounted(() => {
                   <NButton size="tiny" type="success" quaternary @click="handleContinue(row)">
                     {{ $t("page.ai.history.continueTraining") }}
                   </NButton>
-                  <NButton
-                    size="tiny"
-                    type="info"
-                    quaternary
-                    @click="row.share_token ? handleCopyShareLink(row) : handleShare(row)"
+                  <NDropdown
+                    trigger="click"
+                    :options="getMobileDropdownOptions(row)"
+                    @select="(key: string) => handleMobileDropdownSelect(key, row)"
                   >
-                    {{ row.share_token ? $t("page.ai.history.copyLink") : $t("page.ai.history.share") }}
-                  </NButton>
-                  <NPopconfirm @positive-click="handleDelete(row)">
-                    <template #trigger>
-                      <NButton size="tiny" type="error" quaternary>
-                        {{ $t("common.delete") }}
-                      </NButton>
-                    </template>
-                    {{ $t("page.ai.history.deleteConfirm") }}
-                  </NPopconfirm>
+                    <NButton size="tiny" quaternary>
+                      <SvgIcon icon="mdi:dots-vertical" />
+                    </NButton>
+                  </NDropdown>
                 </div>
               </div>
             </div>
