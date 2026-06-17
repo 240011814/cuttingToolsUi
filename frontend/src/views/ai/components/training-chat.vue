@@ -305,6 +305,11 @@ const scrollToBottom = async (behavior: ScrollBehavior = "auto") => {
   scrollbarRef.value?.scrollTo({ position: "bottom", behavior });
 };
 
+const scrollToTop = async (behavior: ScrollBehavior = "auto") => {
+  await nextTick();
+  scrollbarRef.value?.scrollTo({ position: "top", behavior });
+};
+
 const scheduleScrollToBottom = () => {
   if (scrollFrame) return;
 
@@ -649,11 +654,12 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
-      <NScrollbar
-        ref="scrollbarRef"
-        class="flex-1 bg-gray-50/50 dark:bg-dark"
-        :class="appStore.isMobile ? 'px-1.5 py-1' : 'p-4'"
-      >
+      <div class="relative flex-1 overflow-hidden">
+        <NScrollbar
+          ref="scrollbarRef"
+          class="flex-1 bg-gray-50/50 dark:bg-dark"
+          :class="appStore.isMobile ? 'px-1.5 py-1' : 'p-4'"
+        >
         <div class="flex flex-col pb-4" :class="appStore.isMobile ? 'gap-4' : 'gap-6'">
           <div
             v-for="(msg, index) in messages"
@@ -843,17 +849,44 @@ onBeforeUnmount(() => {
         </div>
       </NScrollbar>
 
-      <!-- Input area -->
-      <div class="input-wrapper" :class="appStore.isMobile ? 'mobile' : 'desktop'">
-        <div class="input-container">
-          <!-- Desktop: single row layout -->
-          <div v-if="!appStore.isMobile" class="input-main">
-            <!-- Left: Model Selector -->
-            <div class="model-selector">
-              <SvgIcon icon="mdi:cpu-chip" class="model-icon" />
-              <NSelect
-                v-model:value="selectedModel"
-                :options="modelOptions"
+      <!-- Scroll shortcuts -->
+      <div class="scroll-shortcuts">
+        <NButton
+          quaternary
+          circle
+          size="small"
+          class="scroll-btn"
+          @click="scrollToTop('smooth')"
+        >
+          <template #icon>
+            <SvgIcon icon="mdi:chevron-up" />
+          </template>
+        </NButton>
+        <NButton
+          quaternary
+          circle
+          size="small"
+          class="scroll-btn"
+          @click="scrollToBottom('smooth')"
+        >
+          <template #icon>
+            <SvgIcon icon="mdi:chevron-down" />
+          </template>
+        </NButton>
+      </div>
+    </div>
+
+    <!-- Input area -->
+    <div class="input-wrapper" :class="appStore.isMobile ? 'mobile' : 'desktop'">
+      <div class="input-container">
+        <!-- Desktop: single row layout -->
+        <div v-if="!appStore.isMobile" class="input-main">
+          <!-- Left: Model Selector -->
+          <div class="model-selector">
+            <SvgIcon icon="mdi:cpu-chip" class="model-icon" />
+            <NSelect
+              v-model:value="selectedModel"
+              :options="modelOptions"
                 size="tiny"
                 :consistent-menu-width="false"
                 :bordered="false"
@@ -1335,5 +1368,42 @@ onBeforeUnmount(() => {
 .scale-leave-to {
   opacity: 0;
   transform: scale(0.8);
+}
+
+.scroll-shortcuts {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  z-index: 10;
+  pointer-events: auto;
+}
+.scroll-btn {
+  width: 32px;
+  height: 32px;
+  background: rgba(255, 255, 255, 0.9) !important;
+  border: 1px solid #e5e7eb !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  color: #6b7280;
+  transition: all 0.2s;
+  pointer-events: auto;
+}
+.scroll-btn:hover {
+  background: #ffffff !important;
+  color: #6366f1;
+  border-color: #6366f1 !important;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+}
+.dark .scroll-btn {
+  background: rgba(30, 30, 46, 0.9) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  color: #9ca3af;
+}
+.dark .scroll-btn:hover {
+  background: rgba(30, 30, 46, 1) !important;
+  color: #818cf8;
+  border-color: #818cf8 !important;
 }
 </style>
