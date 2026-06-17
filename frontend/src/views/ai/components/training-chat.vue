@@ -858,7 +858,8 @@ onBeforeUnmount(() => {
                 v-model:value="selectedModel"
                 :options="modelOptions"
                 size="tiny"
-                style="width: 110px"
+                style="min-width: 80px; max-width: 200px"
+                :consistent-menu-width="false"
                 :bordered="false"
                 class="model-select"
               />
@@ -927,6 +928,7 @@ onBeforeUnmount(() => {
                   v-model:value="selectedModel"
                   :options="modelOptions"
                   size="tiny"
+                  :consistent-menu-width="false"
                   :bordered="false"
                   class="model-select"
                 />
@@ -1215,13 +1217,14 @@ onBeforeUnmount(() => {
   padding: 2px 4px;
   border-radius: 8px;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  flex-shrink: 0;
+  flex-shrink: 1;
   min-width: 0;
   overflow: visible;
 }
 .model-selector-mobile {
   flex: 1;
   min-width: 100px;
+  max-width: 60%;
 }
 .model-icon {
   font-size: 14px;
@@ -1263,6 +1266,10 @@ onBeforeUnmount(() => {
   color: #4b5563;
   padding-left: 6px !important;
   padding-right: 18px !important;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .dark :deep(.model-select .n-base-selection .n-base-selection-label) {
   color: #c0c4cc;
