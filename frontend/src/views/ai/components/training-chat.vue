@@ -86,11 +86,29 @@ const renderMessageContent = (content: string) => {
   return renderMarkdown(formatDisplayContent(content));
 };
 
+const parseVocabsFromContent = (content: string): VocabSuggestion[] | undefined => {
+  if (!props.enableVocabulary) return undefined;
+
+  const match = content.match(/<vocabs>([\s\S]*?)<\/vocabs>/);
+  if (!match?.[1]) return undefined;
+
+  try {
+    const vocabs = JSON.parse(match[1]);
+    if (Array.isArray(vocabs) && vocabs.length > 0) {
+      return vocabs;
+    }
+  } catch (error) {
+    console.error("Failed to parse vocabs:", error);
+  }
+  return undefined;
+};
+
 const createChatMessage = (role: ChatMessage["role"], content: string): ChatMessage => {
   return {
     role,
     content,
     renderedContent: renderMessageContent(content),
+    suggestions: parseVocabsFromContent(content),
   };
 };
 
@@ -330,36 +348,11 @@ const parseVocabSuggestions = () => {
   const lastMsg = messages.value[lastIdx];
   if (lastMsg.role !== "assistant") return;
 
-  const nextMessage: ChatMessage = {
+  messages.value[lastIdx] = {
     ...lastMsg,
     renderedContent: renderMessageContent(lastMsg.content),
+    suggestions: parseVocabsFromContent(lastMsg.content),
   };
-
-  if (!props.enableVocabulary) {
-    messages.value[lastIdx] = nextMessage;
-    return;
-  }
-
-  const match = lastMsg.content.match(/<vocabs>([\s\S]*?)<\/vocabs>/);
-  if (!match?.[1]) {
-    messages.value[lastIdx] = nextMessage;
-    return;
-  }
-
-  try {
-    const vocabs = JSON.parse(match[1]);
-    if (Array.isArray(vocabs) && vocabs.length > 0) {
-      messages.value[lastIdx] = {
-        ...nextMessage,
-        suggestions: vocabs,
-      };
-      return;
-    }
-  } catch (error) {
-    console.error("Failed to parse suggested vocabs:", error);
-  }
-
-  messages.value[lastIdx] = nextMessage;
 };
 
 const sendMessage = async () => {
