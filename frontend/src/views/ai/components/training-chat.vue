@@ -52,7 +52,7 @@ const props = withDefaults(
   {
     trainingType: "",
     customTrainingId: null,
-    inputPlaceholder: "输入消息... (回车发送，Shift + 回车换行)",
+    inputPlaceholder: "输入消息...",
     assistantColor: "#2080f0",
     enableVocabulary: false,
     speechLang: "en-US",
@@ -64,7 +64,7 @@ const md = new MarkdownIt({
   html: true,
   linkify: true,
   typographer: true,
-}).use(texmath, { engine: katex, delimiters: 'dollars' });
+}).use(texmath, { engine: katex, delimiters: "dollars" });
 const { hasAuth } = useAuth();
 const appStore = useAppStore();
 
@@ -125,11 +125,9 @@ async function refreshPrompt() {
 async function loadMemories() {
   if (!mem0Enabled.value) return;
   try {
-    const query = memorySearchQuery.value?.trim() || "用户已经训练过的场景和学习进度和用户的偏好";
-    const { data: memories } = await fetchSearchMemories(
-      query,
-      memorySearchTopK.value
-    );
+    const query =
+      memorySearchQuery.value?.trim() || "用户已经训练过的场景和学习进度和用户的偏好";
+    const { data: memories } = await fetchSearchMemories(query, memorySearchTopK.value);
     if (memories && memories.length > 0) {
       const memoryText = memories.map((m: any) => `- ${m.memory}`).join("\n");
       systemMessage.value = {
@@ -519,8 +517,8 @@ const handleToggleFavorite = async () => {
 };
 
 const getShareUrl = (token: string) => {
-  const isHashMode = import.meta.env.VITE_ROUTER_HISTORY_MODE === 'hash';
-  const basePath = isHashMode ? '/#/' : '/';
+  const isHashMode = import.meta.env.VITE_ROUTER_HISTORY_MODE === "hash";
+  const basePath = isHashMode ? "/#/" : "/";
   return `${window.location.origin}${basePath}share/${token}`;
 };
 
@@ -595,27 +593,37 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="h-full flex-col flex overflow-hidden" :class="appStore.isMobile ? 'p-1 gap-1' : 'p-4 gap-4'">
+  <div
+    class="h-full flex-col flex overflow-hidden"
+    :class="appStore.isMobile ? 'p-1 gap-1' : 'p-4 gap-4'"
+  >
     <NCard
       class="flex-1 overflow-hidden"
       content-class="p-0 flex flex-col overflow-hidden"
       :bordered="false"
       :shadow="appStore.isMobile ? false : 'sm'"
     >
-      <!-- Header inside content to avoid NCard layout issues in flex-1 -->
+      <!-- Header - Gemini style minimal -->
       <div
-        class="border-b border-gray-100 dark:border-gray-800 flex items-center justify-between"
-        :class="appStore.isMobile ? 'px-2 py-1.5 flex-wrap gap-1' : 'p-4'"
+        class="flex items-center justify-between border-b border-gray-100 dark:border-gray-800"
+        :class="appStore.isMobile ? 'px-3 py-2' : 'px-6 py-3'"
       >
-        <div class="flex items-center gap-1 min-w-0 flex-1">
-          <span class="font-bold text-gray-600 dark:text-gray-300 truncate text-sm">{{
-            historyTitle || "AI 训练对话"
-          }}</span>
-          <NButton v-if="!appStore.isMobile" quaternary size="small" @click="handleOpenEditTitle">
+        <div class="flex items-center gap-2 min-w-0 flex-1">
+          <span
+            class="font-semibold text-gray-700 dark:text-gray-300 truncate"
+            :class="appStore.isMobile ? 'text-sm' : 'text-base'"
+            >{{ historyTitle || "AI 训练对话" }}</span
+          >
+          <NButton quaternary size="tiny" @click="handleOpenEditTitle">
             <template #icon>
-              <SvgIcon icon="mdi:pencil-outline" class="text-lg" />
+              <SvgIcon
+                icon="mdi:pencil-outline"
+                class="text-gray-400 hover:text-primary"
+              />
             </template>
           </NButton>
+        </div>
+        <div class="flex items-center gap-1 shrink-0">
           <NButton
             quaternary
             size="small"
@@ -623,53 +631,41 @@ onBeforeUnmount(() => {
             @click="handleToggleFavorite"
           >
             <template #icon>
-              <SvgIcon
-                :icon="isFavorite ? 'mdi:star' : 'mdi:star-outline'"
-                class="text-lg"
-              />
+              <SvgIcon :icon="isFavorite ? 'mdi:star' : 'mdi:star-outline'" />
+            </template>
+          </NButton>
+          <NButton quaternary size="small" @click="handleShare">
+            <template #icon>
+              <SvgIcon icon="mdi:share-variant" />
             </template>
           </NButton>
           <NButton
+            v-if="hasAuth('ai:prompt:manage')"
             quaternary
             size="small"
-            :type="shareToken ? 'info' : 'default'"
-            @click="handleShare"
-          >
-            <template #icon>
-              <SvgIcon icon="mdi:share-variant" class="text-lg" />
-            </template>
-          </NButton>
-        </div>
-        <div class="flex items-center gap-2 shrink-0">
-          <NButton
-            v-if="hasAuth('ai:prompt:manage') && !appStore.isMobile"
-            type="primary"
-            size="small"
-            class="rounded-lg shadow-sm"
             @click="showPromptEditor = true"
           >
-            <div class="flex items-center gap-1 px-1">
-              <div class="i-mdi:cog-outline" />
-              <span v-if="!appStore.isMobile">设置</span>
-            </div>
+            <template #icon>
+              <SvgIcon icon="mdi:cog-outline" />
+            </template>
           </NButton>
-          <NSelect
-            v-model:value="selectedModel"
-            :options="modelOptions"
-            size="small"
-            class="shadow-sm"
-            :style="{ width: appStore.isMobile ? '110px' : '140px' }"
-          />
         </div>
       </div>
 
-      <NScrollbar ref="scrollbarRef" class="flex-1 bg-gray-50/50 dark:bg-dark" :class="appStore.isMobile ? 'px-1.5 py-1' : 'p-4'">
+      <NScrollbar
+        ref="scrollbarRef"
+        class="flex-1 bg-gray-50/50 dark:bg-dark"
+        :class="appStore.isMobile ? 'px-1.5 py-1' : 'p-4'"
+      >
         <div class="flex flex-col pb-4" :class="appStore.isMobile ? 'gap-4' : 'gap-6'">
           <div
             v-for="(msg, index) in messages"
             :key="index"
             class="flex items-start"
-            :class="[msg.role === 'user' ? 'flex-row-reverse' : 'flex-row', appStore.isMobile ? 'gap-2' : 'gap-3']"
+            :class="[
+              msg.role === 'user' ? 'flex-row-reverse' : 'flex-row',
+              appStore.isMobile ? 'gap-2' : 'gap-3',
+            ]"
           >
             <!-- PC: 水平布局（头像+气泡并排） -->
             <template v-if="!appStore.isMobile">
@@ -696,7 +692,9 @@ onBeforeUnmount(() => {
                     <div class="msg-content" v-html="msg.renderedContent"></div>
                     <span
                       v-if="
-                        isGenerating && index === messages.length - 1 && msg.content === ''
+                        isGenerating &&
+                        index === messages.length - 1 &&
+                        msg.content === ''
                       "
                       class="inline-block mt-1"
                     >
@@ -758,15 +756,23 @@ onBeforeUnmount(() => {
             <!-- 移动端: 垂直布局（头像独占一行，气泡占满宽度） -->
             <template v-else>
               <div class="flex flex-col gap-2 w-full">
-                <div class="flex" :class="msg.role === 'user' ? 'justify-end' : 'justify-start'">
+                <div
+                  class="flex"
+                  :class="msg.role === 'user' ? 'justify-end' : 'justify-start'"
+                >
                   <div
                     class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
-                    :style="{ backgroundColor: msg.role === 'user' ? '#6bb8e8' : assistantColor }"
+                    :style="{
+                      backgroundColor: msg.role === 'user' ? '#6bb8e8' : assistantColor,
+                    }"
                   >
                     {{ msg.role === "user" ? "U" : "AI" }}
                   </div>
                 </div>
-                <div class="flex" :class="msg.role === 'user' ? 'justify-end' : 'justify-start'">
+                <div
+                  class="flex"
+                  :class="msg.role === 'user' ? 'justify-end' : 'justify-start'"
+                >
                   <div
                     class="p-3 text-[14px] rounded-2xl whitespace-pre-wrap leading-relaxed shadow-sm w-full"
                     :class="
@@ -780,7 +786,9 @@ onBeforeUnmount(() => {
                     <div class="msg-content" v-html="msg.renderedContent"></div>
                     <span
                       v-if="
-                        isGenerating && index === messages.length - 1 && msg.content === ''
+                        isGenerating &&
+                        index === messages.length - 1 &&
+                        msg.content === ''
                       "
                       class="inline-block mt-1"
                     >
@@ -788,10 +796,7 @@ onBeforeUnmount(() => {
                     </span>
                   </div>
                 </div>
-                <div
-                  v-if="msg.content"
-                  class="flex items-center gap-0.5 justify-end"
-                >
+                <div v-if="msg.content" class="flex items-center gap-0.5 justify-end">
                   <ButtonIcon
                     icon="mdi:content-copy"
                     class="!h-28px !w-28px text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
@@ -841,32 +846,123 @@ onBeforeUnmount(() => {
         </div>
       </NScrollbar>
 
-      <div
-        class="border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-dark flex items-stretch"
-        :class="appStore.isMobile ? 'p-2 gap-2' : 'p-4 gap-4'"
-      >
-        <NInput
-          v-model:value="inputMessage"
-          type="textarea"
-          :autosize="appStore.isMobile ? { minRows: 1, maxRows: 4 } : { minRows: 2, maxRows: 6 }"
-          :placeholder="inputPlaceholder"
-          class="flex-1 shadow-sm"
-          :size="appStore.isMobile ? 'medium' : 'large'"
-          @keydown="handleEnter"
-        />
-        <div class="flex flex-col gap-2">
-          <NButton
-            type="primary"
-            :size="appStore.isMobile ? 'medium' : 'large'"
-            :loading="isGenerating"
-            :disabled="!inputMessage.trim()"
-            class="rounded-lg flex-1"
-            :class="appStore.isMobile ? 'px-4' : 'px-8'"
-            style="align-self: stretch; height: auto"
-            @click="sendMessage"
-          >
-            发送
-          </NButton>
+      <!-- Input area -->
+      <div class="input-wrapper" :class="appStore.isMobile ? 'mobile' : 'desktop'">
+        <div class="input-container">
+          <!-- Desktop: single row layout -->
+          <div v-if="!appStore.isMobile" class="input-main">
+            <!-- Left: Model Selector -->
+            <div class="model-selector">
+              <SvgIcon icon="mdi:cpu-chip" class="model-icon" />
+              <NSelect
+                v-model:value="selectedModel"
+                :options="modelOptions"
+                size="tiny"
+                style="width: 110px"
+                :bordered="false"
+                class="model-select"
+              />
+            </div>
+
+            <!-- Middle: Text Input -->
+            <NInput
+              v-model:value="inputMessage"
+              type="textarea"
+              :autosize="{ minRows: 1, maxRows: 6 }"
+              :placeholder="inputPlaceholder"
+              :bordered="false"
+              class="input-textarea"
+              @keydown="handleEnter"
+            />
+
+            <!-- Right Actions -->
+            <div class="right-actions">
+              <Transition name="scale">
+                <NButton
+                  v-if="inputMessage.trim() && !isGenerating"
+                  quaternary
+                  circle
+                  size="small"
+                  class="clear-btn"
+                  @click="inputMessage = ''"
+                >
+                  <template #icon>
+                    <SvgIcon icon="mdi:trash-can-outline" />
+                  </template>
+                </NButton>
+              </Transition>
+              <Transition name="scale">
+                <NButton
+                  v-show="inputMessage.trim() || isGenerating"
+                  type="primary"
+                  size="small"
+                  :loading="isGenerating"
+                  class="send-btn send-btn-active"
+                  @click="sendMessage"
+                >
+                  <template #icon>
+                    <SvgIcon icon="mdi:arrow-up" class="send-icon" />
+                  </template>
+                </NButton>
+              </Transition>
+            </div>
+          </div>
+
+          <!-- Mobile: two row layout -->
+          <template v-else>
+            <div class="input-row-textarea">
+              <NInput
+                v-model:value="inputMessage"
+                type="textarea"
+                :autosize="{ minRows: 1, maxRows: 4 }"
+                :placeholder="inputPlaceholder"
+                :bordered="false"
+                class="input-textarea"
+                @keydown="handleEnter"
+              />
+            </div>
+            <div class="input-row-actions">
+              <div class="model-selector model-selector-mobile">
+                <NSelect
+                  v-model:value="selectedModel"
+                  :options="modelOptions"
+                  size="tiny"
+                  :bordered="false"
+                  class="model-select"
+                />
+              </div>
+              <div class="right-actions">
+                <Transition name="scale">
+                  <NButton
+                    v-if="inputMessage.trim() && !isGenerating"
+                    quaternary
+                    circle
+                    size="tiny"
+                    class="clear-btn"
+                    @click="inputMessage = ''"
+                  >
+                    <template #icon>
+                      <SvgIcon icon="mdi:trash-can-outline" />
+                    </template>
+                  </NButton>
+                </Transition>
+                <Transition name="scale">
+                  <NButton
+                    v-show="inputMessage.trim() || isGenerating"
+                    type="primary"
+                    size="tiny"
+                    :loading="isGenerating"
+                    class="send-btn-mobile send-btn-active"
+                    @click="sendMessage"
+                  >
+                    <template #icon>
+                      <SvgIcon icon="mdi:arrow-up" class="send-icon" />
+                    </template>
+                  </NButton>
+                </Transition>
+              </div>
+            </div>
+          </template>
         </div>
       </div>
     </NCard>
@@ -880,7 +976,11 @@ onBeforeUnmount(() => {
       class="max-w-md"
       :segmented="{ content: 'soft' }"
     >
-      <NForm :model="vocabForm" label-placement="left" :label-width="appStore.isMobile ? '60' : '80'">
+      <NForm
+        :model="vocabForm"
+        label-placement="left"
+        :label-width="appStore.isMobile ? '60' : '80'"
+      >
         <NFormItem label="单词" path="word">
           <div class="flex gap-2 w-full">
             <NInput
@@ -940,21 +1040,39 @@ onBeforeUnmount(() => {
       :style="{ width: appStore.isMobile ? '95vw' : '800px' }"
       :segmented="{ content: 'soft' }"
     >
-      <NForm :model="noteForm" label-placement="left" :label-width="appStore.isMobile ? '60' : '80'">
+      <NForm
+        :model="noteForm"
+        label-placement="left"
+        :label-width="appStore.isMobile ? '60' : '80'"
+      >
         <div :class="appStore.isMobile ? 'flex flex-col gap-2' : 'flex gap-4'">
           <NFormItem label="标题" path="title" class="flex-1">
             <NInput v-model:value="noteForm.title" placeholder="输入笔记标题" />
           </NFormItem>
-          <NFormItem label="分类" path="category" :style="appStore.isMobile ? {} : { width: '240px' }">
+          <NFormItem
+            label="分类"
+            path="category"
+            :style="appStore.isMobile ? {} : { width: '240px' }"
+          >
             <NInput v-model:value="noteForm.category" placeholder="输入笔记分类" />
           </NFormItem>
         </div>
         <NFormItem label="内容" path="content">
-          <div :class="appStore.isMobile ? 'flex flex-col gap-4 w-full' : 'grid grid-cols-2 gap-4 w-full'">
+          <div
+            :class="
+              appStore.isMobile
+                ? 'flex flex-col gap-4 w-full'
+                : 'grid grid-cols-2 gap-4 w-full'
+            "
+          >
             <NInput
               v-model:value="noteForm.content"
               type="textarea"
-              :autosize="appStore.isMobile ? { minRows: 6, maxRows: 10 } : { minRows: 12, maxRows: 15 }"
+              :autosize="
+                appStore.isMobile
+                  ? { minRows: 6, maxRows: 10 }
+                  : { minRows: 12, maxRows: 15 }
+              "
               placeholder="输入笔记内容"
             />
             <!-- eslint-disable-next-line vue/no-v-html -->
@@ -992,7 +1110,11 @@ onBeforeUnmount(() => {
       />
     </NModal>
 
-    <NDrawer v-model:show="showPromptEditor" :width="appStore.isMobile ? '85vw' : 600" placement="right">
+    <NDrawer
+      v-model:show="showPromptEditor"
+      :width="appStore.isMobile ? '85vw' : 600"
+      placement="right"
+    >
       <NDrawerContent
         :title="`设置 - ${routeTitleMap[route.name as string] || 'AI 助手'}`"
         closable
@@ -1015,5 +1137,202 @@ onBeforeUnmount(() => {
 }
 :deep(.msg-content p + p) {
   margin-top: 0.5em;
+}
+
+/* ============ Input Area ============ */
+.input-wrapper {
+  position: relative;
+  flex-shrink: 0;
+  width: 100%;
+}
+.input-wrapper.desktop {
+  padding: 16px 16px 20px;
+}
+.input-wrapper.mobile {
+  padding: 6px 6px 12px;
+}
+
+.input-container {
+  background: #ffffff;
+  border-radius: 16px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 4px 12px -2px rgba(0, 0, 0, 0.02);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+}
+.dark .input-container {
+  background: rgba(26, 26, 46, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.3), 0 4px 12px -2px rgba(0, 0, 0, 0.2);
+}
+.input-container:focus-within {
+  border-color: #6366f1;
+  box-shadow: 0 10px 25px -3px rgba(99, 102, 241, 0.12),
+    0 4px 12px -2px rgba(99, 102, 241, 0.06);
+  transform: translateY(-2px);
+}
+.dark .input-container:focus-within {
+  border-color: rgba(99, 102, 241, 0.8);
+  box-shadow: 0 10px 30px -5px rgba(99, 102, 241, 0.2),
+    0 4px 12px -2px rgba(99, 102, 241, 0.12);
+}
+
+.input-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px 6px 12px;
+  min-height: 40px;
+}
+
+/* Mobile two-row layout */
+.input-row-textarea {
+  padding: 8px 10px 4px;
+}
+.input-row-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 8px 8px;
+  gap: 8px;
+}
+
+.right-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  margin-bottom: 2px;
+}
+
+.model-selector {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px;
+  border-radius: 8px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
+  min-width: 0;
+  overflow: visible;
+}
+.model-selector-mobile {
+  flex: 1;
+  min-width: 100px;
+}
+.model-icon {
+  font-size: 14px;
+  color: #6366f1;
+  transition: transform 0.3s ease;
+}
+.model-selector:hover .model-icon {
+  transform: rotate(30deg);
+}
+
+.send-btn-mobile {
+  border-radius: 50% !important;
+  width: 28px;
+  height: 28px;
+  padding: 0 !important;
+  flex-shrink: 0;
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%) !important;
+  color: #ffffff !important;
+  border: none !important;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+:deep(.model-select .n-base-selection),
+:deep(.model-select .n-base-selection-input),
+:deep(.model-select .n-base-selection-overlay),
+:deep(.model-select .n-base-selection-tags),
+:deep(.model-select .n-base-suffix) {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+:deep(.model-select .n-base-selection) {
+  border: none !important;
+  min-height: 22px !important;
+}
+:deep(.model-select .n-base-selection .n-base-selection-label) {
+  font-size: 12px !important;
+  font-weight: 500;
+  color: #4b5563;
+  padding-left: 6px !important;
+  padding-right: 18px !important;
+}
+.dark :deep(.model-select .n-base-selection .n-base-selection-label) {
+  color: #c0c4cc;
+}
+
+.clear-btn {
+  color: #9ca3af;
+  transition: all 0.2s;
+  width: 28px;
+  height: 28px;
+}
+.clear-btn:hover {
+  color: #ef4444;
+  background-color: rgba(239, 68, 68, 0.08) !important;
+}
+.dark .clear-btn:hover {
+  color: #f87171;
+  background-color: rgba(248, 113, 113, 0.12) !important;
+}
+
+:deep(.input-textarea .n-input__textarea-el) {
+  padding: 6px 8px !important;
+  line-height: 1.6 !important;
+  caret-color: #6366f1;
+  font-size: 14px;
+}
+:deep(.input-textarea .n-input__placeholder) {
+  padding: 6px 8px !important;
+  color: #9ca3af;
+}
+.dark :deep(.input-textarea .n-input__placeholder) {
+  color: #52526b;
+}
+
+.send-btn {
+  border-radius: 50% !important;
+  width: 32px;
+  height: 32px;
+  padding: 0 !important;
+  flex-shrink: 0;
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%) !important;
+  color: #ffffff !important;
+  border: none !important;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.send-btn:hover {
+  transform: scale(1.1) translateY(-1px);
+  box-shadow: 0 6px 16px rgba(99, 102, 241, 0.45);
+}
+.send-btn:active {
+  transform: scale(0.95) translateY(0);
+}
+
+.send-icon {
+  font-size: 16px;
+  transition: transform 0.2s ease;
+}
+.send-btn.send-btn-active:hover .send-icon {
+  transform: translateY(-1px);
+}
+
+
+.scale-enter-active,
+.scale-leave-active {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.scale-enter-from,
+.scale-leave-to {
+  opacity: 0;
+  transform: scale(0.8);
 }
 </style>

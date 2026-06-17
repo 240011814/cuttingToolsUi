@@ -11,6 +11,9 @@ import {
 import { onKeyStroke } from "@vueuse/core";
 import { speak } from "@/utils/tts";
 import { $t } from "@/locales";
+import { useAppStore } from "@/store/modules/app";
+
+const appStore = useAppStore();
 
 const message = useMessage();
 const dialog = useDialog();
@@ -236,15 +239,15 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="h-full flex-col flex gap-4 p-4">
-    <NCard :bordered="false" shadow="sm" class="flex-1">
+  <div class="h-full flex-col flex gap-4" :class="appStore.isMobile ? 'p-2' : 'p-4'">
+    <NCard :bordered="false" :shadow="appStore.isMobile ? false : 'sm'" class="flex-1">
       <template #header>
-        <div class="flex items-center gap-4">
-          <span class="text-18px font-bold">{{ $t("page.ai.vocabulary.title") }}</span>
+        <div class="flex items-center gap-2" :class="appStore.isMobile ? 'flex-col items-start' : 'gap-4'">
+          <span class="font-bold" :class="appStore.isMobile ? 'text-16px' : 'text-18px'">{{ $t("page.ai.vocabulary.title") }}</span>
           <NTabs
             v-model:value="activeTab"
             type="segment"
-            style="width: 280px"
+            :style="{ width: appStore.isMobile ? '100%' : '280px' }"
             @update:value="loadData"
           >
             <NTab name="new">
@@ -263,51 +266,99 @@ onMounted(() => {
         </div>
       </template>
       <div class="flex flex-col h-full gap-4">
-        <div class="flex justify-between items-center">
-          <div class="flex gap-4 items-center">
+        <!-- Search and Actions -->
+        <template v-if="appStore.isMobile">
+          <div class="flex gap-2">
             <NInput
               v-model:value="keyword"
               :placeholder="$t('page.ai.vocabulary.searchPlaceholder')"
               clearable
-              style="width: 260px"
+              class="flex-1"
               @keyup.enter="loadData"
             />
             <NButton type="primary" @click="loadData">
               <template #icon>
                 <icon-mdi-magnify class="text-icon" />
               </template>
-              {{ $t("common.search") }}
             </NButton>
           </div>
-          <div class="flex gap-2 items-center">
-            <NButton
-              :type="isSelectionMode ? 'primary' : 'default'"
-              @click="isSelectionMode = !isSelectionMode"
-            >
-              <template #icon>
-                <icon-mdi-checkbox-multiple-marked-outline class="text-icon" />
-              </template>
-              {{
-                isSelectionMode
-                  ? $t("page.ai.vocabulary.selectMode")
-                  : $t("page.ai.vocabulary.selectModeOn")
-              }}
-            </NButton>
-            <NButton type="info" @click="handleStartExercise">
-              <template #icon>
-                <icon-mdi-play-circle-outline class="text-icon" />
-              </template>
-              {{ $t("page.ai.vocabulary.startPractice") }}
-            </NButton>
+          <div class="flex gap-2 justify-between">
+            <div class="flex gap-2">
+              <NButton
+                size="small"
+                :type="isSelectionMode ? 'primary' : 'default'"
+                @click="isSelectionMode = !isSelectionMode"
+              >
+                <template #icon>
+                  <icon-mdi-checkbox-multiple-marked-outline class="text-icon" />
+                </template>
+              </NButton>
+              <NButton
+                type="info"
+                size="small"
+                @click="handleStartExercise"
+              >
+                <template #icon>
+                  <icon-mdi-play-circle-outline class="text-icon" />
+                </template>
+              </NButton>
+            </div>
             <ButtonIcon
               icon="mdi:refresh"
               :tooltip-content="$t('common.refresh')"
               @click="loadData"
             />
           </div>
-        </div>
+        </template>
+        <template v-else>
+          <div class="flex justify-between items-center">
+            <div class="flex gap-4 items-center">
+              <NInput
+                v-model:value="keyword"
+                :placeholder="$t('page.ai.vocabulary.searchPlaceholder')"
+                clearable
+                style="width: 260px"
+                @keyup.enter="loadData"
+              />
+              <NButton type="primary" @click="loadData">
+                <template #icon>
+                  <icon-mdi-magnify class="text-icon" />
+                </template>
+                {{ $t("common.search") }}
+              </NButton>
+            </div>
+            <div class="flex gap-2 items-center">
+              <NButton
+                :type="isSelectionMode ? 'primary' : 'default'"
+                @click="isSelectionMode = !isSelectionMode"
+              >
+                <template #icon>
+                  <icon-mdi-checkbox-multiple-marked-outline class="text-icon" />
+                </template>
+                {{
+                  isSelectionMode
+                    ? $t("page.ai.vocabulary.selectMode")
+                    : $t("page.ai.vocabulary.selectModeOn")
+                }}
+              </NButton>
+              <NButton type="info" @click="handleStartExercise">
+                <template #icon>
+                  <icon-mdi-play-circle-outline class="text-icon" />
+                </template>
+                {{ $t("page.ai.vocabulary.startPractice") }}
+              </NButton>
+              <ButtonIcon
+                icon="mdi:refresh"
+                :tooltip-content="$t('common.refresh')"
+                @click="loadData"
+              />
+            </div>
+          </div>
+        </template>
 
+        <!-- PC: DataTable -->
         <NDataTable
+          v-if="!appStore.isMobile"
           v-model:checked-row-keys="checkedRowKeys"
           :columns="columns"
           :data="data"
@@ -317,6 +368,64 @@ onMounted(() => {
           flex-height
           class="flex-1"
         />
+
+        <!-- Mobile: Card List -->
+        <NSpin v-if="appStore.isMobile && loading" class="flex justify-center py-8" />
+        <div v-else-if="appStore.isMobile" class="flex flex-col gap-3">
+          <NCard
+            v-for="row in data"
+            :key="row.id"
+            size="small"
+            :bordered="true"
+          >
+            <div class="flex flex-col gap-2">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <span class="text-lg font-bold text-primary">{{ row.word }}</span>
+                  <NButton
+                    circle
+                    size="tiny"
+                    quaternary
+                    type="primary"
+                    @click="handlePlay(row.word)"
+                  >
+                    <template #icon>
+                      <SvgIcon icon="mdi:volume-high" class="text-18px" />
+                    </template>
+                  </NButton>
+                </div>
+                <span class="text-xs text-gray-400">{{ row.phonetic }}</span>
+              </div>
+              <div class="text-sm text-gray-600 dark:text-gray-400">{{ row.definition }}</div>
+              <div v-if="row.example" class="text-xs text-gray-500 italic">{{ row.example }}</div>
+              <div v-if="row.confusingWords" class="text-xs text-gray-400">
+                {{ $t("page.ai.vocabulary.confusing") }}: {{ row.confusingWords }}
+              </div>
+              <div class="flex items-center justify-between mt-1">
+                <span class="text-xs text-gray-400">{{ new Date(row.createdAt).toLocaleDateString() }}</span>
+                <div class="flex gap-1">
+                  <NButton
+                    size="tiny"
+                    :type="activeTab === 'new' ? 'success' : 'warning'"
+                    quaternary
+                    @click="handleToggleMastered(row)"
+                  >
+                    {{ activeTab === 'new' ? $t("page.ai.vocabulary.masteredBtn") : $t("page.ai.vocabulary.moveBackBtn") }}
+                  </NButton>
+                  <NPopconfirm @positive-click="handleDelete(row.id)">
+                    <template #trigger>
+                      <NButton size="tiny" type="error" quaternary>
+                        {{ $t("common.delete") }}
+                      </NButton>
+                    </template>
+                    {{ $t("page.ai.vocabulary.deleteConfirm") }}
+                  </NPopconfirm>
+                </div>
+              </div>
+            </div>
+          </NCard>
+          <NEmpty v-if="data.length === 0" class="py-8" />
+        </div>
       </div>
     </NCard>
   </div>

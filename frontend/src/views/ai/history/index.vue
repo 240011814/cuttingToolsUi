@@ -14,11 +14,14 @@ import {
 import type { DataTableColumns } from "naive-ui";
 import { fetchHistoryList, fetchHistoryDetail, fetchUpdateFavorite, fetchDeleteHistory, fetchGenerateShareToken, fetchRevokeShareToken } from "@/service/api";
 import { $t } from "@/locales";
+import { useAppStore } from "@/store/modules/app";
 
 import MarkdownIt from "markdown-it";
 import texmath from "markdown-it-texmath";
 import katex from "katex";
 import "katex/dist/katex.min.css";
+
+const appStore = useAppStore();
 
 const router = useRouter();
 const md = new MarkdownIt({
@@ -195,6 +198,16 @@ const handleRevokeShare = async (row: any) => {
   }
 };
 
+const getTrainingTypeLabel = (trainingType: string) => {
+  const typeMap: Record<string, string> = {
+    ai_chat: $t("route.ai_chat"),
+    ai_decision: $t("route.ai_decision"),
+    ai_social: $t("route.ai_social"),
+    ai_emergency: $t("route.ai_emergency"),
+  };
+  return typeMap[trainingType] || trainingType;
+};
+
 const columns = computed<DataTableColumns<any>>(() => {
   return [
     {
@@ -359,48 +372,84 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="h-full flex-col flex gap-4 p-4">
-    <NCard :bordered="false" shadow="sm" class="flex-1">
+  <div class="h-full flex-col flex gap-4" :class="appStore.isMobile ? 'p-2' : 'p-4'">
+    <NCard :bordered="false" :shadow="appStore.isMobile ? false : 'sm'" class="flex-1">
       <template #header>
         <div class="flex items-center gap-4">
-          <span class="text-18px font-bold">{{ $t("page.ai.history.title") }}</span>
+          <span class="font-bold" :class="appStore.isMobile ? 'text-16px' : 'text-18px'">{{ $t("page.ai.history.title") }}</span>
         </div>
       </template>
       <div class="flex flex-col h-full gap-4">
-        <div class="flex justify-between items-center">
-          <div class="flex gap-4 items-center">
+        <!-- Search and Actions -->
+        <template v-if="appStore.isMobile">
+          <div class="flex gap-2">
             <NInput
               v-model:value="title"
               :placeholder="$t('page.ai.history.searchPlaceholder')"
               clearable
-              style="width: 240px"
+              class="flex-1"
               @keyup.enter="loadData"
-            />
-            <NSelect
-              v-model:value="favoriteFilter"
-              :placeholder="$t('page.ai.history.favoriteStatus')"
-              clearable
-              :options="(favoriteOptions as any)"
-              style="width: 120px"
-              @update:value="loadData"
             />
             <NButton type="primary" @click="loadData">
               <template #icon>
                 <icon-mdi-magnify class="text-icon" />
               </template>
-              {{ $t("common.search") }}
             </NButton>
           </div>
-          <div class="flex gap-2 items-center">
+          <div class="flex gap-2 justify-between">
+            <NSelect
+              v-model:value="favoriteFilter"
+              :placeholder="$t('page.ai.history.favoriteStatus')"
+              clearable
+              :options="(favoriteOptions as any)"
+              style="flex: 1"
+              @update:value="loadData"
+            />
             <NButton quaternary @click="loadData">
               <template #icon>
                 <SvgIcon icon="mdi:refresh" class="text-icon" />
               </template>
             </NButton>
           </div>
-        </div>
+        </template>
+        <template v-else>
+          <div class="flex justify-between items-center">
+            <div class="flex gap-4 items-center">
+              <NInput
+                v-model:value="title"
+                :placeholder="$t('page.ai.history.searchPlaceholder')"
+                clearable
+                style="width: 240px"
+                @keyup.enter="loadData"
+              />
+              <NSelect
+                v-model:value="favoriteFilter"
+                :placeholder="$t('page.ai.history.favoriteStatus')"
+                clearable
+                :options="(favoriteOptions as any)"
+                style="width: 120px"
+                @update:value="loadData"
+              />
+              <NButton type="primary" @click="loadData">
+                <template #icon>
+                  <icon-mdi-magnify class="text-icon" />
+                </template>
+                {{ $t("common.search") }}
+              </NButton>
+            </div>
+            <div class="flex gap-2 items-center">
+              <NButton quaternary @click="loadData">
+                <template #icon>
+                  <SvgIcon icon="mdi:refresh" class="text-icon" />
+                </template>
+              </NButton>
+            </div>
+          </div>
+        </template>
 
+        <!-- PC: DataTable -->
         <NDataTable
+          v-if="!appStore.isMobile"
           :columns="columns"
           :data="data"
           :loading="loading"
@@ -410,10 +459,80 @@ onMounted(() => {
           flex-height
           class="flex-1"
         />
+
+        <!-- Mobile: Card List -->
+        <NSpin v-if="appStore.isMobile && loading" class="flex justify-center py-8" />
+        <div v-else-if="appStore.isMobile" class="flex flex-col gap-3">
+          <NCard
+            v-for="row in data"
+            :key="row.id"
+            size="small"
+            :bordered="true"
+          >
+            <div class="flex flex-col gap-2">
+              <div class="flex items-center justify-between">
+                <NTag type="info" :bordered="false" size="small">
+                  {{ getTrainingTypeLabel(row.training_type) }}
+                </NTag>
+                <div
+                  class="cursor-pointer"
+                  @click="handleToggleFavorite(row)"
+                >
+                  <SvgIcon
+                    :icon="row.is_favorite ? 'mdi:star' : 'mdi:star-outline'"
+                    :class="row.is_favorite ? 'text-yellow-500 text-xl' : 'text-gray-400 text-xl'"
+                  />
+                </div>
+              </div>
+              <div class="font-bold text-base">{{ row.title }}</div>
+              <div v-if="row.last_message" class="text-xs text-gray-500 line-clamp-2">
+                {{ row.last_message }}
+              </div>
+              <div v-else class="text-xs text-gray-400">{{ $t("page.ai.history.noChatRecord") }}</div>
+              <div class="flex items-center justify-between mt-1">
+                <span class="text-xs text-gray-400">{{ new Date(row.created_at).toLocaleDateString() }}</span>
+                <div class="flex gap-1">
+                  <NButton size="tiny" type="primary" quaternary @click="handleView(row)">
+                    {{ $t("page.ai.history.view") }}
+                  </NButton>
+                  <NButton size="tiny" type="success" quaternary @click="handleContinue(row)">
+                    {{ $t("page.ai.history.continueTraining") }}
+                  </NButton>
+                  <NButton
+                    size="tiny"
+                    type="info"
+                    quaternary
+                    @click="row.share_token ? handleCopyShareLink(row) : handleShare(row)"
+                  >
+                    {{ row.share_token ? $t("page.ai.history.copyLink") : $t("page.ai.history.share") }}
+                  </NButton>
+                  <NPopconfirm @positive-click="handleDelete(row)">
+                    <template #trigger>
+                      <NButton size="tiny" type="error" quaternary>
+                        {{ $t("common.delete") }}
+                      </NButton>
+                    </template>
+                    {{ $t("page.ai.history.deleteConfirm") }}
+                  </NPopconfirm>
+                </div>
+              </div>
+            </div>
+          </NCard>
+          <NEmpty v-if="data.length === 0" class="py-8" />
+          <!-- Mobile Pagination -->
+          <div v-if="data.length > 0" class="flex justify-center mt-2">
+            <NPagination
+              v-model:page="pagination.page"
+              :page-size="pagination.pageSize"
+              :item-count="pagination.itemCount"
+              @update:page="pagination.onChange"
+            />
+          </div>
+        </div>
       </div>
     </NCard>
 
-    <NDrawer v-model:show="showDrawer" width="600" placement="right">
+    <NDrawer v-model:show="showDrawer" :width="appStore.isMobile ? '90vw' : '600'" placement="right">
       <NDrawerContent :title="$t('page.ai.history.chatDetail')">
         <div class="flex flex-col gap-4">
           <div

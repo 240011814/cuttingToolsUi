@@ -8,6 +8,9 @@ import texmath from "markdown-it-texmath";
 import katex from "katex";
 import "katex/dist/katex.min.css";
 import { $t } from "@/locales";
+import { useAppStore } from "@/store/modules/app";
+
+const appStore = useAppStore();
 
 const md = new MarkdownIt({
   html: true,
@@ -244,53 +247,93 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="h-full flex-col flex gap-4 p-4">
-    <NCard :bordered="false" shadow="sm" class="flex-1">
+  <div class="h-full flex-col flex gap-4" :class="appStore.isMobile ? 'p-2' : 'p-4'">
+    <NCard :bordered="false" :shadow="appStore.isMobile ? false : 'sm'" class="flex-1">
       <template #header>
         <div class="flex items-center gap-4">
-          <span class="text-18px font-bold">{{ $t("page.ai.note.title") }}</span>
+          <span class="font-bold" :class="appStore.isMobile ? 'text-16px' : 'text-18px'">{{ $t("page.ai.note.title") }}</span>
         </div>
       </template>
       <div class="flex flex-col h-full gap-4">
-        <div class="flex justify-between items-center">
-          <div class="flex gap-4 items-center">
+        <!-- Search and Actions -->
+        <template v-if="appStore.isMobile">
+          <div class="flex gap-2">
             <NInput
               v-model:value="keyword"
               :placeholder="$t('page.ai.note.searchTitlePlaceholder')"
               clearable
-              style="width: 260px"
-              @keyup.enter="loadData"
-            />
-            <NInput
-              v-model:value="category"
-              :placeholder="$t('page.ai.note.searchCategoryPlaceholder')"
-              clearable
-              style="width: 200px"
+              class="flex-1"
               @keyup.enter="loadData"
             />
             <NButton type="primary" @click="loadData">
               <template #icon>
                 <icon-mdi-magnify class="text-icon" />
               </template>
-              {{ $t("common.search") }}
             </NButton>
           </div>
-          <div class="flex gap-2 items-center">
+          <div class="flex gap-2">
+            <NInput
+              v-model:value="category"
+              :placeholder="$t('page.ai.note.searchCategoryPlaceholder')"
+              clearable
+              class="flex-1"
+              @keyup.enter="loadData"
+            />
             <ButtonIcon
               icon="mdi:refresh"
               :tooltip-content="$t('common.refresh')"
               @click="loadData"
             />
-            <NButton type="primary" @click="handleAdd">
+            <NButton type="primary" size="small" @click="handleAdd">
               <template #icon>
                 <icon-mdi-plus class="text-icon" />
               </template>
-              {{ $t("page.ai.note.addNote") }}
             </NButton>
           </div>
-        </div>
+        </template>
+        <template v-else>
+          <div class="flex justify-between items-center">
+            <div class="flex gap-4 items-center">
+              <NInput
+                v-model:value="keyword"
+                :placeholder="$t('page.ai.note.searchTitlePlaceholder')"
+                clearable
+                style="width: 260px"
+                @keyup.enter="loadData"
+              />
+              <NInput
+                v-model:value="category"
+                :placeholder="$t('page.ai.note.searchCategoryPlaceholder')"
+                clearable
+                style="width: 200px"
+                @keyup.enter="loadData"
+              />
+              <NButton type="primary" @click="loadData">
+                <template #icon>
+                  <icon-mdi-magnify class="text-icon" />
+                </template>
+                {{ $t("common.search") }}
+              </NButton>
+            </div>
+            <div class="flex gap-2 items-center">
+              <ButtonIcon
+                icon="mdi:refresh"
+                :tooltip-content="$t('common.refresh')"
+                @click="loadData"
+              />
+              <NButton type="primary" @click="handleAdd">
+                <template #icon>
+                  <icon-mdi-plus class="text-icon" />
+                </template>
+                {{ $t("page.ai.note.addNote") }}
+              </NButton>
+            </div>
+          </div>
+        </template>
 
+        <!-- PC: DataTable -->
         <NDataTable
+          v-if="!appStore.isMobile"
           :columns="columns"
           :data="data"
           :loading="loading"
@@ -300,6 +343,57 @@ onMounted(() => {
           flex-height
           class="flex-1"
         />
+
+        <!-- Mobile: Card List -->
+        <NSpin v-if="appStore.isMobile && loading" class="flex justify-center py-8" />
+        <div v-else-if="appStore.isMobile" class="flex flex-col gap-3">
+          <NCard
+            v-for="row in data"
+            :key="row.id"
+            size="small"
+            :bordered="true"
+          >
+            <div class="flex flex-col gap-2">
+              <div class="flex items-center justify-between">
+                <span class="font-bold text-base">{{ row.title || $t("page.ai.note.noTitle") }}</span>
+                <NTag type="info" :bordered="false" size="small">{{ row.category }}</NTag>
+              </div>
+              <div
+                class="prose dark:prose-invert max-w-none max-h-20 overflow-y-auto text-xs leading-relaxed"
+                v-html="md.render(row.content || '')"
+              ></div>
+              <div class="flex items-center justify-between mt-1">
+                <span class="text-xs text-gray-400">{{ new Date(row.createdAt).toLocaleDateString() }}</span>
+                <div class="flex gap-1">
+                  <NButton size="tiny" type="primary" quaternary @click="handleView(row)">
+                    {{ $t("page.ai.note.view") }}
+                  </NButton>
+                  <NButton size="tiny" type="info" quaternary @click="handleEdit(row)">
+                    {{ $t("page.ai.note.edit") }}
+                  </NButton>
+                  <NPopconfirm @positive-click="handleDelete(row.id)">
+                    <template #trigger>
+                      <NButton size="tiny" type="error" quaternary>
+                        {{ $t("common.delete") }}
+                      </NButton>
+                    </template>
+                    {{ $t("page.ai.note.deleteConfirm") }}
+                  </NPopconfirm>
+                </div>
+              </div>
+            </div>
+          </NCard>
+          <NEmpty v-if="data.length === 0" class="py-8" />
+          <!-- Mobile Pagination -->
+          <div v-if="data.length > 0" class="flex justify-center mt-2">
+            <NPagination
+              v-model:page="pagination.page"
+              :page-size="pagination.pageSize"
+              :item-count="pagination.itemCount"
+              @update:page="pagination.onChange"
+            />
+          </div>
+        </div>
       </div>
     </NCard>
 
@@ -308,7 +402,7 @@ onMounted(() => {
       v-model:show="showViewModal"
       preset="card"
       :title="$t('page.ai.note.viewNote')"
-      style="width: 800px; max-width: 95vw"
+      :style="{ width: appStore.isMobile ? '95vw' : '800px' }"
       :segmented="{ content: 'soft' }"
     >
       <!-- eslint-disable-next-line vue/no-v-html -->
@@ -324,11 +418,11 @@ onMounted(() => {
       v-model:show="showEditModal"
       preset="card"
       :title="isEdit ? $t('page.ai.note.editNote') : $t('page.ai.note.addNote')"
-      style="width: 800px; max-width: 95vw"
+      :style="{ width: appStore.isMobile ? '95vw' : '800px' }"
       :segmented="{ content: 'soft' }"
     >
-      <NForm :model="editForm" label-placement="left" label-width="80">
-        <div class="flex gap-4">
+      <NForm :model="editForm" label-placement="left" :label-width="appStore.isMobile ? '60' : '80'">
+        <div :class="appStore.isMobile ? 'flex flex-col gap-2' : 'flex gap-4'">
           <NFormItem :label="$t('page.ai.note.noteTitle')" path="title" class="flex-1">
             <NInput
               v-model:value="editForm.title"
@@ -338,7 +432,7 @@ onMounted(() => {
           <NFormItem
             :label="$t('page.ai.note.category')"
             path="category"
-            style="width: 240px"
+            :style="appStore.isMobile ? {} : { width: '240px' }"
           >
             <NInput
               v-model:value="editForm.category"
@@ -347,17 +441,17 @@ onMounted(() => {
           </NFormItem>
         </div>
         <NFormItem :label="$t('page.ai.note.content')" path="content">
-          <div class="grid grid-cols-2 gap-4 w-full">
+          <div :class="appStore.isMobile ? 'flex flex-col gap-4 w-full' : 'grid grid-cols-2 gap-4 w-full'">
             <NInput
               v-model:value="editForm.content"
               type="textarea"
-              :autosize="{ minRows: 12, maxRows: 15 }"
+              :autosize="appStore.isMobile ? { minRows: 6, maxRows: 10 } : { minRows: 12, maxRows: 15 }"
               :placeholder="$t('page.ai.note.noteContentPlaceholder')"
             />
             <!-- eslint-disable-next-line vue/no-v-html -->
             <div
               class="prose dark:prose-invert max-w-none overflow-y-auto p-4 border border-gray-200 dark:border-gray-700 rounded-md bg-gray-50/50 dark:bg-dark-100 text-sm leading-relaxed"
-              style="height: 100%; max-height: 350px"
+              :style="appStore.isMobile ? { maxHeight: '200px' } : { height: '100%', maxHeight: '350px' }"
               v-html="md.render(editForm.content)"
             ></div>
           </div>

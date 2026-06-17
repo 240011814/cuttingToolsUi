@@ -15,6 +15,7 @@ export interface TrainingHistory {
   training_type: string;
   title: string;
   is_favorite: boolean;
+  share_token?: string;
   messages: TrainingMessage[];
   last_message?: string;
   created_at: string;
