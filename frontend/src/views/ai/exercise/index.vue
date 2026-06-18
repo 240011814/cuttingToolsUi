@@ -268,11 +268,14 @@ onUnmounted(() => {
   window.removeEventListener("keydown", handleGlobalKeydown);
 });
 
-watch(isFinished, (val) => {
-  if (val) {
-    window.removeEventListener("keydown", handleGlobalKeydown);
+watch(
+  () => route.query,
+  () => {
+    if (!isStarted.value) {
+      loadData();
+    }
   }
-});
+);
 </script>
 
 <template>
