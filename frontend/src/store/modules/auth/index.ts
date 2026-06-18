@@ -23,6 +23,8 @@ export const useAuthStore = defineStore(SetupStoreId.Auth, () => {
   const token = ref('');
   let refreshTimer: ReturnType<typeof setInterval> | null = null;
 
+  const proxyMode = ref(false);
+
   const twoFAState = reactive({
     need2FA: false,
     needSetup: false,
@@ -80,6 +82,8 @@ export const useAuthStore = defineStore(SetupStoreId.Auth, () => {
     twoFAState.need2FA = false;
     twoFAState.needSetup = false;
     twoFAState.tempToken = '';
+
+    proxyMode.value = false;
 
     authStore.$reset();
 
@@ -255,8 +259,10 @@ export const useAuthStore = defineStore(SetupStoreId.Auth, () => {
     isLogin,
     loginLoading,
     twoFAState,
+    proxyMode,
     resetStore,
     login,
+    loginByToken,
     completeTwoFactorLogin,
     initUserInfo
   };

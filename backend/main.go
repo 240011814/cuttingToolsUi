@@ -32,7 +32,7 @@ func main() {
 
 	authService := service.NewAuthService(cfg)
 	adminService := service.NewAdminService()
-	adminHandler := api.NewAdminHandler(adminService, aiService)
+	adminHandler := api.NewAdminHandler(adminService, aiService, authService)
 
 	vocabService := service.NewVocabularyService()
 	vocabHandler := api.NewVocabularyHandler(vocabService)
@@ -186,6 +186,7 @@ func main() {
 			adminGroup.POST("/users", api.RequirePermission("system:user:create"), adminHandler.HandleCreateUser)
 			adminGroup.PUT("/users/:id", api.RequirePermission("system:user:update"), adminHandler.HandleUpdateUser)
 			adminGroup.DELETE("/users/:id", api.RequirePermission("system:user:delete"), adminHandler.HandleDeleteUser)
+			adminGroup.POST("/users/:id/proxy-login", api.RequireRole("R_SUPER"), adminHandler.HandleProxyLogin)
 
 			// Role Management
 			adminGroup.GET("/roles", api.RequirePermission("system:role:list"), adminHandler.HandleListRoles)

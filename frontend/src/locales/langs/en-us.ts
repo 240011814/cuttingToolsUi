@@ -319,6 +319,16 @@ const local: App.I18n.Schema = {
       trainingType: "Training Type",
       trainingTypeStats: "Training Type Distribution",
       trainingCount: "Training Count",
+      creativity: "Creativity",
+      projectNews: {
+        title: "Project News",
+        desc1: "Soybean Admin first version released",
+        desc2: "Soybean Admin officially launched, based on Vue3 + TypeScript",
+        desc3: "Added permission management module",
+        desc4: "Added dark mode support",
+        desc5: "Optimized mobile adaptation",
+        moreNews: "View More",
+      },
     },
     system: {
       user: {
@@ -342,6 +352,9 @@ const local: App.I18n.Schema = {
         userNameRequired: "Please enter username",
         passwordRequired: "Please enter password",
         roleRequired: "Please select role",
+        proxyLogin: "Proxy Login",
+        proxyLoginConfirm: "Confirm login as this user?",
+        proxyLoginSuccess: "Proxy login successful",
       },
       permission: {
         title: "Permission Management",
@@ -729,6 +742,10 @@ const local: App.I18n.Schema = {
       right: "Right Fixed",
       unFixed: "Unfixed",
     },
+  },
+  proxy: {
+    desc: "Proxy login mode - Operating as {userName}",
+    exit: "Exit Proxy",
   },
 };
 

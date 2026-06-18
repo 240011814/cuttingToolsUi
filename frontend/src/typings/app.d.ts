@@ -560,6 +560,16 @@ declare namespace App {
           trainingType: string;
           trainingTypeStats: string;
           trainingCount: string;
+          creativity: string;
+          projectNews: {
+            title: string;
+            desc1: string;
+            desc2: string;
+            desc3: string;
+            desc4: string;
+            desc5: string;
+            moreNews: string;
+          };
         };
         system: {
           user: {
@@ -583,6 +593,9 @@ declare namespace App {
             userNameRequired: string;
             passwordRequired: string;
             roleRequired: string;
+            proxyLogin: string;
+            proxyLoginConfirm: string;
+            proxyLoginSuccess: string;
           };
           permission: {
             title: string;
@@ -791,6 +804,10 @@ declare namespace App {
           right: string;
           unFixed: string;
         };
+      };
+      proxy: {
+        desc: string;
+        exit: string;
       };
     };
 

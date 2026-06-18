@@ -315,6 +315,16 @@ const local: App.I18n.Schema = {
       trainingType: "训练类型",
       trainingTypeStats: "训练类型分布",
       trainingCount: "训练次数",
+      creativity: "创意",
+      projectNews: {
+        title: "项目动态",
+        desc1: "Soybean Admin 首个版本发布",
+        desc2: "Soybean Admin 正式推出，基于 Vue3 + TypeScript",
+        desc3: "新增权限管理模块",
+        desc4: "新增暗黑模式支持",
+        desc5: "优化移动端适配",
+        moreNews: "查看更多",
+      },
     },
     system: {
       user: {
@@ -338,6 +348,9 @@ const local: App.I18n.Schema = {
         userNameRequired: "请输入用户名",
         passwordRequired: "请输入密码",
         roleRequired: "请选择角色",
+        proxyLogin: "代理登录",
+        proxyLoginConfirm: "确认以该用户身份登录？",
+        proxyLoginSuccess: "代理登录成功",
       },
       permission: {
         title: "权限管理",
@@ -723,6 +736,10 @@ const local: App.I18n.Schema = {
       right: "右固定",
       unFixed: "取消固定",
     },
+  },
+  proxy: {
+    desc: "当前为代理登录模式，正在以 {userName} 身份操作",
+    exit: "退出代理",
   },
 };
 

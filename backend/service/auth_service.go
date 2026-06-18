@@ -338,6 +338,29 @@ func (s *AuthService) VerifyTOTP(userId uint, code string) (*model.LoginResponse
 	}, nil
 }
 
+// ProxyLogin allows R_SUPER to generate tokens for another user
+func (s *AuthService) ProxyLogin(targetUserId uint) (*model.LoginResponseData, error) {
+	var user model.User
+	if err := DB.First(&user, targetUserId).Error; err != nil {
+		return nil, errors.New("目标用户不存在")
+	}
+
+	token, err := s.generateToken(user, 2*time.Hour)
+	if err != nil {
+		return nil, err
+	}
+
+	refreshToken, err := s.generateToken(user, 7*24*time.Hour)
+	if err != nil {
+		return nil, err
+	}
+
+	return &model.LoginResponseData{
+		Token:        token,
+		RefreshToken: refreshToken,
+	}, nil
+}
+
 func (s *AuthService) getPermissionsByRole(role string) ([]string, error) {
 	if role == "R_SUPER" {
 		var permissions []model.Permission

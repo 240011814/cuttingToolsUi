@@ -7,7 +7,8 @@
       "Bash(go build *)",
       "WebFetch(domain:docs.mem0.ai)",
       "Bash(npx tsc *)",
-      "Bash(go get *)"
+      "Bash(go get *)",
+      "Bash(pnpm typecheck *)"
     ]
   }
 }

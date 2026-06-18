@@ -193,8 +193,8 @@ onMounted(() => {
                 class="flex items-center justify-center border border-white text-xs text-white"
                 :style="{
                   width:
-                    cut * (containerWidth / Math.max(...(cutResult ? cutResult.map(d => d.totalLength) : [1]))) + 'px',
-                  backgroundColor: randomColors[idx % randomColors.length]
+                    Number(cut) * (containerWidth / Math.max(...(cutResult ? cutResult.map(d => d.totalLength) : [1]))) + 'px',
+                  backgroundColor: randomColors[Number(idx) % randomColors.length]
                 }"
               >
                 {{ cut }}cm

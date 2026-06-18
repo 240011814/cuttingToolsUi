@@ -1214,8 +1214,8 @@ func (s *CutService) ListCutRecords(userID uint, params model.CutRecordSearchPar
 	}
 
 	return &model.CutRecordListResponse{
-		Total: total,
-		Items: records,
+		Total:   total,
+		Records: records,
 	}, nil
 }
 

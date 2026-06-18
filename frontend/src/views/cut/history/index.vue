@@ -85,18 +85,18 @@ const columns = computed<DataTableColumns<any>>(() => [
 async function getData() {
   loading.value = true;
   try {
-    const params: Record<string, any> = {
+    const params: Api.Cut.CutRecordSearchParams = {
       current: pagination.value.page,
-      size: pagination.value.pageSize
+      size: pagination.value.pageSize,
+      name: searchParams.value.name || undefined,
+      type: searchParams.value.type || undefined,
+      startTime: searchParams.value.startTime || undefined,
+      endTime: searchParams.value.endTime || undefined,
     };
-    if (searchParams.value.name) params.name = searchParams.value.name;
-    if (searchParams.value.type) params.type = searchParams.value.type;
-    if (searchParams.value.startTime) params.startTime = searchParams.value.startTime;
-    if (searchParams.value.endTime) params.endTime = searchParams.value.endTime;
 
     const { data: res, error } = await cutList(params);
     if (!error && res) {
-      data.value = res.items || [];
+      data.value = res.records || [];
       total.value = res.total || 0;
       pagination.value.itemCount = total.value;
     }

@@ -93,6 +93,6 @@ type CutRecordSearchParams struct {
 
 // CutRecordListResponse 切割记录列表响应
 type CutRecordListResponse struct {
-	Total int64       `json:"total"`
-	Items []CutRecord `json:"items"`
+	Total   int64       `json:"total"`
+	Records []CutRecord `json:"records"`
 }

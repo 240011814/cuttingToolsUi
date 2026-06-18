@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { nextTick, ref, onBeforeUnmount, onMounted } from "vue";
+import { useFullscreen } from "@vueuse/core";
 import { useMessage, NDrawer, NDrawerContent, NModal, NInput } from "naive-ui";
 import { useAppStore } from "@/store/modules/app";
 import {
@@ -67,6 +68,8 @@ const md = new MarkdownIt({
 }).use(texmath, { engine: katex, delimiters: "dollars" });
 const { hasAuth } = useAuth();
 const appStore = useAppStore();
+const containerRef = ref<HTMLElement>();
+const { isFullscreen, toggle: toggleFullscreen } = useFullscreen(containerRef);
 
 const renderMarkdown = (content: string) => {
   return md.render(content).trim();
@@ -596,6 +599,7 @@ onBeforeUnmount(() => {
 
 <template>
   <div
+    ref="containerRef"
     class="h-full flex-col flex overflow-hidden"
     :class="appStore.isMobile ? 'p-1 gap-1' : 'p-4 gap-4'"
   >
@@ -626,6 +630,16 @@ onBeforeUnmount(() => {
           </NButton>
         </div>
         <div class="flex items-center gap-1 shrink-0">
+          <NButton
+            v-if="appStore.isMobile"
+            quaternary
+            size="small"
+            @click="toggleFullscreen"
+          >
+            <template #icon>
+              <SvgIcon :icon="isFullscreen ? 'mdi:fullscreen-exit' : 'mdi:fullscreen'" />
+            </template>
+          </NButton>
           <NButton
             quaternary
             size="small"
@@ -945,7 +959,7 @@ onBeforeUnmount(() => {
                 v-model:value="inputMessage"
                 type="textarea"
                 :autosize="{ minRows: 1, maxRows: 4 }"
-                :placeholder="inputPlaceholder"
+                placeholder=""
                 :bordered="false"
                 class="input-textarea"
                 @keydown="handleEnter"

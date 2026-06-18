@@ -16,6 +16,10 @@ export function fetchDeleteUser(userId: number) {
   return request({ url: `/api/admin/users/${userId}`, method: 'delete' });
 }
 
+export function fetchProxyLogin(userId: number) {
+  return request<Api.Auth.LoginToken>({ url: `/api/admin/users/${userId}/proxy-login`, method: 'post' });
+}
+
 export function fetchGetRoles() {
   return request<Api.Admin.Role[]>({ url: '/api/admin/roles' });
 }

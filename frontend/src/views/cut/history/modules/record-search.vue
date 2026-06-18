@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, defineEmits, defineModel, defineOptions } from 'vue';
+import { computed } from 'vue';
 import { useNaiveForm } from '@/hooks/common/form';
 import { $t } from '@/locales';
 

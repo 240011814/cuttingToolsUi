@@ -9,12 +9,13 @@ import (
 )
 
 type AdminHandler struct {
-	svc   *service.AdminService
-	aiSvc *service.AIService
+	svc     *service.AdminService
+	aiSvc   *service.AIService
+	authSvc *service.AuthService
 }
 
-func NewAdminHandler(svc *service.AdminService, aiSvc *service.AIService) *AdminHandler {
-	return &AdminHandler{svc: svc, aiSvc: aiSvc}
+func NewAdminHandler(svc *service.AdminService, aiSvc *service.AIService, authSvc *service.AuthService) *AdminHandler {
+	return &AdminHandler{svc: svc, aiSvc: aiSvc, authSvc: authSvc}
 }
 
 func (h *AdminHandler) HandleListUsers(c *gin.Context) {
@@ -69,6 +70,20 @@ func (h *AdminHandler) HandleDeleteUser(c *gin.Context) {
 		return
 	}
 	SendSuccess(c, nil)
+}
+
+func (h *AdminHandler) HandleProxyLogin(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		SendError(c, "400", "用户 ID 不合法")
+		return
+	}
+	res, err := h.authSvc.ProxyLogin(uint(id))
+	if err != nil {
+		SendError(c, "500", "代理登录失败: "+err.Error())
+		return
+	}
+	SendSuccess(c, res)
 }
 
 func (h *AdminHandler) HandleListRoles(c *gin.Context) {
