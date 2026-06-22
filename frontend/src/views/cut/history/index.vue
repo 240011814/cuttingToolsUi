@@ -183,7 +183,7 @@ onMounted(() => {
             />
             <NButton type="primary" @click="getData">
               <template #icon>
-                <icon-ic-round-search class="text-icon" />
+                <IconIcRoundSearch class="text-icon" />
               </template>
               {{ $t('common.search') }}
             </NButton>
@@ -191,7 +191,7 @@ onMounted(() => {
           <div class="flex gap-2 items-center">
             <NButton quaternary @click="resetSearchParams">
               <template #icon>
-                <icon-ic-round-refresh class="text-icon" />
+                <IconIcRoundRefresh class="text-icon" />
               </template>
             </NButton>
           </div>

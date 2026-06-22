@@ -1,0 +1,7 @@
+{
+  "title": "抽奖",
+  "i18nKey": "route.lottery",
+  "icon": "mdi:gift",
+  "layout": "blank",
+  "order": 99
+}

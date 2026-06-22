@@ -2,7 +2,7 @@
 import { ref, nextTick, onActivated } from "vue";
 
 defineOptions({
-  name: 'ai_custom-training'
+  name: 'AiCustomTraining'
 });
 import { useRoute } from "vue-router";
 import TrainingChat from "../components/training-chat.vue";

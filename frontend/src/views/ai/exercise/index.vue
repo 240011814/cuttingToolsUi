@@ -390,14 +390,14 @@ watch(
             v-if="isPlaying"
             class="flex items-center gap-2 animate-bounce text-primary"
           >
-            <icon-mdi-volume-high class="text-24px" />
+            <IconMdiVolumeHigh class="text-24px" />
             <span class="text-sm font-bold tracking-tighter">Listening...</span>
           </div>
           <div
             v-else-if="wordResults.some((r) => r.status === 'error')"
             class="flex items-center gap-2 text-red-400 font-medium"
           >
-            <icon-mdi-alert-circle class="text-20px" />
+            <IconMdiAlertCircle class="text-20px" />
             <span>请修正标红的拼写错误</span>
           </div>
           <div class="flex gap-10 text-xs uppercase tracking-widest font-bold">

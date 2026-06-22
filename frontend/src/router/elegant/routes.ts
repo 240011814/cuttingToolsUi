@@ -291,6 +291,18 @@ export const generatedRoutes: GeneratedRoute[] = [
     }
   },
   {
+    name: 'lottery',
+    path: '/lottery/:id',
+    component: 'layout.blank$view.lottery',
+    props: true,
+    meta: {
+      title: 'lottery',
+      i18nKey: 'route.lottery',
+      constant: true,
+      hideInMenu: true
+    }
+  },
+  {
     name: 'share',
     path: '/share/:token',
     component: 'layout.blank$view.share',
@@ -334,6 +346,17 @@ export const generatedRoutes: GeneratedRoute[] = [
           i18nKey: 'route.system_config',
           icon: 'mdi:tune-variant',
           permissions: ['R_SUPER']
+        }
+      },
+      {
+        name: 'system_lottery',
+        path: '/system/lottery',
+        component: 'view.system_lottery',
+        meta: {
+          title: 'system_lottery',
+          i18nKey: 'route.system_lottery',
+          icon: 'mdi:gift',
+          permissions: ['lottery:activity:view']
         }
       },
       {

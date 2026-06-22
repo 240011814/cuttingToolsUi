@@ -314,7 +314,7 @@ onMounted(() => {
                 :style="{
                   width:
                     item.remaining *
-                      (containerWidth / Math.max(...(cutResult ? cutResult.map(d => d.totalLength) : [1]))) +
+                    (containerWidth / Math.max(...(cutResult ? cutResult.map(d => d.totalLength) : [1]))) +
                     'px'
                 }"
               >

@@ -423,7 +423,7 @@ onMounted(() => {
             />
             <NButton type="primary" @click="loadData">
               <template #icon>
-                <icon-mdi-magnify class="text-icon" />
+                <IconMdiMagnify class="text-icon" />
               </template>
             </NButton>
           </div>
@@ -463,7 +463,7 @@ onMounted(() => {
               />
               <NButton type="primary" @click="loadData">
                 <template #icon>
-                  <icon-mdi-magnify class="text-icon" />
+                  <IconMdiMagnify class="text-icon" />
                 </template>
                 {{ $t("common.search") }}
               </NButton>

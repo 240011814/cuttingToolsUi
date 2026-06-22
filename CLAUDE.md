@@ -94,3 +94,5 @@ frontend/
 - 开发中遇到的过的问题和错误以及一些经验，写入到CLAUDE.MD 开发经验中
 
 ## 开发经验
+
+MySQL 不支持在一个查询中执行多条 SQL 语句。需要将建表语句拆分成独立的 -- +goose StatementBegin 块

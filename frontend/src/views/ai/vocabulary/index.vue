@@ -252,13 +252,13 @@ onMounted(() => {
           >
             <NTab name="new">
               <div class="flex items-center gap-2">
-                <icon-mdi-book-open-variant class="text-lg" />
+                <IconMdiBookOpenVariant class="text-lg" />
                 <span>{{ $t("page.ai.vocabulary.wordBook") }}</span>
               </div>
             </NTab>
             <NTab name="mastered">
               <div class="flex items-center gap-2">
-                <icon-mdi-check-decagram class="text-lg text-success" />
+                <IconMdiCheckDecagram class="text-lg text-success" />
                 <span>{{ $t("page.ai.vocabulary.mastered") }}</span>
               </div>
             </NTab>
@@ -278,7 +278,7 @@ onMounted(() => {
             />
             <NButton type="primary" @click="loadData">
               <template #icon>
-                <icon-mdi-magnify class="text-icon" />
+                <IconMdiMagnify class="text-icon" />
               </template>
             </NButton>
           </div>
@@ -290,7 +290,7 @@ onMounted(() => {
                 @click="isSelectionMode = !isSelectionMode"
               >
                 <template #icon>
-                  <icon-mdi-checkbox-multiple-marked-outline class="text-icon" />
+                  <IconMdiCheckboxMultipleMarkedOutline class="text-icon" />
                 </template>
               </NButton>
               <NButton
@@ -299,7 +299,7 @@ onMounted(() => {
                 @click="handleStartExercise"
               >
                 <template #icon>
-                  <icon-mdi-play-circle-outline class="text-icon" />
+                  <IconMdiPlayCircleOutline class="text-icon" />
                 </template>
               </NButton>
             </div>
@@ -322,7 +322,7 @@ onMounted(() => {
               />
               <NButton type="primary" @click="loadData">
                 <template #icon>
-                  <icon-mdi-magnify class="text-icon" />
+                  <IconMdiMagnify class="text-icon" />
                 </template>
                 {{ $t("common.search") }}
               </NButton>
@@ -333,7 +333,7 @@ onMounted(() => {
                 @click="isSelectionMode = !isSelectionMode"
               >
                 <template #icon>
-                  <icon-mdi-checkbox-multiple-marked-outline class="text-icon" />
+                  <IconMdiCheckboxMultipleMarkedOutline class="text-icon" />
                 </template>
                 {{
                   isSelectionMode
@@ -343,7 +343,7 @@ onMounted(() => {
               </NButton>
               <NButton type="info" @click="handleStartExercise">
                 <template #icon>
-                  <icon-mdi-play-circle-outline class="text-icon" />
+                  <IconMdiPlayCircleOutline class="text-icon" />
                 </template>
                 {{ $t("page.ai.vocabulary.startPractice") }}
               </NButton>

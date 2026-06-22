@@ -67,6 +67,9 @@ func main() {
 	historyService := service.NewHistoryService()
 	historyHandler := api.NewHistoryHandler(historyService)
 
+	lotteryService := service.NewLotteryService()
+	lotteryHandler := api.NewLotteryHandler(lotteryService)
+
 	r.GET("/api/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"status":  "ok",
@@ -179,6 +182,25 @@ func main() {
 			cutRecordGroup.POST("/delete/:id", api.RequirePermission("cut:record:delete"), cutHandler.HandleDeleteRecord)
 		}
 
+		// Lottery Admin APIs (需要登录+权限)
+		lotteryGroup := apiGroup.Group("/lottery")
+		lotteryGroup.Use(api.RequirePermission("lottery:menu:view"))
+		{
+			// 活动管理
+			lotteryGroup.POST("/activities", api.RequirePermission("lottery:activity:create"), lotteryHandler.HandleCreateActivity)
+			lotteryGroup.PUT("/activities/:id", api.RequirePermission("lottery:activity:update"), lotteryHandler.HandleUpdateActivity)
+			lotteryGroup.DELETE("/activities/:id", api.RequirePermission("lottery:activity:delete"), lotteryHandler.HandleDeleteActivity)
+			lotteryGroup.DELETE("/activities/:id/records", api.RequirePermission("lottery:record:delete"), lotteryHandler.HandleDeleteRecordsByActivityID)
+
+			// 奖品管理
+			lotteryGroup.POST("/activities/:id/prizes", api.RequirePermission("lottery:prize:create"), lotteryHandler.HandleCreatePrize)
+			lotteryGroup.PUT("/prizes/:id", api.RequirePermission("lottery:prize:update"), lotteryHandler.HandleUpdatePrize)
+			lotteryGroup.DELETE("/prizes/:id", api.RequirePermission("lottery:prize:delete"), lotteryHandler.HandleDeletePrize)
+
+			// 记录管理
+			lotteryGroup.DELETE("/records/:id", api.RequirePermission("lottery:record:delete"), lotteryHandler.HandleDeleteRecord)
+		}
+
 		adminGroup := apiGroup.Group("/admin")
 		{
 			// User Management
@@ -222,6 +244,18 @@ func main() {
 				configGroup.PUT("", systemConfigHandler.Update)
 			}
 		}
+	}
+
+	// Lottery Public APIs (无需登录)
+	lotteryPublicGroup := r.Group("/api/lottery")
+	{
+		lotteryPublicGroup.GET("/activities", lotteryHandler.HandleListActivities)
+		lotteryPublicGroup.GET("/activities/:id", lotteryHandler.HandleGetActivity)
+		lotteryPublicGroup.GET("/activities/:id/prizes", lotteryHandler.HandleListPrizes)
+		lotteryPublicGroup.GET("/activities/:id/limits", lotteryHandler.HandleGetDrawLimits)
+		lotteryPublicGroup.POST("/draw/:activityId", lotteryHandler.HandleDraw)
+		lotteryPublicGroup.GET("/records", lotteryHandler.HandleListRecords)
+		lotteryPublicGroup.GET("/winners", lotteryHandler.HandleListWinners)
 	}
 
 	// Public share route (no auth required, under /api for reverse proxy compatibility)

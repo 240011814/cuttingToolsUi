@@ -294,7 +294,7 @@ onMounted(() => {
             />
             <NButton type="primary" @click="loadData">
               <template #icon>
-                <icon-mdi-magnify class="text-icon" />
+                <IconMdiMagnify class="text-icon" />
               </template>
             </NButton>
           </div>
@@ -313,7 +313,7 @@ onMounted(() => {
             />
             <NButton type="primary" size="small" @click="handleAdd">
               <template #icon>
-                <icon-mdi-plus class="text-icon" />
+                <IconMdiPlus class="text-icon" />
               </template>
             </NButton>
           </div>
@@ -337,7 +337,7 @@ onMounted(() => {
               />
               <NButton type="primary" @click="loadData">
                 <template #icon>
-                  <icon-mdi-magnify class="text-icon" />
+                  <IconMdiMagnify class="text-icon" />
                 </template>
                 {{ $t("common.search") }}
               </NButton>
@@ -350,7 +350,7 @@ onMounted(() => {
               />
               <NButton type="primary" @click="handleAdd">
                 <template #icon>
-                  <icon-mdi-plus class="text-icon" />
+                  <IconMdiPlus class="text-icon" />
                 </template>
                 {{ $t("page.ai.note.addNote") }}
               </NButton>

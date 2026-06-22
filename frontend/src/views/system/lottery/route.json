@@ -1,0 +1,7 @@
+{
+  "title": "抽奖管理",
+  "i18nKey": "route.system_lottery",
+  "icon": "mdi:gift",
+  "permissions": ["lottery:activity:view"],
+  "order": 5
+}
