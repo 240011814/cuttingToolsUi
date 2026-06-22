@@ -561,7 +561,9 @@ async function handleDeleteAllRecords() {
 
 // ==================== 分享链接 ====================
 function copyShareLink(activityId: number) {
-  const url = `${window.location.origin}/lottery/${activityId}`
+  const isHashMode = import.meta.env.VITE_ROUTER_HISTORY_MODE === 'hash'
+  const basePath = isHashMode ? '/#/' : '/'
+  const url = `${window.location.origin}${basePath}lottery/${activityId}`
   navigator.clipboard.writeText(url).then(() => {
     message.success('抽奖链接已复制')
   }).catch(() => {
