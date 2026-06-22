@@ -92,6 +92,7 @@ const prizeForm = reactive({
   description: '',
   imageUrl: '',
   prizeType: 0,
+  prizeLevel: 0,
   prizeValue: 0,
   totalCount: 1,
   probability: 0,
@@ -116,6 +117,14 @@ const prizeTypeOptions = [
   { label: '虚拟', value: 1 }
 ]
 
+const prizeLevelOptions = [
+  { label: '未设置', value: 0 },
+  { label: '特等奖', value: 1 },
+  { label: '一等奖', value: 2 },
+  { label: '二等奖', value: 3 },
+  { label: '三等奖', value: 4 }
+]
+
 // ==================== 表单验证规则 ====================
 const activityRules: FormRules = {
   name: [{ required: true, message: '请输入活动名称', trigger: ['blur', 'input'] }],
@@ -124,9 +133,9 @@ const activityRules: FormRules = {
 }
 
 const prizeRules: FormRules = {
-  name: [{ required: true, message: '请输入奖品名称', trigger: ['blur', 'input'] }],
-  totalCount: [{ required: true, type: 'number', min: 1, message: '奖品数量至少为1', trigger: ['blur', 'input'] }],
-  probability: [{ required: true, type: 'number', min: 0, max: 1, message: '概率范围 0-1', trigger: ['blur', 'input'] }]
+  name: [{ required: true, message: '请输入奖品名称', trigger: ['blur'] }],
+  totalCount: [{ required: true, type: 'number', min: 1, message: '奖品数量至少为1', trigger: ['blur', 'change'] }],
+  probability: [{ required: true, type: 'number', min: 0, max: 1, message: '概率范围 0-1', trigger: ['blur', 'change'] }]
 }
 
 // ==================== 状态标签 ====================
@@ -148,20 +157,34 @@ const statusLabel = (status: number) => {
   return map[status] || '未知'
 }
 
-const prizeTypeLabel = (type: number) => {
-  const map: Record<number, string> = {
-    0: '实物',
-    1: '虚拟'
-  }
-  return map[type] || '未知'
-}
-
 const drawModeLabel = (mode: number) => {
   const map: Record<number, string> = {
     0: '转盘',
     1: '抽卡'
   }
   return map[mode] || '转盘'
+}
+
+const prizeLevelLabel = (level: number) => {
+  const map: Record<number, string> = {
+    0: '未设置',
+    1: '特等奖',
+    2: '一等奖',
+    3: '二等奖',
+    4: '三等奖'
+  }
+  return map[level] || '未设置'
+}
+
+const prizeLevelType = (level: number) => {
+  const map: Record<number, 'error' | 'warning' | 'info' | 'success' | 'default'> = {
+    0: 'default',
+    1: 'error',
+    2: 'warning',
+    3: 'info',
+    4: 'success'
+  }
+  return map[level] || 'default'
 }
 
 // ==================== 活动表格列 ====================
@@ -246,51 +269,55 @@ const activityColumns = computed<DataTableColumns<Api.Lottery.Activity>>(() => [
 
 // ==================== 奖品表格列 ====================
 const prizeColumns = computed<DataTableColumns<Api.Lottery.Prize>>(() => [
-  { title: 'ID', key: 'id', width: 80 },
-  { title: '奖品名称', key: 'name', minWidth: 120 },
+  { title: '名称', key: 'name', width: 120, ellipsis: { tooltip: true }, fixed: 'left' },
   {
-    title: '类型',
-    key: 'prizeType',
+    title: '等级',
+    key: 'prizeLevel',
     width: 80,
     render(row) {
-      return prizeTypeLabel(row.prizeType)
+      if (row.prizeLevel === 0) return '-'
+      return h(
+        NTag,
+        { type: prizeLevelType(row.prizeLevel), bordered: false, size: 'small' },
+        { default: () => prizeLevelLabel(row.prizeLevel) }
+      )
     }
   },
-  { title: '价值', key: 'prizeValue', width: 80 },
+  { title: '价值', key: 'prizeValue', width: 70 },
   {
     title: '数量',
     key: 'count',
-    width: 100,
+    width: 70,
     render(row) {
-      return `${row.remainingCount}/${row.totalCount}`
+      return h('span', { class: row.remainingCount === 0 ? 'text-red-500' : '' }, `${row.remainingCount}/${row.totalCount}`)
     }
   },
   {
     title: '实际概率',
     key: 'probability',
-    width: 100,
+    width: 80,
     render(row) {
-      return `${(row.probability * 100).toFixed(2)}%`
+      return `${(row.probability * 100).toFixed(1)}%`
     }
   },
   {
     title: '展示概率',
     key: 'displayProbability',
-    width: 100,
+    width: 80,
     render(row) {
-      return `${(row.displayProbability * 100).toFixed(2)}%`
+      return `${(row.displayProbability * 100).toFixed(1)}%`
     }
   },
-  { title: '排序', key: 'sortOrder', width: 80 },
   {
     title: '操作',
     key: 'actions',
-    width: 150,
+    width: 120,
+    fixed: 'right',
     render(row) {
       return h(NSpace, { size: 'small' }, {
         default: () => [
           hasAuth('lottery:prize:update')
-            ? h(NButton, { size: 'small', onClick: () => openEditPrize(row) }, { default: () => '编辑' })
+            ? h(NButton, { size: 'small', type: 'primary', ghost: true, onClick: () => openEditPrize(row) }, { default: () => '编辑' })
             : null,
           hasAuth('lottery:prize:delete')
             ? h(NPopconfirm, { onPositiveClick: () => handleDeletePrize(row.id) }, {
@@ -474,6 +501,7 @@ function resetPrizeForm() {
     description: '',
     imageUrl: '',
     prizeType: 0,
+    prizeLevel: 0,
     prizeValue: 0,
     totalCount: 1,
     probability: 0,
@@ -496,6 +524,7 @@ function openEditPrize(row: Api.Lottery.Prize) {
     description: row.description,
     imageUrl: row.imageUrl,
     prizeType: row.prizeType,
+    prizeLevel: row.prizeLevel || 0,
     prizeValue: row.prizeValue,
     totalCount: row.totalCount,
     probability: row.probability,
@@ -513,6 +542,7 @@ async function handlePrizeSubmit() {
     description: prizeForm.description,
     imageUrl: prizeForm.imageUrl,
     prizeType: prizeForm.prizeType,
+    prizeLevel: prizeForm.prizeLevel,
     prizeValue: prizeForm.prizeValue,
     totalCount: prizeForm.totalCount,
     probability: prizeForm.probability,
@@ -803,56 +833,63 @@ onMounted(() => {
       v-model:show="showPrizeModal"
       preset="card"
       title="奖品管理"
-      :style="{ width: appStore.isMobile ? '95vw' : '800px' }"
+      :style="{ width: appStore.isMobile ? '95vw' : '900px' }"
       :segmented="{ content: true, footer: true }"
     >
-      <div class="flex flex-col gap-4">
-        <!-- 奖品表单 -->
-        <NForm
-          ref="prizeFormRef"
-          :model="prizeForm"
-          :rules="prizeRules"
-          label-placement="left"
-          :label-width="appStore.isMobile ? '80' : '100'"
-        >
-          <NFormItem label="奖品名称" path="name">
-            <NInput v-model:value="prizeForm.name" placeholder="请输入奖品名称" />
-          </NFormItem>
-          <NFormItem label="奖品描述" path="description">
-            <NInput v-model:value="prizeForm.description" type="textarea" placeholder="请输入奖品描述" />
-          </NFormItem>
-          <NFormItem label="图片URL" path="imageUrl">
-            <NInput v-model:value="prizeForm.imageUrl" placeholder="请输入奖品图片URL" />
-          </NFormItem>
-          <NFormItem label="奖品类型" path="prizeType">
-            <NSelect v-model:value="prizeForm.prizeType" :options="prizeTypeOptions" />
-          </NFormItem>
-          <NFormItem label="奖品价值" path="prizeValue">
-            <NInputNumber v-model:value="prizeForm.prizeValue" :min="0" style="width: 100%" />
-          </NFormItem>
-          <NFormItem label="数量" path="totalCount">
-            <NInputNumber v-model:value="prizeForm.totalCount" :min="1" style="width: 100%" />
-          </NFormItem>
-          <NFormItem label="中奖概率" path="probability">
-            <NInputNumber v-model:value="prizeForm.probability" :min="0" :max="1" :step="0.01" style="width: 100%" />
-            <span class="ml-2 text-gray-400">{{ (prizeForm.probability * 100).toFixed(2) }}%</span>
-          </NFormItem>
-          <NFormItem label="展示概率" path="displayProbability">
-            <NInputNumber v-model:value="prizeForm.displayProbability" :min="0" :max="1" :step="0.01" style="width: 100%" />
-            <span class="ml-2 text-gray-400">{{ (prizeForm.displayProbability * 100).toFixed(2) }}%</span>
-          </NFormItem>
-          <NFormItem label="排序" path="sortOrder">
-            <NInputNumber v-model:value="prizeForm.sortOrder" :min="0" style="width: 100%" />
-          </NFormItem>
-          <NFormItem>
-            <NButton type="primary" @click="handlePrizeSubmit">
-              {{ editingPrizeId === null ? '添加奖品' : '更新奖品' }}
-            </NButton>
-            <NButton v-if="editingPrizeId !== null" class="ml-2" @click="resetPrizeForm">
-              取消编辑
-            </NButton>
-          </NFormItem>
-        </NForm>
+      <div class="prize-manager">
+        <!-- 奖品表单 - 折叠面板 -->
+        <NCard size="small" :bordered="true" class="prize-form-card">
+          <template #header>
+            <div class="flex items-center justify-between">
+              <span class="font-bold">{{ editingPrizeId === null ? '添加奖品' : '编辑奖品' }}</span>
+              <NButton v-if="editingPrizeId !== null" text type="primary" size="small" @click="resetPrizeForm">
+                取消编辑
+              </NButton>
+            </div>
+          </template>
+          <NForm
+            ref="prizeFormRef"
+            :model="prizeForm"
+            :rules="prizeRules"
+            label-placement="left"
+            :label-width="80"
+          >
+            <div class="prize-form-grid">
+              <NFormItem label="名称" path="name" class="form-item-full">
+                <NInput v-model:value="prizeForm.name" placeholder="请输入奖品名称" />
+              </NFormItem>
+              <NFormItem label="类型" path="prizeType">
+                <NSelect v-model:value="prizeForm.prizeType" :options="prizeTypeOptions" />
+              </NFormItem>
+              <NFormItem label="等级" path="prizeLevel">
+                <NSelect v-model:value="prizeForm.prizeLevel" :options="prizeLevelOptions" />
+              </NFormItem>
+              <NFormItem label="价值" path="prizeValue">
+                <NInputNumber v-model:value="prizeForm.prizeValue" :min="0" style="width: 100%" />
+              </NFormItem>
+              <NFormItem label="数量" path="totalCount">
+                <NInputNumber v-model:value="prizeForm.totalCount" :min="1" style="width: 100%" />
+              </NFormItem>
+              <NFormItem label="实际概率" path="probability">
+                <NInputNumber v-model:value="prizeForm.probability" :min="0" :max="1" :step="0.01" style="width: 100%" />
+              </NFormItem>
+              <NFormItem label="展示概率" path="displayProbability">
+                <NInputNumber v-model:value="prizeForm.displayProbability" :min="0" :max="1" :step="0.01" style="width: 100%" />
+              </NFormItem>
+              <NFormItem label="图片URL" path="imageUrl" class="form-item-full">
+                <NInput v-model:value="prizeForm.imageUrl" placeholder="请输入奖品图片URL（可选）" />
+              </NFormItem>
+              <NFormItem label="描述" path="description" class="form-item-full">
+                <NInput v-model:value="prizeForm.description" type="textarea" placeholder="请输入奖品描述（可选）" :rows="2" />
+              </NFormItem>
+            </div>
+            <div class="flex justify-end mt-2">
+              <NButton type="primary" @click="handlePrizeSubmit">
+                {{ editingPrizeId === null ? '添加奖品' : '保存修改' }}
+              </NButton>
+            </div>
+          </NForm>
+        </NCard>
 
         <!-- 奖品列表 -->
         <NDataTable
@@ -861,6 +898,7 @@ onMounted(() => {
           :pagination="false"
           :row-key="row => row.id"
           size="small"
+          :scroll-x="700"
         />
       </div>
     </NModal>
@@ -922,3 +960,31 @@ onMounted(() => {
     </NModal>
   </div>
 </template>
+
+<style scoped lang="scss">
+.prize-manager {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.prize-form-card {
+  background: #fafbfc;
+}
+
+.prize-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0 16px;
+
+  .form-item-full {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 640px) {
+  .prize-form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+</style>

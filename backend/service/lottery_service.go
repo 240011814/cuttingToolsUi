@@ -181,6 +181,7 @@ func (s *LotteryService) CreatePrize(activityID uint, req model.CreateLotteryPri
 		Description:        req.Description,
 		ImageURL:           req.ImageURL,
 		PrizeType:          req.PrizeType,
+		PrizeLevel:         req.PrizeLevel,
 		PrizeValue:         req.PrizeValue,
 		TotalCount:         req.TotalCount,
 		RemainingCount:     req.TotalCount,
@@ -195,11 +196,11 @@ func (s *LotteryService) CreatePrize(activityID uint, req model.CreateLotteryPri
 	return &prize, nil
 }
 
-// ListPrizes 获取奖品列表
+// ListPrizes 获取奖品列表（按等级和价值排序）
 func (s *LotteryService) ListPrizes(activityID uint) ([]model.LotteryPrize, error) {
 	var prizes []model.LotteryPrize
 	if err := DB.Where("activity_id = ?", activityID).
-		Order("sort_order ASC, id ASC").Find(&prizes).Error; err != nil {
+		Order("CASE WHEN prize_level = 0 THEN 1 ELSE 0 END, prize_level ASC, prize_value DESC, sort_order ASC, id ASC").Find(&prizes).Error; err != nil {
 		return nil, err
 	}
 	return prizes, nil
@@ -220,6 +221,9 @@ func (s *LotteryService) UpdatePrize(id uint, req model.UpdateLotteryPrizeReques
 	}
 	if req.PrizeType != nil {
 		updates["prize_type"] = *req.PrizeType
+	}
+	if req.PrizeLevel != nil {
+		updates["prize_level"] = *req.PrizeLevel
 	}
 	if req.PrizeValue != nil {
 		updates["prize_value"] = *req.PrizeValue
@@ -271,9 +275,13 @@ func (s *LotteryService) Draw(userID, activityID uint, userName string) (*model.
 			return errors.New("活动未进行中")
 		}
 
-		// 3. 检查参与人数限制
-		if activity.MaxParticipants > 0 && activity.CurrentParticipants >= activity.MaxParticipants {
-			return errors.New("参与人数已满")
+		// 3. 检查参与人数限制（从记录表计算实际参与人数）
+		if activity.MaxParticipants > 0 {
+			var actualParticipants int64
+			tx.Model(&model.LotteryRecord{}).Where("activity_id = ?", activityID).Count(&actualParticipants)
+			if int(actualParticipants) >= activity.MaxParticipants {
+				return errors.New("参与人数已满")
+			}
 		}
 
 		// 4. 检查每日抽奖次数限制
@@ -316,20 +324,43 @@ func (s *LotteryService) Draw(userID, activityID uint, userName string) (*model.
 			return errors.New("获取奖品失败")
 		}
 
-		if len(prizes) == 0 {
-			return errors.New("奖品已抽完")
-		}
-
-		// 7. 根据概率抽奖
+		// 7. 根据概率抽奖（统一权重算法）
+		// 支持两种模式：
+		// - 权重模式：Probability 为权重值（如 10, 20, 30），自动归一化，必中奖
+		// - 概率模式：Probability ∈ [0,1]，总和<1时有概率不中奖
 		var wonPrize *model.LotteryPrize
-		random := rand.Float64()
-		cumulativeProb := 0.0
+		if len(prizes) > 0 {
+			// 计算所有奖品的总权重/概率
+			totalProb := 0.0
+			for i := range prizes {
+				if prizes[i].Probability > 0 {
+					totalProb += prizes[i].Probability
+				}
+			}
 
-		for i := range prizes {
-			cumulativeProb += prizes[i].Probability
-			if random < cumulativeProb {
-				wonPrize = &prizes[i]
-				break
+			if totalProb > 0 {
+				// 生成随机数
+				var random float64
+				if totalProb <= 1 {
+					// 概率模式：random ∈ [0, 1)，超过 totalProb 则不中奖
+					random = rand.Float64()
+				} else {
+					// 权重模式：random ∈ [0, totalProb)，必中奖
+					random = rand.Float64() * totalProb
+				}
+
+				// 按概率/权重选择奖品
+				cumulativeProb := 0.0
+				for i := range prizes {
+					if prizes[i].Probability <= 0 {
+						continue
+					}
+					cumulativeProb += prizes[i].Probability
+					if random < cumulativeProb {
+						wonPrize = &prizes[i]
+						break
+					}
+				}
 			}
 		}
 
@@ -377,14 +408,76 @@ func (s *LotteryService) Draw(userID, activityID uint, userName string) (*model.
 
 // ==================== 记录查询 ====================
 
-// DeleteRecord 删除抽奖记录
+// DeleteRecord 删除抽奖记录并恢复奖品数量
 func (s *LotteryService) DeleteRecord(id uint) error {
-	return DB.Delete(&model.LotteryRecord{}, id).Error
+	return DB.Transaction(func(tx *gorm.DB) error {
+		// 1. 先查询记录信息
+		var record model.LotteryRecord
+		if err := tx.First(&record, id).Error; err != nil {
+			return err
+		}
+
+		// 2. 如果是中奖记录，恢复奖品数量
+		if record.IsWinner && record.PrizeID != nil {
+			if err := tx.Model(&model.LotteryPrize{}).Where("id = ?", *record.PrizeID).
+				Update("remaining_count", gorm.Expr("remaining_count + 1")).Error; err != nil {
+				return err
+			}
+		}
+
+		// 3. 减少活动参与人数
+		if err := tx.Model(&model.LotteryActivity{}).Where("id = ?", record.ActivityID).
+			Update("current_participants", gorm.Expr("current_participants - 1")).Error; err != nil {
+			return err
+		}
+
+		// 4. 删除记录
+		if err := tx.Delete(&model.LotteryRecord{}, id).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
 }
 
-// DeleteRecordsByActivityID 删除活动的所有抽奖记录
+// DeleteRecordsByActivityID 删除活动的所有抽奖记录并恢复奖品数量
 func (s *LotteryService) DeleteRecordsByActivityID(activityID uint) error {
-	return DB.Where("activity_id = ?", activityID).Delete(&model.LotteryRecord{}).Error
+	return DB.Transaction(func(tx *gorm.DB) error {
+		// 1. 统计每个奖品被抽中的次数
+		type PrizeCount struct {
+			PrizeID uint
+			Count   int64
+		}
+		var prizeCounts []PrizeCount
+		if err := tx.Model(&model.LotteryRecord{}).
+			Select("prize_id, COUNT(*) as count").
+			Where("activity_id = ? AND is_winner = ? AND prize_id IS NOT NULL", activityID, true).
+			Group("prize_id").
+			Find(&prizeCounts).Error; err != nil {
+			return err
+		}
+
+		// 2. 恢复每个奖品的剩余数量
+		for _, pc := range prizeCounts {
+			if err := tx.Model(&model.LotteryPrize{}).Where("id = ?", pc.PrizeID).
+				Update("remaining_count", gorm.Expr("remaining_count + ?", pc.Count)).Error; err != nil {
+				return err
+			}
+		}
+
+		// 3. 重置活动参与人数
+		if err := tx.Model(&model.LotteryActivity{}).Where("id = ?", activityID).
+			Update("current_participants", 0).Error; err != nil {
+			return err
+		}
+
+		// 4. 删除所有记录
+		if err := tx.Where("activity_id = ?", activityID).Delete(&model.LotteryRecord{}).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
 }
 
 // ListRecords 获取抽奖记录列表
@@ -417,7 +510,7 @@ func (s *LotteryService) ListRecords(activityID *uint, userID *uint, page, pageS
 	return records, total, nil
 }
 
-// ListWinners 获取中奖名单
+// ListWinners 获取中奖名单（按奖品等级和价值排序）
 func (s *LotteryService) ListWinners(activityID *uint, page, pageSize int) ([]model.LotteryRecord, int64, error) {
 	var records []model.LotteryRecord
 	var total int64
@@ -425,7 +518,7 @@ func (s *LotteryService) ListWinners(activityID *uint, page, pageSize int) ([]mo
 	query := DB.Model(&model.LotteryRecord{}).Where("is_winner = ?", true)
 
 	if activityID != nil {
-		query = query.Where("activity_id = ?", *activityID)
+		query = query.Where("lottery_record.activity_id = ?", *activityID)
 	}
 
 	// 获取总数
@@ -433,9 +526,11 @@ func (s *LotteryService) ListWinners(activityID *uint, page, pageSize int) ([]mo
 		return nil, 0, err
 	}
 
-	// 分页查询
+	// 分页查询 - 关联奖品表按等级和价值排序
 	offset := (page - 1) * pageSize
-	if err := query.Order("created_at DESC").
+	if err := query.
+		Joins("LEFT JOIN lottery_prize ON lottery_record.prize_id = lottery_prize.id").
+		Order("CASE WHEN lottery_prize.prize_level = 0 THEN 1 ELSE 0 END, lottery_prize.prize_level ASC, lottery_prize.prize_value DESC, lottery_record.created_at DESC").
 		Offset(offset).Limit(pageSize).
 		Find(&records).Error; err != nil {
 		return nil, 0, err

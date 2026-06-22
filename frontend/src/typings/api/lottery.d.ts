@@ -26,6 +26,7 @@ declare namespace Api {
       description: string;
       imageUrl: string;
       prizeType: number; // 0-实物, 1-虚拟
+      prizeLevel: number; // 0-未设置, 1-特等奖, 2-一等奖, 3-二等奖, 4-三等奖
       prizeValue: number;
       totalCount: number;
       remainingCount: number;
@@ -79,6 +80,7 @@ declare namespace Api {
       description?: string;
       imageUrl?: string;
       prizeType?: number;
+      prizeLevel?: number;
       prizeValue?: number;
       totalCount: number;
       probability: number;
@@ -92,6 +94,7 @@ declare namespace Api {
       description?: string;
       imageUrl?: string;
       prizeType?: number;
+      prizeLevel?: number;
       prizeValue?: number;
       totalCount?: number;
       probability?: number;

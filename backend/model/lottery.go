@@ -29,20 +29,21 @@ func (LotteryActivity) TableName() string {
 
 // LotteryPrize 奖品实体
 type LotteryPrize struct {
-	ID             uint      `gorm:"primaryKey;autoIncrement" json:"id"`
-	ActivityID     uint      `gorm:"not null;index" json:"activityId"`
-	Name           string    `gorm:"size:100;not null" json:"name"`
-	Description    string    `gorm:"type:text" json:"description"`
-	ImageURL       string    `gorm:"size:500" json:"imageUrl"`
-	PrizeType          int       `gorm:"default:0" json:"prizeType"` // 0-实物, 1-虚拟
+	ID                 uint      `gorm:"primaryKey;autoIncrement" json:"id"`
+	ActivityID         uint      `gorm:"not null;index" json:"activityId"`
+	Name               string    `gorm:"size:100;not null" json:"name"`
+	Description        string    `gorm:"type:text" json:"description"`
+	ImageURL           string    `gorm:"size:500" json:"imageUrl"`
+	PrizeType          int       `gorm:"default:0" json:"prizeType"`   // 0-实物, 1-虚拟
+	PrizeLevel         int       `gorm:"default:0" json:"prizeLevel"` // 0-未设置, 1-特等奖, 2-一等奖, 3-二等奖, 4-三等奖
 	PrizeValue         float64   `gorm:"type:decimal(10,2);default:0" json:"prizeValue"`
 	TotalCount         int       `gorm:"default:0" json:"totalCount"`
 	RemainingCount     int       `gorm:"default:0" json:"remainingCount"`
 	Probability        float64   `gorm:"type:decimal(5,4);default:0" json:"probability"`
 	DisplayProbability float64   `gorm:"type:decimal(5,4);default:0" json:"displayProbability"`
 	SortOrder          int       `gorm:"default:0" json:"sortOrder"`
-	CreatedAt      time.Time `json:"createdAt"`
-	UpdatedAt      time.Time `json:"updatedAt"`
+	CreatedAt          time.Time `json:"createdAt"`
+	UpdatedAt          time.Time `json:"updatedAt"`
 }
 
 // TableName 指定表名
@@ -100,6 +101,7 @@ type CreateLotteryPrizeRequest struct {
 	Description        string  `json:"description"`
 	ImageURL           string  `json:"imageUrl"`
 	PrizeType          int     `json:"prizeType"`
+	PrizeLevel         int     `json:"prizeLevel"`
 	PrizeValue         float64 `json:"prizeValue"`
 	TotalCount         int     `json:"totalCount" binding:"required"`
 	Probability        float64 `json:"probability"`
@@ -113,6 +115,7 @@ type UpdateLotteryPrizeRequest struct {
 	Description        string   `json:"description"`
 	ImageURL           string   `json:"imageUrl"`
 	PrizeType          *int     `json:"prizeType"`
+	PrizeLevel         *int     `json:"prizeLevel"`
 	PrizeValue         *float64 `json:"prizeValue"`
 	TotalCount         *int     `json:"totalCount"`
 	Probability        *float64 `json:"probability"`

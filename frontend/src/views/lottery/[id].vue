@@ -1,73 +1,72 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
-import {
-  NButton,
-  NInput,
-  NModal,
-  NScrollbar,
-  NSpin,
-  NTag,
-  useMessage
-} from 'naive-ui'
+import { computed, onMounted, ref, watch } from "vue";
+import { useRoute } from "vue-router";
+import { NButton, NInput, NModal, NScrollbar, NSpin, NTag, useMessage } from "naive-ui";
 import {
   fetchDrawLottery,
   fetchGetDrawLimits,
   fetchGetLotteryActivity,
   fetchGetLotteryPrizes,
   fetchGetLotteryRecords,
-  fetchGetLotteryWinners
-} from '@/service/api'
+  fetchGetLotteryWinners,
+} from "@/service/api";
 
-const route = useRoute()
-const message = useMessage()
+const route = useRoute();
+const message = useMessage();
 
-const loading = ref(true)
-const drawing = ref(false)
-const activity = ref<Api.Lottery.Activity | null>(null)
-const prizes = ref<Api.Lottery.Prize[]>([])
-const winners = ref<Api.Lottery.Record[]>([])
-const records = ref<Api.Lottery.Record[]>([])
-const userName = ref('')
-const showResultModal = ref(false)
-const showPrizeModal = ref(false)
-const showWinnerModal = ref(false)
-const drawResult = ref<Api.Lottery.DrawResult | null>(null)
-const pointerRotation = ref(0)
-const drawLimits = ref<Api.Lottery.DrawLimits | null>(null)
+const loading = ref(true);
+const drawing = ref(false);
+const activity = ref<Api.Lottery.Activity | null>(null);
+const prizes = ref<Api.Lottery.Prize[]>([]);
+const winners = ref<Api.Lottery.Record[]>([]);
+const records = ref<Api.Lottery.Record[]>([]);
+const userName = ref("");
+const showResultModal = ref(false);
+const showPrizeModal = ref(false);
+const showWinnerModal = ref(false);
+const drawResult = ref<Api.Lottery.DrawResult | null>(null);
+const pointerRotation = ref(0);
+const drawLimits = ref<Api.Lottery.DrawLimits | null>(null);
 
 // 原神抽卡模式状态
-const showGachaAnimation = ref(false)
-const gachaPhase = ref<'idle' | 'meteor' | 'flash' | 'reveal' | 'result'>('idle')
-const gachaParticles = ref<Array<{ id: number; x: number; y: number; delay: number }>>([])
+const showGachaAnimation = ref(false);
+const gachaPhase = ref<"idle" | "meteor" | "flash" | "reveal" | "result">("idle");
+const gachaParticles = ref<Array<{ id: number; x: number; y: number; delay: number }>>(
+  []
+);
 
 // 音效管理
-const audioContext = ref<AudioContext | null>(null)
+const audioContext = ref<AudioContext | null>(null);
 
 function initAudio() {
   if (!audioContext.value) {
-    audioContext.value = new AudioContext()
+    audioContext.value = new AudioContext();
   }
 }
 
-function playSound(frequency: number, duration: number, type: OscillatorType = 'sine', volume: number = 0.3) {
+function playSound(
+  frequency: number,
+  duration: number,
+  type: OscillatorType = "sine",
+  volume: number = 0.3
+) {
   try {
-    initAudio()
-    const ctx = audioContext.value!
-    const oscillator = ctx.createOscillator()
-    const gainNode = ctx.createGain()
+    initAudio();
+    const ctx = audioContext.value!;
+    const oscillator = ctx.createOscillator();
+    const gainNode = ctx.createGain();
 
-    oscillator.connect(gainNode)
-    gainNode.connect(ctx.destination)
+    oscillator.connect(gainNode);
+    gainNode.connect(ctx.destination);
 
-    oscillator.frequency.setValueAtTime(frequency, ctx.currentTime)
-    oscillator.type = type
+    oscillator.frequency.setValueAtTime(frequency, ctx.currentTime);
+    oscillator.type = type;
 
-    gainNode.gain.setValueAtTime(volume, ctx.currentTime)
-    gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + duration)
+    gainNode.gain.setValueAtTime(volume, ctx.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + duration);
 
-    oscillator.start(ctx.currentTime)
-    oscillator.stop(ctx.currentTime + duration)
+    oscillator.start(ctx.currentTime);
+    oscillator.stop(ctx.currentTime + duration);
   } catch (e) {
     // 静默处理音频错误
   }
@@ -75,375 +74,429 @@ function playSound(frequency: number, duration: number, type: OscillatorType = '
 
 function playGachaSound(rarity: number) {
   // 流星下落音效
-  playSound(800, 0.3, 'sine', 0.2)
-  setTimeout(() => playSound(600, 0.2, 'sine', 0.15), 200)
+  playSound(800, 0.3, "sine", 0.2);
+  setTimeout(() => playSound(600, 0.2, "sine", 0.15), 200);
 
   // 揭示音效（根据稀有度不同）
   setTimeout(() => {
     if (rarity >= 5) {
       // 传说 - 华丽的和弦
-      playSound(523, 0.8, 'sine', 0.3)
-      setTimeout(() => playSound(659, 0.6, 'sine', 0.25), 100)
-      setTimeout(() => playSound(784, 0.6, 'sine', 0.25), 200)
-      setTimeout(() => playSound(1047, 0.8, 'sine', 0.3), 300)
+      playSound(523, 0.8, "sine", 0.3);
+      setTimeout(() => playSound(659, 0.6, "sine", 0.25), 100);
+      setTimeout(() => playSound(784, 0.6, "sine", 0.25), 200);
+      setTimeout(() => playSound(1047, 0.8, "sine", 0.3), 300);
     } else if (rarity >= 4) {
       // 史诗 - 双音
-      playSound(440, 0.6, 'sine', 0.25)
-      setTimeout(() => playSound(554, 0.5, 'sine', 0.2), 150)
+      playSound(440, 0.6, "sine", 0.25);
+      setTimeout(() => playSound(554, 0.5, "sine", 0.2), 150);
     } else {
       // 普通 - 单音
-      playSound(349, 0.4, 'sine', 0.2)
+      playSound(349, 0.4, "sine", 0.2);
     }
-  }, 800)
+  }, 800);
 }
 
 function playClickSound() {
-  playSound(1200, 0.1, 'square', 0.1)
+  playSound(1200, 0.1, "square", 0.1);
 }
 
 const segmentColors = [
-  '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4',
-  '#FFEAA7', '#DDA0DD', '#98D8C8', '#F7DC6F',
-  '#BB8FCE', '#85C1E9', '#F8C471', '#82E0AA'
-]
+  "#FF6B6B",
+  "#4ECDC4",
+  "#45B7D1",
+  "#96CEB4",
+  "#FFEAA7",
+  "#DDA0DD",
+  "#98D8C8",
+  "#F7DC6F",
+  "#BB8FCE",
+  "#85C1E9",
+  "#F8C471",
+  "#82E0AA",
+];
 
 const wheelItems = computed(() => {
-  const items: { id: number; name: string; isPrize: boolean; prize: Api.Lottery.Prize | undefined }[] = prizes.value.map(p => ({
+  const items: {
+    id: number;
+    name: string;
+    isPrize: boolean;
+    prize: Api.Lottery.Prize | undefined;
+  }[] = prizes.value.map((p) => ({
     id: p.id,
     name: p.name,
     isPrize: true,
-    prize: p
-  }))
+    prize: p,
+  }));
 
-  const totalProb = prizes.value.reduce((sum, p) => sum + p.probability, 0)
+  const totalProb = prizes.value.reduce((sum, p) => sum + p.probability, 0);
 
   if (totalProb < 1) {
     items.push({
       id: 0,
-      name: '谢谢惠顾',
+      name: "谢谢惠顾",
       isPrize: false,
-      prize: undefined
-    })
+      prize: undefined,
+    });
   }
 
-  return items
-})
+  return items;
+});
 
 const statusConfig = computed(() => {
   const map: Record<number, { label: string; type: string; icon: string }> = {
-    0: { label: '未开始', type: 'info', icon: '⏳' },
-    1: { label: '进行中', type: 'success', icon: '🎯' },
-    2: { label: '已结束', type: 'warning', icon: '🏁' }
-  }
-  return map[activity.value?.status || 0] || map[0]
-})
+    0: { label: "未开始", type: "info", icon: "⏳" },
+    1: { label: "进行中", type: "success", icon: "🎯" },
+    2: { label: "已结束", type: "warning", icon: "🏁" },
+  };
+  return map[activity.value?.status || 0] || map[0];
+});
 
 const canDraw = computed(() => {
-  return activity.value?.status === 1 && !drawing.value
-})
+  return activity.value?.status === 1 && !drawing.value;
+});
 
 const isGachaMode = computed(() => {
-  return activity.value?.drawMode === 1
-})
+  return activity.value?.drawMode === 1;
+});
 
 const drawButtonText = computed(() => {
-  if (drawing.value) return '抽奖中...'
-  if (activity.value?.status === 0) return '活动未开始'
-  if (activity.value?.status === 2) return '活动已结束'
-  return isGachaMode.value ? '祈愿一次' : '开始抽奖'
-})
+  if (drawing.value) return "抽奖中...";
+  if (activity.value?.status === 0) return "活动未开始";
+  if (activity.value?.status === 2) return "活动已结束";
+  return isGachaMode.value ? "祈愿一次" : "开始抽奖";
+});
 
-// 原神抽卡模式 - 根据奖品价值确定稀有度等级
+// 原神抽卡模式 - 根据奖品等级确定稀有度等级
 const gachaRarity = computed(() => {
-  if (!drawResult.value?.isWinner || !drawResult.value.prize) return 1 // 未中奖用1星（明亮风格）
-  const value = drawResult.value.prize.prizeValue
-  if (value >= 100) return 5 // 金色传说
-  if (value >= 50) return 4  // 紫色史诗
-  if (value >= 20) return 3  // 蓝色稀有
-  return 2 // 绿色普通
-})
+  if (!drawResult.value?.isWinner || !drawResult.value.prize) return 1; // 未中奖用1星（明亮风格）
+  const level = drawResult.value.prize.prizeLevel;
+  // 奖品等级: 1-特等奖, 2-一等奖, 3-二等奖, 4-三等奖, 0-未设置
+  const levelMap: Record<number, number> = {
+    1: 5, // 特等奖 → 金色传说
+    2: 4, // 一等奖 → 紫色史诗
+    3: 3, // 二等奖 → 蓝色稀有
+    4: 2, // 三等奖 → 绿色普通
+    0: 2, // 未设置 → 绿色普通
+  };
+  return levelMap[level] || 2;
+});
 
-const gachaRarityColor = computed(() => {
-  const rarity = gachaRarity.value
-  if (rarity >= 5) return { bg: 'linear-gradient(135deg, #FFD700, #FFA500)', glow: '#FFD700', text: '#FFD700' }
-  if (rarity >= 4) return { bg: 'linear-gradient(135deg, #CE93D8, #BA68C8)', glow: '#CE93D8', text: '#CE93D8' }
-  if (rarity >= 3) return { bg: 'linear-gradient(135deg, #64B5F6, #42A5F5)', glow: '#64B5F6', text: '#64B5F6' }
-  if (rarity >= 2) return { bg: 'linear-gradient(135deg, #81C784, #66BB6A)', glow: '#81C784', text: '#81C784' }
-  return { bg: 'linear-gradient(135deg, #FFB74D, #FFA726)', glow: '#FFB74D', text: '#FFB74D' } // 未中奖用暖橙色
-})
+// 奖品等级标签
+function getPrizeLevelLabel(level: number): string {
+  const map: Record<number, string> = {
+    0: "",
+    1: "特等奖",
+    2: "一等奖",
+    3: "二等奖",
+    4: "三等奖",
+  };
+  return map[level] || "";
+}
+
+function getPrizeLevelColor(level: number): string {
+  const map: Record<number, string> = {
+    0: "#999",
+    1: "#ff4757",
+    2: "#ffa502",
+    3: "#2ed573",
+    4: "#1e90ff",
+  };
+  return map[level] || "#999";
+}
 
 async function loadData() {
-  const activityId = Number(route.params.id)
+  const activityId = Number(route.params.id);
   if (!activityId) {
-    loading.value = false
-    return
+    loading.value = false;
+    return;
   }
 
-  loading.value = true
+  loading.value = true;
   const [activityRes, prizesRes] = await Promise.all([
     fetchGetLotteryActivity(activityId),
-    fetchGetLotteryPrizes(activityId)
-  ])
+    fetchGetLotteryPrizes(activityId),
+  ]);
 
   if (!activityRes.error) {
-    activity.value = activityRes.data
+    activity.value = activityRes.data;
   }
   if (!prizesRes.error) {
-    prizes.value = prizesRes.data
+    prizes.value = prizesRes.data;
   }
-  loading.value = false
+  loading.value = false;
 
-  loadRecords()
-  loadDrawLimits()
+  loadRecords();
+  // 只有当用户名已输入时才加载限制信息
+  if (userName.value.trim()) {
+    loadDrawLimits();
+  }
 }
 
 async function loadWinners() {
-  const activityId = Number(route.params.id)
-  if (!activityId) return
+  const activityId = Number(route.params.id);
+  if (!activityId) return;
 
-  const { data, error } = await fetchGetLotteryWinners({ activityId, pageSize: 20 })
+  const { data, error } = await fetchGetLotteryWinners({ activityId, pageSize: 20 });
   if (!error) {
-    winners.value = data.list
+    winners.value = data.list;
   }
 }
 
 async function loadRecords() {
-  const activityId = Number(route.params.id)
-  if (!activityId) return
+  const activityId = Number(route.params.id);
+  if (!activityId) return;
 
-  const { data, error } = await fetchGetLotteryRecords({ activityId, pageSize: 20 })
+  const { data, error } = await fetchGetLotteryRecords({ activityId, pageSize: 20 });
   if (!error) {
-    records.value = data.list
+    records.value = data.list;
   }
 }
 
 async function loadDrawLimits() {
-  const activityId = Number(route.params.id)
-  if (!activityId) return
+  const activityId = Number(route.params.id);
+  if (!activityId) return;
 
-  const { data, error } = await fetchGetDrawLimits(activityId, userName.value.trim() || undefined)
+  const { data, error } = await fetchGetDrawLimits(
+    activityId,
+    userName.value.trim() || undefined
+  );
   if (!error) {
-    drawLimits.value = data
+    drawLimits.value = data;
   }
 }
 
 // 监听用户名变化，实时更新限制信息
-watch(userName, () => {
-  loadDrawLimits()
-})
+watch(userName, (newVal) => {
+  if (newVal.trim()) {
+    loadDrawLimits();
+  } else {
+    // 用户名为空时重置限制信息
+    drawLimits.value = null;
+  }
+});
 
 async function handleDraw() {
   if (!userName.value.trim()) {
-    message.warning('请输入您的姓名')
-    return
+    message.warning("请输入您的姓名");
+    return;
   }
 
   // 根据模式选择不同的抽奖方式
   if (isGachaMode.value) {
-    await handleGachaDraw()
-    return
+    await handleGachaDraw();
+    return;
   }
 
-  playClickSound()
-  drawing.value = true
-  const activityId = Number(route.params.id)
+  playClickSound();
+  drawing.value = true;
+  const activityId = Number(route.params.id);
 
-  const { data, error } = await fetchDrawLottery(activityId, userName.value.trim())
+  const { data, error } = await fetchDrawLottery(activityId, userName.value.trim());
 
   if (error) {
-    drawing.value = false
-    message.error('抽奖失败')
-    return
+    drawing.value = false;
+    message.error("抽奖失败");
+    return;
   }
 
-  let targetIndex = 0
+  let targetIndex = 0;
   if (data.isWinner && data.prize) {
-    targetIndex = wheelItems.value.findIndex(item => item.isPrize && item.prize?.id === data.prize?.id)
-    if (targetIndex === -1) targetIndex = 0
+    targetIndex = wheelItems.value.findIndex(
+      (item) => item.isPrize && item.prize?.id === data.prize?.id
+    );
+    if (targetIndex === -1) targetIndex = 0;
   } else {
-    const thankYouIndex = wheelItems.value.findIndex(item => !item.isPrize)
-    targetIndex = thankYouIndex >= 0 ? thankYouIndex : 0
+    const thankYouIndex = wheelItems.value.findIndex((item) => !item.isPrize);
+    targetIndex = thankYouIndex >= 0 ? thankYouIndex : 0;
   }
 
-  const totalItems = wheelItems.value.length
-  const segmentAngle = 360 / totalItems
+  const totalItems = wheelItems.value.length;
+  const segmentAngle = 360 / totalItems;
   // 目标扇区中心的角度（从顶部顺时针）
-  const targetAngle = targetIndex * segmentAngle + segmentAngle / 2
+  const targetAngle = targetIndex * segmentAngle + segmentAngle / 2;
 
   // 计算至少转5圈后到达目标位置的旋转角度
-  const currentAngle = pointerRotation.value % 360
-  const minSpins = 5
+  const currentAngle = pointerRotation.value % 360;
+  const minSpins = 5;
   // 从当前角度出发，至少转minSpins圈，再加上到达目标的偏移
-  const extraSpins = minSpins + Math.floor(Math.random() * 3)
-  const finalRotation = pointerRotation.value + extraSpins * 360 + (targetAngle - currentAngle + 360) % 360
-  pointerRotation.value = finalRotation
+  const extraSpins = minSpins + Math.floor(Math.random() * 3);
+  const finalRotation =
+    pointerRotation.value + extraSpins * 360 + ((targetAngle - currentAngle + 360) % 360);
+  pointerRotation.value = finalRotation;
 
   // 播放旋转音效
-  playWheelSpinSound()
+  playWheelSpinSound();
 
-  await new Promise(resolve => setTimeout(resolve, 3500))
+  await new Promise((resolve) => setTimeout(resolve, 3500));
 
   // 撮放结果音效
   if (data.isWinner) {
-    playWinSound()
+    playWinSound();
   } else {
-    playLoseSound()
+    playLoseSound();
   }
 
-  drawing.value = false
-  drawResult.value = data
-  showResultModal.value = true
-  loadData()
+  drawing.value = false;
+  drawResult.value = data;
+  showResultModal.value = true;
+  loadData();
 }
 
 // 转盘旋转音效
 function playWheelSpinSound() {
   // 模拟转盘咔哒声
-  let count = 0
+  let count = 0;
   const interval = setInterval(() => {
     if (count >= 20) {
-      clearInterval(interval)
-      return
+      clearInterval(interval);
+      return;
     }
-    playSound(800 + count * 50, 0.05, 'square', 0.1)
-    count++
-  }, 150)
+    playSound(800 + count * 50, 0.05, "square", 0.1);
+    count++;
+  }, 150);
 }
 
 // 中奖音效
 function playWinSound() {
-  playSound(523, 0.3, 'sine', 0.3)
-  setTimeout(() => playSound(659, 0.3, 'sine', 0.25), 100)
-  setTimeout(() => playSound(784, 0.3, 'sine', 0.25), 200)
-  setTimeout(() => playSound(1047, 0.5, 'sine', 0.3), 300)
+  playSound(523, 0.3, "sine", 0.3);
+  setTimeout(() => playSound(659, 0.3, "sine", 0.25), 100);
+  setTimeout(() => playSound(784, 0.3, "sine", 0.25), 200);
+  setTimeout(() => playSound(1047, 0.5, "sine", 0.3), 300);
 }
 
 // 未中奖音效
 function playLoseSound() {
-  playSound(440, 0.3, 'sine', 0.2)
-  setTimeout(() => playSound(349, 0.4, 'sine', 0.15), 200)
+  playSound(440, 0.3, "sine", 0.2);
+  setTimeout(() => playSound(349, 0.4, "sine", 0.15), 200);
 }
 
 // 原神抽卡模式
 async function handleGachaDraw() {
   if (!userName.value.trim()) {
-    message.warning('请输入您的姓名')
-    return
+    message.warning("请输入您的姓名");
+    return;
   }
 
-  playClickSound()
-  drawing.value = true
-  showGachaAnimation.value = true
-  gachaPhase.value = 'idle'
+  playClickSound();
+  drawing.value = true;
+  showGachaAnimation.value = true;
+  gachaPhase.value = "idle";
 
   // 生成粒子效果
   gachaParticles.value = Array.from({ length: 30 }, (_, i) => ({
     id: i,
     x: Math.random() * 100,
     y: Math.random() * 100,
-    delay: Math.random() * 2
-  }))
+    delay: Math.random() * 2,
+  }));
 
-  const activityId = Number(route.params.id)
-  const { data, error } = await fetchDrawLottery(activityId, userName.value.trim())
+  const activityId = Number(route.params.id);
+  const { data, error } = await fetchDrawLottery(activityId, userName.value.trim());
 
   if (error) {
-    drawing.value = false
-    showGachaAnimation.value = false
-    message.error('祈愿失败')
-    return
+    drawing.value = false;
+    showGachaAnimation.value = false;
+    message.error("祈愿失败");
+    return;
   }
 
-  drawResult.value = data
+  drawResult.value = data;
 
   // 计算稀有度
-  const rarity = data.isWinner && data.prize
-    ? (data.prize.prizeValue >= 100 ? 5 : data.prize.prizeValue >= 50 ? 4 : data.prize.prizeValue >= 20 ? 3 : 2)
-    : 2
+  const rarity =
+    data.isWinner && data.prize
+      ? data.prize.prizeValue >= 100
+        ? 5
+        : data.prize.prizeValue >= 50
+        ? 4
+        : data.prize.prizeValue >= 20
+        ? 3
+        : 2
+      : 2;
 
   // 阶段1：流星下落
-  gachaPhase.value = 'meteor'
-  playGachaSound(rarity)
+  gachaPhase.value = "meteor";
+  playGachaSound(rarity);
 
-  await new Promise(resolve => setTimeout(resolve, 1200))
+  await new Promise((resolve) => setTimeout(resolve, 1200));
 
   // 阶段2：闪光
-  gachaPhase.value = 'flash'
+  gachaPhase.value = "flash";
 
-  await new Promise(resolve => setTimeout(resolve, 400))
+  await new Promise((resolve) => setTimeout(resolve, 400));
 
   // 阶段3：揭示
-  gachaPhase.value = 'reveal'
+  gachaPhase.value = "reveal";
 
-  await new Promise(resolve => setTimeout(resolve, 600))
+  await new Promise((resolve) => setTimeout(resolve, 600));
 
   // 阶段4：显示结果
-  gachaPhase.value = 'result'
-  drawing.value = false
+  gachaPhase.value = "result";
+  drawing.value = false;
 
-  loadData()
+  loadData();
 }
 
 function closeGachaAnimation() {
-  showGachaAnimation.value = false
-  gachaPhase.value = 'idle'
+  showGachaAnimation.value = false;
+  gachaPhase.value = "idle";
 }
 
 function openPrizeModal() {
-  showPrizeModal.value = true
+  showPrizeModal.value = true;
 }
 
 function openWinnerModal() {
-  loadWinners()
-  showWinnerModal.value = true
+  loadWinners();
+  showWinnerModal.value = true;
 }
 
 function formatTime(dateStr: string) {
-  const date = new Date(dateStr)
-  const now = new Date()
-  const diff = now.getTime() - date.getTime()
-  const minutes = Math.floor(diff / 60000)
-  const hours = Math.floor(diff / 3600000)
-  const days = Math.floor(diff / 86400000)
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diff = now.getTime() - date.getTime();
+  const minutes = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+  const days = Math.floor(diff / 86400000);
 
-  if (minutes < 1) return '刚刚'
-  if (minutes < 60) return `${minutes}分钟前`
-  if (hours < 24) return `${hours}小时前`
-  if (days < 7) return `${days}天前`
-  return date.toLocaleDateString()
+  if (minutes < 1) return "刚刚";
+  if (minutes < 60) return `${minutes}分钟前`;
+  if (hours < 24) return `${hours}小时前`;
+  if (days < 7) return `${days}天前`;
+  return date.toLocaleDateString();
 }
 
 function getSegmentPath(index: number, total: number) {
-  const angle = 360 / total
-  const startRad = ((index * angle - 90) * Math.PI) / 180
-  const endRad = (((index + 1) * angle - 90) * Math.PI) / 180
-  const r = 140
-  const cx = 150
-  const cy = 150
-  const x1 = cx + r * Math.cos(startRad)
-  const y1 = cy + r * Math.sin(startRad)
-  const x2 = cx + r * Math.cos(endRad)
-  const y2 = cy + r * Math.sin(endRad)
-  const large = angle > 180 ? 1 : 0
-  return `M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2} Z`
+  const angle = 360 / total;
+  const startRad = ((index * angle - 90) * Math.PI) / 180;
+  const endRad = (((index + 1) * angle - 90) * Math.PI) / 180;
+  const r = 140;
+  const cx = 150;
+  const cy = 150;
+  const x1 = cx + r * Math.cos(startRad);
+  const y1 = cy + r * Math.sin(startRad);
+  const x2 = cx + r * Math.cos(endRad);
+  const y2 = cy + r * Math.sin(endRad);
+  const large = angle > 180 ? 1 : 0;
+  return `M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2} Z`;
 }
 
 function getTextPos(index: number, total: number) {
-  const angle = 360 / total
-  const midRad = ((index * angle + angle / 2 - 90) * Math.PI) / 180
-  const r = 90
-  const cx = 150
-  const cy = 150
+  const angle = 360 / total;
+  const midRad = ((index * angle + angle / 2 - 90) * Math.PI) / 180;
+  const r = 90;
+  const cx = 150;
+  const cy = 150;
   return {
     x: cx + r * Math.cos(midRad),
     y: cy + r * Math.sin(midRad),
-    rotate: index * angle + angle / 2
-  }
+    rotate: index * angle + angle / 2,
+  };
 }
 
 onMounted(() => {
-  loadData()
-})
+  loadData();
+});
 </script>
 
 <template>
@@ -452,8 +505,10 @@ onMounted(() => {
 
     <div class="lottery-container">
       <header class="lottery-header">
-        <h1 class="header-title">{{ isGachaMode ? '✨ 祈愿之门' : '🎰 幸运抽奖' }}</h1>
-        <p class="header-subtitle">{{ isGachaMode ? '命运的星辉，等待你的召唤' : '转动转盘，赢取大奖' }}</p>
+        <h1 class="header-title">{{ isGachaMode ? "✨ 祈愿之门" : "🎰 幸运抽奖" }}</h1>
+        <p class="header-subtitle">
+          {{ isGachaMode ? "命运的星辉，等待你的召唤" : "转动转盘，赢取大奖" }}
+        </p>
       </header>
 
       <NSpin :show="loading" class="w-full">
@@ -466,15 +521,24 @@ onMounted(() => {
               </NTag>
             </div>
 
-            <p v-if="activity.description" class="card-desc">{{ activity.description }}</p>
+            <p v-if="activity.description" class="card-desc">
+              {{ activity.description }}
+            </p>
 
             <!-- 限制信息 -->
-            <div v-if="activity.dailyLimit > 0 || activity.totalLimit > 0" class="limit-info">
+            <div
+              v-if="activity.dailyLimit > 0 || activity.totalLimit > 0"
+              class="limit-info"
+            >
               <div v-if="activity.dailyLimit > 0" class="limit-item">
                 <span class="limit-icon">📅</span>
                 <span class="limit-text">
                   今日剩余:
-                  <span class="limit-count">{{ drawLimits ? Math.max(0, activity.dailyLimit - drawLimits.userDailyUsed) : '-' }}</span>
+                  <span class="limit-count">{{
+                    drawLimits
+                      ? Math.max(0, activity.dailyLimit - drawLimits.userDailyUsed)
+                      : "-"
+                  }}</span>
                   / {{ activity.dailyLimit }} 次
                 </span>
               </div>
@@ -482,15 +546,23 @@ onMounted(() => {
                 <span class="limit-icon">🎯</span>
                 <span class="limit-text">
                   总剩余:
-                  <span class="limit-count">{{ drawLimits ? Math.max(0, activity.totalLimit - drawLimits.userTotalUsed) : '-' }}</span>
+                  <span class="limit-count">{{
+                    drawLimits
+                      ? Math.max(0, activity.totalLimit - drawLimits.userTotalUsed)
+                      : "-"
+                  }}</span>
                   / {{ activity.totalLimit }} 次
                 </span>
               </div>
             </div>
 
             <div class="card-actions">
-              <NButton quaternary size="small" @click="openPrizeModal">🎁 奖品 ({{ prizes.length }})</NButton>
-              <NButton quaternary size="small" @click="openWinnerModal">🏆 中奖名单</NButton>
+              <NButton quaternary size="small" @click="openPrizeModal">
+                🎁 奖品 ({{ prizes.length }})
+              </NButton>
+              <NButton quaternary size="small" @click="openWinnerModal">
+                🏆 中奖名单
+              </NButton>
             </div>
           </div>
 
@@ -498,7 +570,12 @@ onMounted(() => {
           <div v-if="!isGachaMode" class="wheel-section">
             <!-- 装饰星星 -->
             <div class="wheel-decor-stars">
-              <span v-for="i in 8" :key="i" class="decor-sparkle" :style="{ animationDelay: `${i * 0.3}s` }">✦</span>
+              <span
+                v-for="i in 8"
+                :key="i"
+                class="decor-sparkle"
+                :style="{ animationDelay: `${i * 0.3}s` }"
+              >✦</span>
             </div>
 
             <div class="wheel-container">
@@ -514,7 +591,11 @@ onMounted(() => {
                   </filter>
                 </defs>
                 <!-- 扇区 -->
-                <g v-for="(item, index) in wheelItems" :key="item.id" filter="url(#wheelShadow)">
+                <g
+                  v-for="(item, index) in wheelItems"
+                  :key="item.id"
+                  filter="url(#wheelShadow)"
+                >
                   <path
                     :d="getSegmentPath(index, wheelItems.length)"
                     :fill="segmentColors[index % segmentColors.length]"
@@ -529,42 +610,89 @@ onMounted(() => {
                     fill="white"
                     font-size="11"
                     font-weight="bold"
-                    style="text-shadow: 0 1px 3px rgba(0,0,0,0.5)"
-                    :transform="`rotate(${getTextPos(index, wheelItems.length).rotate}, ${getTextPos(index, wheelItems.length).x}, ${getTextPos(index, wheelItems.length).y})`"
+                    style="text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5)"
+                    :transform="`rotate(${getTextPos(index, wheelItems.length).rotate}, ${
+                      getTextPos(index, wheelItems.length).x
+                    }, ${getTextPos(index, wheelItems.length).y})`"
                   >
-                    {{ item.name.length > 5 ? item.name.slice(0, 5) + '..' : item.name }}
+                    {{ item.name.length > 5 ? item.name.slice(0, 5) + ".." : item.name }}
                   </text>
                 </g>
                 <!-- 外边框 -->
-                <circle cx="150" cy="150" r="145" fill="none" stroke="url(#goldGradient)" stroke-width="6" />
+                <circle
+                  cx="150"
+                  cy="150"
+                  r="145"
+                  fill="none"
+                  stroke="url(#goldGradient)"
+                  stroke-width="6"
+                />
                 <!-- 内边框 -->
-                <circle cx="150" cy="150" r="138" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1" />
+                <circle
+                  cx="150"
+                  cy="150"
+                  r="138"
+                  fill="none"
+                  stroke="rgba(255,255,255,0.3)"
+                  stroke-width="1"
+                />
                 <!-- 中心装饰 -->
-                <circle cx="150" cy="150" r="28" fill="url(#centerGradient)" stroke="white" stroke-width="3" />
+                <circle
+                  cx="150"
+                  cy="150"
+                  r="28"
+                  fill="url(#centerGradient)"
+                  stroke="white"
+                  stroke-width="3"
+                />
                 <circle cx="150" cy="150" r="18" fill="white" opacity="0.9" />
-                <text x="150" y="155" text-anchor="middle" dominant-baseline="middle" font-size="14" font-weight="bold" fill="#667eea">GO</text>
+                <text
+                  x="150"
+                  y="155"
+                  text-anchor="middle"
+                  dominant-baseline="middle"
+                  font-size="14"
+                  font-weight="bold"
+                  fill="#667eea"
+                >
+                  GO
+                </text>
                 <!-- 渐变定义 -->
                 <defs>
                   <linearGradient id="goldGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" style="stop-color:#FFD700" />
-                    <stop offset="50%" style="stop-color:#FFA500" />
-                    <stop offset="100%" style="stop-color:#FFD700" />
+                    <stop offset="0%" style="stop-color: #ffd700" />
+                    <stop offset="50%" style="stop-color: #ffa500" />
+                    <stop offset="100%" style="stop-color: #ffd700" />
                   </linearGradient>
                   <radialGradient id="centerGradient">
-                    <stop offset="0%" style="stop-color:#667eea" />
-                    <stop offset="100%" style="stop-color:#764ba2" />
+                    <stop offset="0%" style="stop-color: #667eea" />
+                    <stop offset="100%" style="stop-color: #764ba2" />
                   </radialGradient>
                 </defs>
               </svg>
 
               <!-- 指针 -->
-              <div class="pointer-wrapper" :style="{ transform: `rotate(${pointerRotation}deg)`, transition: drawing ? 'transform 3.5s cubic-bezier(0.17, 0.67, 0.12, 0.99)' : 'none' }">
+              <div
+                class="pointer-wrapper"
+                :style="{
+                  transform: `rotate(${pointerRotation}deg)`,
+                  transition: drawing
+                    ? 'transform 3.5s cubic-bezier(0.17, 0.67, 0.12, 0.99)'
+                    : 'none',
+                }"
+              >
                 <div class="pointer" />
               </div>
 
               <!-- 灯泡装饰 -->
               <div class="wheel-lights">
-                <span v-for="i in 12" :key="i" class="light-bulb" :class="{ 'light-on': !drawing }" :style="{ transform: `rotate(${i * 30}deg) translateY(-155px)` }" />
+                <span
+                  v-for="i in 12"
+                  :key="i"
+                  class="light-bulb"
+                  :class="{ 'light-on': !drawing }"
+                  :style="{ transform: `rotate(${i * 30}deg) translateY(-155px)` }"
+                />
               </div>
             </div>
 
@@ -602,7 +730,12 @@ onMounted(() => {
               <!-- 祈愿按钮 -->
               <div class="gacha-gate">
                 <div class="gacha-stars">
-                  <span v-for="i in 5" :key="i" class="star" :style="{ animationDelay: `${i * 0.2}s` }">✦</span>
+                  <span
+                    v-for="i in 5"
+                    :key="i"
+                    class="star"
+                    :style="{ animationDelay: `${i * 0.2}s` }"
+                  >✦</span>
                 </div>
                 <NButton
                   type="primary"
@@ -639,7 +772,9 @@ onMounted(() => {
           <div class="records-card">
             <div class="records-header">
               <span>📋 抽奖记录 ({{ records.length }})</span>
-              <NButton text type="primary" size="small" @click="loadRecords">刷新</NButton>
+              <NButton text type="primary" size="small" @click="loadRecords">
+                刷新
+              </NButton>
             </div>
 
             <div class="records-list">
@@ -650,16 +785,24 @@ onMounted(() => {
                   class="record-item"
                   :class="{ 'is-winner': record.isWinner }"
                 >
-                  <span class="record-icon">{{ record.isWinner ? '🎉' : '🎰' }}</span>
+                  <span class="record-icon">{{ record.isWinner ? "🎉" : "🎰" }}</span>
                   <div class="record-info">
-                    <span class="record-name">{{ record.userName || `用户#${record.userId}` }}</span>
+                    <span class="record-name">{{
+                      record.userName || `用户#${record.userId}`
+                    }}</span>
                     <span class="record-time">{{ formatTime(record.createdAt) }}</span>
                   </div>
                   <div class="record-result">
-                    <NTag :type="record.isWinner ? 'success' : 'default'" size="small" :bordered="false">
-                      {{ record.isWinner ? '中奖' : '未中奖' }}
+                    <NTag
+                      :type="record.isWinner ? 'success' : 'default'"
+                      size="small"
+                      :bordered="false"
+                    >
+                      {{ record.isWinner ? "中奖" : "未中奖" }}
                     </NTag>
-                    <span v-if="record.prizeName" class="record-prize">{{ record.prizeName }}</span>
+                    <span v-if="record.prizeName" class="record-prize">{{
+                      record.prizeName
+                    }}</span>
                   </div>
                 </div>
               </template>
@@ -673,17 +816,39 @@ onMounted(() => {
     </div>
 
     <!-- 奖品弹窗 -->
-    <NModal v-model:show="showPrizeModal" preset="card" title="🎁 奖品列表" style="width: 90%; max-width: 500px">
+    <NModal
+      v-model:show="showPrizeModal"
+      preset="card"
+      title="🎁 奖品列表"
+      style="width: 90%; max-width: 500px"
+    >
       <NScrollbar style="max-height: 60vh">
         <div v-if="prizes.length" class="prize-list">
           <div v-for="prize in prizes" :key="prize.id" class="prize-item">
-            <div class="prize-icon-box" :style="{ background: segmentColors[prizes.indexOf(prize) % segmentColors.length] }">
+            <div
+              class="prize-icon-box"
+              :style="{
+                background: segmentColors[prizes.indexOf(prize) % segmentColors.length],
+              }"
+            >
               <img v-if="prize.imageUrl" :src="prize.imageUrl" class="prize-image" />
               <span v-else>🎁</span>
             </div>
             <div class="prize-detail">
-              <div class="prize-name">{{ prize.name }}</div>
-              <div class="prize-meta">价值 {{ prize.prizeValue }} · 概率 {{ (prize.displayProbability * 100).toFixed(1) }}%</div>
+              <div class="prize-name">
+                <span
+                  v-if="getPrizeLevelLabel(prize.prizeLevel)"
+                  class="prize-level-tag"
+                  :style="{ color: getPrizeLevelColor(prize.prizeLevel) }"
+                >
+                  {{ getPrizeLevelLabel(prize.prizeLevel) }}
+                </span>
+                {{ prize.name }}
+              </div>
+              <div class="prize-meta">
+                价值 {{ prize.prizeValue }} · 概率
+                {{ (prize.displayProbability * 100).toFixed(1) }}%
+              </div>
             </div>
             <div class="prize-remain">
               <span class="remain-num">{{ prize.remainingCount }}</span>
@@ -696,16 +861,29 @@ onMounted(() => {
     </NModal>
 
     <!-- 中奖名单弹窗 -->
-    <NModal v-model:show="showWinnerModal" preset="card" title="🏆 中奖名单" style="width: 90%; max-width: 500px">
+    <NModal
+      v-model:show="showWinnerModal"
+      preset="card"
+      title="🏆 中奖名单"
+      style="width: 90%; max-width: 500px"
+    >
       <NScrollbar style="max-height: 60vh">
         <div v-if="winners.length" class="winner-list">
           <div v-for="(winner, index) in winners" :key="winner.id" class="winner-item">
-            <span class="winner-rank">{{ index < 3 ? ['🥇', '🥈', '🥉'][index] : index + 1 }}</span>
+            <span class="winner-rank">{{
+              index < 3 ? ["🥇", "🥈", "🥉"][index] : index + 1
+            }}</span>
             <div class="winner-info">
-              <span class="winner-name">{{ winner.userName || `用户#${winner.userId}` }}</span>
-              <span class="winner-time">{{ new Date(winner.createdAt).toLocaleString() }}</span>
+              <span class="winner-name">{{
+                winner.userName || `用户#${winner.userId}`
+              }}</span>
+              <span class="winner-time">{{
+                new Date(winner.createdAt).toLocaleString()
+              }}</span>
             </div>
-            <NTag type="warning" size="small" :bordered="false">{{ winner.prizeName }}</NTag>
+            <NTag type="warning" size="small" :bordered="false">
+              {{ winner.prizeName }}
+            </NTag>
           </div>
         </div>
         <div v-else class="empty-tip">暂无中奖记录</div>
@@ -713,9 +891,18 @@ onMounted(() => {
     </NModal>
 
     <!-- 结果弹窗 -->
-    <NModal v-model:show="showResultModal" style="width: 90%; max-width: 400px" :bordered="false" :mask-closable="false">
-      <div v-if="drawResult" class="result-modal" :class="{ 'is-winner': drawResult.isWinner }">
-        <div class="result-icon">{{ drawResult.isWinner ? '🎉' : '😢' }}</div>
+    <NModal
+      v-model:show="showResultModal"
+      style="width: 90%; max-width: 400px"
+      :bordered="false"
+      :mask-closable="false"
+    >
+      <div
+        v-if="drawResult"
+        class="result-modal"
+        :class="{ 'is-winner': drawResult.isWinner }"
+      >
+        <div class="result-icon">{{ drawResult.isWinner ? "🎉" : "😢" }}</div>
         <h3 class="result-title">{{ drawResult.message }}</h3>
 
         <div v-if="drawResult.isWinner && drawResult.prize" class="result-prize">
@@ -727,16 +914,33 @@ onMounted(() => {
           <p>💪 下次一定中奖！</p>
         </div>
 
-        <NButton type="primary" size="large" round block @click="showResultModal = false">知道了</NButton>
+        <NButton type="primary" size="large" round block @click="showResultModal = false">
+          知道了
+        </NButton>
       </div>
     </NModal>
 
     <!-- 原神抽卡动画弹窗 -->
-    <NModal v-model:show="showGachaAnimation" style="width: 100%; height: 100%; background: transparent" :bordered="false" :mask-closable="false" :close-on-esc="false" :show-icon="false">
-      <div class="gacha-overlay" :class="[`phase-${gachaPhase}`, `rarity-bg-${gachaRarity}`]">
+    <NModal
+      v-model:show="showGachaAnimation"
+      style="width: 100%; height: 100%; background: transparent"
+      :bordered="false"
+      :mask-closable="false"
+      :close-on-esc="false"
+      :show-icon="false"
+    >
+      <div
+        class="gacha-overlay"
+        :class="[`phase-${gachaPhase}`, `rarity-bg-${gachaRarity}`]"
+      >
         <!-- 背景粒子 -->
         <div class="particles-container">
-          <div v-for="p in gachaParticles" :key="p.id" class="particle" :style="{ left: `${p.x}%`, top: `${p.y}%`, animationDelay: `${p.delay}s` }" />
+          <div
+            v-for="p in gachaParticles"
+            :key="p.id"
+            class="particle"
+            :style="{ left: `${p.x}%`, top: `${p.y}%`, animationDelay: `${p.delay}s` }"
+          />
         </div>
 
         <!-- 流星阶段 -->
@@ -746,7 +950,13 @@ onMounted(() => {
             <div class="meteor-glow" />
           </div>
           <div class="meteor-trail-container">
-            <div v-for="i in 5" :key="i" class="meteor-trail-particle" :class="`trail-rarity-${gachaRarity}`" :style="{ animationDelay: `${i * 0.1}s` }" />
+            <div
+              v-for="i in 5"
+              :key="i"
+              class="meteor-trail-particle"
+              :class="`trail-rarity-${gachaRarity}`"
+              :style="{ animationDelay: `${i * 0.1}s` }"
+            />
           </div>
         </div>
 
@@ -754,7 +964,13 @@ onMounted(() => {
         <div v-if="gachaPhase === 'flash'" class="flash-stage">
           <div class="flash-circle" :class="`flash-rarity-${gachaRarity}`" />
           <div class="flash-rays">
-            <div v-for="i in 12" :key="i" class="ray" :style="{ transform: `rotate(${i * 30}deg)` }" :class="`ray-rarity-${gachaRarity}`" />
+            <div
+              v-for="i in 12"
+              :key="i"
+              class="ray"
+              :style="{ transform: `rotate(${i * 30}deg)` }"
+              :class="`ray-rarity-${gachaRarity}`"
+            />
           </div>
         </div>
 
@@ -762,7 +978,12 @@ onMounted(() => {
         <div v-if="gachaPhase === 'reveal'" class="reveal-stage">
           <div class="reveal-burst" :class="`burst-rarity-${gachaRarity}`" />
           <div class="reveal-ring-container">
-            <div v-for="i in 3" :key="i" class="reveal-ring" :class="[`ring-${i}`, `ring-rarity-${gachaRarity}`]" />
+            <div
+              v-for="i in 3"
+              :key="i"
+              class="reveal-ring"
+              :class="[`ring-${i}`, `ring-rarity-${gachaRarity}`]"
+            />
           </div>
         </div>
 
@@ -779,20 +1000,34 @@ onMounted(() => {
 
               <!-- 星星装饰 -->
               <div class="card-stars-decor">
-                <span v-for="i in 6" :key="i" class="decor-star" :class="`star-rarity-${gachaRarity}`" :style="{ animationDelay: `${i * 0.2}s` }">✦</span>
+                <span
+                  v-for="i in 6"
+                  :key="i"
+                  class="decor-star"
+                  :class="`star-rarity-${gachaRarity}`"
+                  :style="{ animationDelay: `${i * 0.2}s` }"
+                >✦</span>
               </div>
 
               <!-- 主要内容 -->
               <div class="card-body">
                 <!-- 图标/图片 -->
                 <div class="card-icon-wrapper" :class="`icon-rarity-${gachaRarity}`">
-                  <img v-if="drawResult.isWinner && drawResult.prize?.imageUrl" :src="drawResult.prize.imageUrl" class="card-prize-img" />
-                  <span v-else class="card-star-icon" :class="`star-icon-rarity-${gachaRarity}`">✦</span>
+                  <img
+                    v-if="drawResult.isWinner && drawResult.prize?.imageUrl"
+                    :src="drawResult.prize.imageUrl"
+                    class="card-prize-img"
+                  />
+                  <span
+                    v-else
+                    class="card-star-icon"
+                    :class="`star-icon-rarity-${gachaRarity}`"
+                  >✦</span>
                 </div>
 
                 <!-- 名称 -->
                 <h2 class="card-prize-name" :class="`name-rarity-${gachaRarity}`">
-                  {{ drawResult.isWinner ? drawResult.prize?.name : '谢谢惠顾' }}
+                  {{ drawResult.isWinner ? drawResult.prize?.name : "谢谢惠顾" }}
                 </h2>
 
                 <!-- 描述 -->
@@ -803,13 +1038,22 @@ onMounted(() => {
 
                 <!-- 星级 -->
                 <div class="card-rarity-stars">
-                  <span v-for="i in gachaRarity" :key="i" class="rarity-star" :class="`rarity-star-${gachaRarity}`">★</span>
+                  <span
+                    v-for="i in gachaRarity"
+                    :key="i"
+                    class="rarity-star"
+                    :class="`rarity-star-${gachaRarity}`"
+                  >★</span>
                 </div>
               </div>
 
               <!-- 底部按钮 -->
               <div class="card-footer">
-                <NButton class="confirm-btn" :class="`btn-rarity-${gachaRarity}`" @click="closeGachaAnimation">
+                <NButton
+                  class="confirm-btn"
+                  :class="`btn-rarity-${gachaRarity}`"
+                  @click="closeGachaAnimation"
+                >
                   确认
                 </NButton>
               </div>
@@ -939,7 +1183,7 @@ onMounted(() => {
   overflow: hidden;
 
   &::before {
-    content: '';
+    content: "";
     position: absolute;
     top: -50%;
     left: -50%;
@@ -951,8 +1195,13 @@ onMounted(() => {
 }
 
 @keyframes sectionGlow {
-  0%, 100% { transform: translate(0, 0); }
-  50% { transform: translate(5%, 5%); }
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(5%, 5%);
+  }
 }
 
 .wheel-decor-stars {
@@ -966,13 +1215,20 @@ onMounted(() => {
 
 .decor-sparkle {
   font-size: 18px;
-  color: #FFD700;
+  color: #ffd700;
   animation: sparkleFloat 2s ease-in-out infinite;
 }
 
 @keyframes sparkleFloat {
-  0%, 100% { transform: translateY(0) scale(1); opacity: 0.6; }
-  50% { transform: translateY(-8px) scale(1.2); opacity: 1; }
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 0.6;
+  }
+  50% {
+    transform: translateY(-8px) scale(1.2);
+    opacity: 1;
+  }
 }
 
 .wheel-container {
@@ -1005,8 +1261,15 @@ onMounted(() => {
 }
 
 @keyframes ringPulse {
-  0%, 100% { transform: scale(1); opacity: 0.5; }
-  50% { transform: scale(1.02); opacity: 1; }
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.5;
+  }
+  50% {
+    transform: scale(1.02);
+    opacity: 1;
+  }
 }
 
 .wheel-svg {
@@ -1038,7 +1301,7 @@ onMounted(() => {
 }
 
 .pointer::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   left: 50%;
@@ -1052,7 +1315,7 @@ onMounted(() => {
 }
 
 .pointer::after {
-  content: '';
+  content: "";
   position: absolute;
   top: 28px;
   left: 50%;
@@ -1082,15 +1345,20 @@ onMounted(() => {
   transition: all 0.3s;
 
   &.light-on {
-    background: #FFD700;
+    background: #ffd700;
     box-shadow: 0 0 10px rgba(255, 215, 0, 0.8);
     animation: bulbTwinkle 1.5s ease-in-out infinite;
   }
 }
 
 @keyframes bulbTwinkle {
-  0%, 100% { opacity: 0.6; }
-  50% { opacity: 1; }
+  0%,
+  100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
 }
 
 .draw-form {
@@ -1145,12 +1413,20 @@ onMounted(() => {
   border-bottom: 1px solid #f5f5f5;
   transition: background 0.2s;
 
-  &:last-child { border-bottom: none; }
-  &:hover { background: #fafafa; }
-  &.is-winner { background: #fffbeb; }
+  &:last-child {
+    border-bottom: none;
+  }
+  &:hover {
+    background: #fafafa;
+  }
+  &.is-winner {
+    background: #fffbeb;
+  }
 }
 
-.record-icon { font-size: 20px; }
+.record-icon {
+  font-size: 20px;
+}
 
 .record-info {
   flex: 1;
@@ -1159,8 +1435,15 @@ onMounted(() => {
   gap: 2px;
 }
 
-.record-name { font-size: 14px; font-weight: 500; color: #333; }
-.record-time { font-size: 12px; color: #999; }
+.record-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+}
+.record-time {
+  font-size: 12px;
+  color: #999;
+}
 
 .record-result {
   display: flex;
@@ -1169,7 +1452,10 @@ onMounted(() => {
   gap: 4px;
 }
 
-.record-prize { font-size: 12px; color: #666; }
+.record-prize {
+  font-size: 12px;
+  color: #666;
+}
 
 .empty-tip {
   text-align: center;
@@ -1193,7 +1479,9 @@ onMounted(() => {
   border-radius: 12px;
   transition: all 0.2s;
 
-  &:hover { background: #f0f0f0; }
+  &:hover {
+    background: #f0f0f0;
+  }
 }
 
 .prize-icon-box {
@@ -1214,17 +1502,47 @@ onMounted(() => {
   object-fit: cover;
 }
 
-.prize-detail { flex: 1; }
+.prize-detail {
+  flex: 1;
+}
 
-.prize-name { font-size: 15px; font-weight: 600; color: #333; margin-bottom: 4px; }
-.prize-meta { font-size: 12px; color: #999; }
+.prize-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.prize-level-tag {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.prize-meta {
+  font-size: 12px;
+  color: #999;
+}
 
 .prize-remain {
   text-align: center;
 }
 
-.remain-num { display: block; font-size: 20px; font-weight: 700; color: #667eea; }
-.remain-label { font-size: 11px; color: #999; }
+.remain-num {
+  display: block;
+  font-size: 20px;
+  font-weight: 700;
+  color: #667eea;
+}
+.remain-label {
+  font-size: 11px;
+  color: #999;
+}
 
 .winner-list {
   display: flex;
@@ -1258,8 +1576,15 @@ onMounted(() => {
   gap: 2px;
 }
 
-.winner-name { font-size: 14px; font-weight: 500; color: #333; }
-.winner-time { font-size: 12px; color: #999; }
+.winner-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+}
+.winner-time {
+  font-size: 12px;
+  color: #999;
+}
 
 .result-modal {
   background: white;
@@ -1291,8 +1616,16 @@ onMounted(() => {
   margin-bottom: 24px;
 }
 
-.result-prize-name { font-size: 20px; font-weight: 700; color: #b45309; margin-bottom: 4px; }
-.result-prize-value { font-size: 14px; color: #92400e; }
+.result-prize-name {
+  font-size: 20px;
+  font-weight: 700;
+  color: #b45309;
+  margin-bottom: 4px;
+}
+.result-prize-value {
+  font-size: 14px;
+  color: #92400e;
+}
 
 .result-no-prize {
   margin-bottom: 24px;
@@ -1327,13 +1660,20 @@ onMounted(() => {
 
 .star {
   font-size: 24px;
-  color: #FFD700;
+  color: #ffd700;
   animation: twinkle 2s ease-in-out infinite;
 }
 
 @keyframes twinkle {
-  0%, 100% { opacity: 0.5; transform: scale(1); }
-  50% { opacity: 1; transform: scale(1.2); }
+  0%,
+  100% {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
 }
 
 .gacha-btn {
@@ -1341,9 +1681,9 @@ onMounted(() => {
   padding: 0 48px;
   font-size: 18px;
   font-weight: 600;
-  background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+  background: linear-gradient(135deg, #ffd700 0%, #ffa500 100%);
   border: none;
-  color: #5D4E00;
+  color: #5d4e00;
   box-shadow: 0 4px 20px rgba(255, 215, 0, 0.4);
 
   &:hover:not(:disabled) {
@@ -1379,11 +1719,21 @@ onMounted(() => {
   overflow: hidden;
   transition: background 0.5s ease;
 
-  &.rarity-bg-5 { background: linear-gradient(135deg, #2a2000 0%, #3a2800 50%, #2a2000 100%); }
-  &.rarity-bg-4 { background: linear-gradient(135deg, #2a1a30 0%, #3a2040 50%, #2a1a30 100%); }
-  &.rarity-bg-3 { background: linear-gradient(135deg, #1a2030 0%, #2a3040 50%, #1a2030 100%); }
-  &.rarity-bg-2 { background: linear-gradient(135deg, #1a2a1a 0%, #2a3a2a 50%, #1a2a1a 100%); }
-  &.rarity-bg-1 { background: linear-gradient(135deg, #2a2010 0%, #3a3020 50%, #2a2010 100%); }
+  &.rarity-bg-5 {
+    background: linear-gradient(135deg, #2a2000 0%, #3a2800 50%, #2a2000 100%);
+  }
+  &.rarity-bg-4 {
+    background: linear-gradient(135deg, #2a1a30 0%, #3a2040 50%, #2a1a30 100%);
+  }
+  &.rarity-bg-3 {
+    background: linear-gradient(135deg, #1a2030 0%, #2a3040 50%, #1a2030 100%);
+  }
+  &.rarity-bg-2 {
+    background: linear-gradient(135deg, #1a2a1a 0%, #2a3a2a 50%, #1a2a1a 100%);
+  }
+  &.rarity-bg-1 {
+    background: linear-gradient(135deg, #2a2010 0%, #3a3020 50%, #2a2010 100%);
+  }
 }
 
 // 粒子效果
@@ -1403,8 +1753,15 @@ onMounted(() => {
 }
 
 @keyframes particleFloat {
-  0%, 100% { transform: translateY(0) scale(1); opacity: 0.6; }
-  50% { transform: translateY(-30px) scale(1.5); opacity: 1; }
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 0.6;
+  }
+  50% {
+    transform: translateY(-30px) scale(1.5);
+    opacity: 1;
+  }
 }
 
 // ==================== 流星阶段 ====================
@@ -1446,40 +1803,103 @@ onMounted(() => {
 }
 
 @keyframes glowPulse {
-  0% { transform: translate(-50%, -50%) scale(1); opacity: 0.8; }
-  100% { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
+  0% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0.8;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.2);
+    opacity: 1;
+  }
 }
 
 .meteor-rarity-5 {
-  .meteor-core { background: radial-gradient(circle, #fff, #FFD700, #FF8C00); }
-  .meteor-glow { background: radial-gradient(circle, rgba(255, 215, 0, 0.8), rgba(255, 140, 0, 0.4), transparent); }
+  .meteor-core {
+    background: radial-gradient(circle, #fff, #ffd700, #ff8c00);
+  }
+  .meteor-glow {
+    background: radial-gradient(
+      circle,
+      rgba(255, 215, 0, 0.8),
+      rgba(255, 140, 0, 0.4),
+      transparent
+    );
+  }
 }
 
 .meteor-rarity-4 {
-  .meteor-core { background: radial-gradient(circle, #fff, #CE93D8, #9B59B6); }
-  .meteor-glow { background: radial-gradient(circle, rgba(206, 147, 216, 0.8), rgba(155, 89, 182, 0.4), transparent); }
+  .meteor-core {
+    background: radial-gradient(circle, #fff, #ce93d8, #9b59b6);
+  }
+  .meteor-glow {
+    background: radial-gradient(
+      circle,
+      rgba(206, 147, 216, 0.8),
+      rgba(155, 89, 182, 0.4),
+      transparent
+    );
+  }
 }
 
 .meteor-rarity-3 {
-  .meteor-core { background: radial-gradient(circle, #fff, #64B5F6, #3498DB); }
-  .meteor-glow { background: radial-gradient(circle, rgba(100, 181, 246, 0.8), rgba(52, 152, 219, 0.4), transparent); }
+  .meteor-core {
+    background: radial-gradient(circle, #fff, #64b5f6, #3498db);
+  }
+  .meteor-glow {
+    background: radial-gradient(
+      circle,
+      rgba(100, 181, 246, 0.8),
+      rgba(52, 152, 219, 0.4),
+      transparent
+    );
+  }
 }
 
 .meteor-rarity-2 {
-  .meteor-core { background: radial-gradient(circle, #fff, #81C784, #66BB6A); }
-  .meteor-glow { background: radial-gradient(circle, rgba(129, 199, 132, 0.8), rgba(102, 187, 106, 0.4), transparent); }
+  .meteor-core {
+    background: radial-gradient(circle, #fff, #81c784, #66bb6a);
+  }
+  .meteor-glow {
+    background: radial-gradient(
+      circle,
+      rgba(129, 199, 132, 0.8),
+      rgba(102, 187, 106, 0.4),
+      transparent
+    );
+  }
 }
 
 .meteor-rarity-1 {
-  .meteor-core { background: radial-gradient(circle, #fff, #FFB74D, #FFA726); }
-  .meteor-glow { background: radial-gradient(circle, rgba(255, 183, 77, 0.8), rgba(255, 167, 38, 0.4), transparent); }
+  .meteor-core {
+    background: radial-gradient(circle, #fff, #ffb74d, #ffa726);
+  }
+  .meteor-glow {
+    background: radial-gradient(
+      circle,
+      rgba(255, 183, 77, 0.8),
+      rgba(255, 167, 38, 0.4),
+      transparent
+    );
+  }
 }
 
 @keyframes meteorDrop {
-  0% { top: -100px; opacity: 0; transform: translateX(-50%) scale(0.5); }
-  10% { opacity: 1; }
-  80% { transform: translateX(-50%) scale(1); }
-  100% { top: 50%; opacity: 1; transform: translateX(-50%) scale(1.1); }
+  0% {
+    top: -100px;
+    opacity: 0;
+    transform: translateX(-50%) scale(0.5);
+  }
+  10% {
+    opacity: 1;
+  }
+  80% {
+    transform: translateX(-50%) scale(1);
+  }
+  100% {
+    top: 50%;
+    opacity: 1;
+    transform: translateX(-50%) scale(1.1);
+  }
 }
 
 .meteor-trail-container {
@@ -1501,16 +1921,40 @@ onMounted(() => {
   animation: trailDrop 1.2s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
 }
 
-.trail-rarity-5 { background: #FFD700; box-shadow: 0 0 20px #FFD700; }
-.trail-rarity-4 { background: #CE93D8; box-shadow: 0 0 20px #CE93D8; }
-.trail-rarity-3 { background: #64B5F6; box-shadow: 0 0 20px #64B5F6; }
-.trail-rarity-2 { background: #81C784; box-shadow: 0 0 20px #81C784; }
-.trail-rarity-1 { background: #FFB74D; box-shadow: 0 0 20px #FFB74D; }
+.trail-rarity-5 {
+  background: #ffd700;
+  box-shadow: 0 0 20px #ffd700;
+}
+.trail-rarity-4 {
+  background: #ce93d8;
+  box-shadow: 0 0 20px #ce93d8;
+}
+.trail-rarity-3 {
+  background: #64b5f6;
+  box-shadow: 0 0 20px #64b5f6;
+}
+.trail-rarity-2 {
+  background: #81c784;
+  box-shadow: 0 0 20px #81c784;
+}
+.trail-rarity-1 {
+  background: #ffb74d;
+  box-shadow: 0 0 20px #ffb74d;
+}
 
 @keyframes trailDrop {
-  0% { top: -200px; opacity: 0; }
-  10% { opacity: 1; }
-  100% { top: 45%; opacity: 0; transform: scale(0); }
+  0% {
+    top: -200px;
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  100% {
+    top: 45%;
+    opacity: 0;
+    transform: scale(0);
+  }
 }
 
 // ==================== 闪光阶段 ====================
@@ -1528,15 +1972,56 @@ onMounted(() => {
   animation: flashExpand 0.4s ease-out forwards;
 }
 
-.flash-rarity-5 { background: radial-gradient(circle, rgba(255, 215, 0, 1), rgba(255, 140, 0, 0.8), transparent); }
-.flash-rarity-4 { background: radial-gradient(circle, rgba(206, 147, 216, 1), rgba(155, 89, 182, 0.8), transparent); }
-.flash-rarity-3 { background: radial-gradient(circle, rgba(100, 181, 246, 1), rgba(52, 152, 219, 0.8), transparent); }
-.flash-rarity-2 { background: radial-gradient(circle, rgba(129, 199, 132, 1), rgba(102, 187, 106, 0.8), transparent); }
-.flash-rarity-1 { background: radial-gradient(circle, rgba(255, 183, 77, 1), rgba(255, 167, 38, 0.8), transparent); }
+.flash-rarity-5 {
+  background: radial-gradient(
+    circle,
+    rgba(255, 215, 0, 1),
+    rgba(255, 140, 0, 0.8),
+    transparent
+  );
+}
+.flash-rarity-4 {
+  background: radial-gradient(
+    circle,
+    rgba(206, 147, 216, 1),
+    rgba(155, 89, 182, 0.8),
+    transparent
+  );
+}
+.flash-rarity-3 {
+  background: radial-gradient(
+    circle,
+    rgba(100, 181, 246, 1),
+    rgba(52, 152, 219, 0.8),
+    transparent
+  );
+}
+.flash-rarity-2 {
+  background: radial-gradient(
+    circle,
+    rgba(129, 199, 132, 1),
+    rgba(102, 187, 106, 0.8),
+    transparent
+  );
+}
+.flash-rarity-1 {
+  background: radial-gradient(
+    circle,
+    rgba(255, 183, 77, 1),
+    rgba(255, 167, 38, 0.8),
+    transparent
+  );
+}
 
 @keyframes flashExpand {
-  0% { transform: scale(0); opacity: 1; }
-  100% { transform: scale(3); opacity: 0; }
+  0% {
+    transform: scale(0);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(3);
+    opacity: 0;
+  }
 }
 
 .flash-rays {
@@ -1558,15 +2043,31 @@ onMounted(() => {
   animation: rayExpand 0.4s ease-out forwards;
 }
 
-.ray-rarity-5 { background: linear-gradient(to top, rgba(255, 215, 0, 0.8), transparent); }
-.ray-rarity-4 { background: linear-gradient(to top, rgba(206, 147, 216, 0.8), transparent); }
-.ray-rarity-3 { background: linear-gradient(to top, rgba(100, 181, 246, 0.8), transparent); }
-.ray-rarity-2 { background: linear-gradient(to top, rgba(129, 199, 132, 0.8), transparent); }
-.ray-rarity-1 { background: linear-gradient(to top, rgba(255, 183, 77, 0.8), transparent); }
+.ray-rarity-5 {
+  background: linear-gradient(to top, rgba(255, 215, 0, 0.8), transparent);
+}
+.ray-rarity-4 {
+  background: linear-gradient(to top, rgba(206, 147, 216, 0.8), transparent);
+}
+.ray-rarity-3 {
+  background: linear-gradient(to top, rgba(100, 181, 246, 0.8), transparent);
+}
+.ray-rarity-2 {
+  background: linear-gradient(to top, rgba(129, 199, 132, 0.8), transparent);
+}
+.ray-rarity-1 {
+  background: linear-gradient(to top, rgba(255, 183, 77, 0.8), transparent);
+}
 
 @keyframes rayExpand {
-  0% { height: 0; opacity: 1; }
-  100% { height: 200px; opacity: 0; }
+  0% {
+    height: 0;
+    opacity: 1;
+  }
+  100% {
+    height: 200px;
+    opacity: 0;
+  }
 }
 
 // ==================== 揭示阶段 ====================
@@ -1584,15 +2085,36 @@ onMounted(() => {
   animation: burstExpand 0.6s ease-out forwards;
 }
 
-.burst-rarity-5 { background: radial-gradient(circle, rgba(255, 215, 0, 0.6), transparent); box-shadow: 0 0 100px rgba(255, 215, 0, 0.8); }
-.burst-rarity-4 { background: radial-gradient(circle, rgba(206, 147, 216, 0.6), transparent); box-shadow: 0 0 100px rgba(155, 89, 182, 0.8); }
-.burst-rarity-3 { background: radial-gradient(circle, rgba(100, 181, 246, 0.6), transparent); box-shadow: 0 0 100px rgba(52, 152, 219, 0.8); }
-.burst-rarity-2 { background: radial-gradient(circle, rgba(129, 199, 132, 0.6), transparent); box-shadow: 0 0 100px rgba(102, 187, 106, 0.8); }
-.burst-rarity-1 { background: radial-gradient(circle, rgba(255, 183, 77, 0.6), transparent); box-shadow: 0 0 100px rgba(255, 167, 38, 0.8); }
+.burst-rarity-5 {
+  background: radial-gradient(circle, rgba(255, 215, 0, 0.6), transparent);
+  box-shadow: 0 0 100px rgba(255, 215, 0, 0.8);
+}
+.burst-rarity-4 {
+  background: radial-gradient(circle, rgba(206, 147, 216, 0.6), transparent);
+  box-shadow: 0 0 100px rgba(155, 89, 182, 0.8);
+}
+.burst-rarity-3 {
+  background: radial-gradient(circle, rgba(100, 181, 246, 0.6), transparent);
+  box-shadow: 0 0 100px rgba(52, 152, 219, 0.8);
+}
+.burst-rarity-2 {
+  background: radial-gradient(circle, rgba(129, 199, 132, 0.6), transparent);
+  box-shadow: 0 0 100px rgba(102, 187, 106, 0.8);
+}
+.burst-rarity-1 {
+  background: radial-gradient(circle, rgba(255, 183, 77, 0.6), transparent);
+  box-shadow: 0 0 100px rgba(255, 167, 38, 0.8);
+}
 
 @keyframes burstExpand {
-  0% { transform: scale(0); opacity: 1; }
-  100% { transform: scale(4); opacity: 0; }
+  0% {
+    transform: scale(0);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(4);
+    opacity: 0;
+  }
 }
 
 .reveal-ring-container {
@@ -1611,20 +2133,55 @@ onMounted(() => {
   transform: translate(-50%, -50%);
 }
 
-.ring-1 { width: 100px; height: 100px; animation: ringPulse 0.8s ease-out forwards; }
-.ring-2 { width: 150px; height: 150px; animation: ringPulse 0.8s ease-out 0.1s forwards; }
-.ring-3 { width: 200px; height: 200px; animation: ringPulse 0.8s ease-out 0.2s forwards; }
+.ring-1 {
+  width: 100px;
+  height: 100px;
+  animation: ringPulse 0.8s ease-out forwards;
+}
+.ring-2 {
+  width: 150px;
+  height: 150px;
+  animation: ringPulse 0.8s ease-out 0.1s forwards;
+}
+.ring-3 {
+  width: 200px;
+  height: 200px;
+  animation: ringPulse 0.8s ease-out 0.2s forwards;
+}
 
-.ring-rarity-5 { border-color: #FFD700; box-shadow: 0 0 30px rgba(255, 215, 0, 0.6); }
-.ring-rarity-4 { border-color: #CE93D8; box-shadow: 0 0 30px rgba(155, 89, 182, 0.6); }
-.ring-rarity-3 { border-color: #64B5F6; box-shadow: 0 0 30px rgba(52, 152, 219, 0.6); }
-.ring-rarity-2 { border-color: #81C784; box-shadow: 0 0 30px rgba(102, 187, 106, 0.6); }
-.ring-rarity-1 { border-color: #FFB74D; box-shadow: 0 0 30px rgba(255, 167, 38, 0.6); }
+.ring-rarity-5 {
+  border-color: #ffd700;
+  box-shadow: 0 0 30px rgba(255, 215, 0, 0.6);
+}
+.ring-rarity-4 {
+  border-color: #ce93d8;
+  box-shadow: 0 0 30px rgba(155, 89, 182, 0.6);
+}
+.ring-rarity-3 {
+  border-color: #64b5f6;
+  box-shadow: 0 0 30px rgba(52, 152, 219, 0.6);
+}
+.ring-rarity-2 {
+  border-color: #81c784;
+  box-shadow: 0 0 30px rgba(102, 187, 106, 0.6);
+}
+.ring-rarity-1 {
+  border-color: #ffb74d;
+  box-shadow: 0 0 30px rgba(255, 167, 38, 0.6);
+}
 
 @keyframes ringPulse {
-  0% { transform: translate(-50%, -50%) scale(0); opacity: 1; }
-  50% { opacity: 1; }
-  100% { transform: translate(-50%, -50%) scale(1.5); opacity: 0; }
+  0% {
+    transform: translate(-50%, -50%) scale(0);
+    opacity: 1;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.5);
+    opacity: 0;
+  }
 }
 
 // ==================== 结果阶段 ====================
@@ -1635,8 +2192,14 @@ onMounted(() => {
 }
 
 @keyframes resultAppear {
-  0% { transform: scale(0.8); opacity: 0; }
-  100% { transform: scale(1); opacity: 1; }
+  0% {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 .result-card-container {
@@ -1654,15 +2217,32 @@ onMounted(() => {
   animation: auraPulse 2s ease-in-out infinite;
 }
 
-.aura-rarity-5 { background: radial-gradient(ellipse, rgba(255, 215, 0, 0.4), transparent); }
-.aura-rarity-4 { background: radial-gradient(ellipse, rgba(206, 147, 216, 0.4), transparent); }
-.aura-rarity-3 { background: radial-gradient(ellipse, rgba(100, 181, 246, 0.3), transparent); }
-.aura-rarity-2 { background: radial-gradient(ellipse, rgba(129, 199, 132, 0.3), transparent); }
-.aura-rarity-1 { background: radial-gradient(ellipse, rgba(255, 183, 77, 0.3), transparent); }
+.aura-rarity-5 {
+  background: radial-gradient(ellipse, rgba(255, 215, 0, 0.4), transparent);
+}
+.aura-rarity-4 {
+  background: radial-gradient(ellipse, rgba(206, 147, 216, 0.4), transparent);
+}
+.aura-rarity-3 {
+  background: radial-gradient(ellipse, rgba(100, 181, 246, 0.3), transparent);
+}
+.aura-rarity-2 {
+  background: radial-gradient(ellipse, rgba(129, 199, 132, 0.3), transparent);
+}
+.aura-rarity-1 {
+  background: radial-gradient(ellipse, rgba(255, 183, 77, 0.3), transparent);
+}
 
 @keyframes auraPulse {
-  0%, 100% { transform: scale(1); opacity: 0.8; }
-  50% { transform: scale(1.05); opacity: 1; }
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 1;
+  }
 }
 
 .gacha-card {
@@ -1673,22 +2253,42 @@ onMounted(() => {
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
   border: 2px solid transparent;
 
-  &.card-rarity-5 { border-color: rgba(255, 215, 0, 0.6); }
-  &.card-rarity-4 { border-color: rgba(206, 147, 216, 0.6); }
-  &.card-rarity-3 { border-color: rgba(100, 181, 246, 0.4); }
-  &.card-rarity-2 { border-color: rgba(129, 199, 132, 0.4); }
-  &.card-rarity-1 { border-color: rgba(255, 183, 77, 0.4); }
+  &.card-rarity-5 {
+    border-color: rgba(255, 215, 0, 0.6);
+  }
+  &.card-rarity-4 {
+    border-color: rgba(206, 147, 216, 0.6);
+  }
+  &.card-rarity-3 {
+    border-color: rgba(100, 181, 246, 0.4);
+  }
+  &.card-rarity-2 {
+    border-color: rgba(129, 199, 132, 0.4);
+  }
+  &.card-rarity-1 {
+    border-color: rgba(255, 183, 77, 0.4);
+  }
 }
 
 .card-top-glow {
   height: 4px;
 }
 
-.glow-rarity-5 { background: linear-gradient(90deg, transparent, #FFD700, transparent); }
-.glow-rarity-4 { background: linear-gradient(90deg, transparent, #CE93D8, transparent); }
-.glow-rarity-3 { background: linear-gradient(90deg, transparent, #64B5F6, transparent); }
-.glow-rarity-2 { background: linear-gradient(90deg, transparent, #81C784, transparent); }
-.glow-rarity-1 { background: linear-gradient(90deg, transparent, #FFB74D, transparent); }
+.glow-rarity-5 {
+  background: linear-gradient(90deg, transparent, #ffd700, transparent);
+}
+.glow-rarity-4 {
+  background: linear-gradient(90deg, transparent, #ce93d8, transparent);
+}
+.glow-rarity-3 {
+  background: linear-gradient(90deg, transparent, #64b5f6, transparent);
+}
+.glow-rarity-2 {
+  background: linear-gradient(90deg, transparent, #81c784, transparent);
+}
+.glow-rarity-1 {
+  background: linear-gradient(90deg, transparent, #ffb74d, transparent);
+}
 
 .card-stars-decor {
   display: flex;
@@ -1702,15 +2302,32 @@ onMounted(() => {
   animation: starTwinkle 1.5s ease-in-out infinite;
 }
 
-.star-rarity-5 { color: #FFD700; }
-.star-rarity-4 { color: #CE93D8; }
-.star-rarity-3 { color: #64B5F6; }
-.star-rarity-2 { color: #81C784; }
-.star-rarity-1 { color: #FFB74D; }
+.star-rarity-5 {
+  color: #ffd700;
+}
+.star-rarity-4 {
+  color: #ce93d8;
+}
+.star-rarity-3 {
+  color: #64b5f6;
+}
+.star-rarity-2 {
+  color: #81c784;
+}
+.star-rarity-1 {
+  color: #ffb74d;
+}
 
 @keyframes starTwinkle {
-  0%, 100% { opacity: 0.5; transform: scale(1); }
-  50% { opacity: 1; transform: scale(1.3); }
+  0%,
+  100% {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.3);
+  }
 }
 
 .card-body {
@@ -1730,7 +2347,7 @@ onMounted(() => {
   background: rgba(255, 255, 255, 0.1);
 
   &::before {
-    content: '';
+    content: "";
     position: absolute;
     inset: -4px;
     border-radius: 50%;
@@ -1739,15 +2356,32 @@ onMounted(() => {
   }
 }
 
-.icon-rarity-5::before { border-color: #FFD700; }
-.icon-rarity-4::before { border-color: #CE93D8; }
-.icon-rarity-3::before { border-color: #64B5F6; }
-.icon-rarity-2::before { border-color: #81C784; }
-.icon-rarity-1::before { border-color: #FFB74D; }
+.icon-rarity-5::before {
+  border-color: #ffd700;
+}
+.icon-rarity-4::before {
+  border-color: #ce93d8;
+}
+.icon-rarity-3::before {
+  border-color: #64b5f6;
+}
+.icon-rarity-2::before {
+  border-color: #81c784;
+}
+.icon-rarity-1::before {
+  border-color: #ffb74d;
+}
 
 @keyframes iconBorderPulse {
-  0%, 100% { transform: scale(1); opacity: 0.6; }
-  50% { transform: scale(1.05); opacity: 1; }
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 1;
+  }
 }
 
 .card-prize-img {
@@ -1761,11 +2395,26 @@ onMounted(() => {
   font-size: 48px;
 }
 
-.star-icon-rarity-5 { color: #FFD700; text-shadow: 0 0 30px rgba(255, 215, 0, 0.8); }
-.star-icon-rarity-4 { color: #CE93D8; text-shadow: 0 0 30px rgba(206, 147, 216, 0.8); }
-.star-icon-rarity-3 { color: #64B5F6; text-shadow: 0 0 30px rgba(100, 181, 246, 0.6); }
-.star-icon-rarity-2 { color: #81C784; text-shadow: 0 0 30px rgba(129, 199, 132, 0.6); }
-.star-icon-rarity-1 { color: #FFB74D; text-shadow: 0 0 30px rgba(255, 183, 77, 0.6); }
+.star-icon-rarity-5 {
+  color: #ffd700;
+  text-shadow: 0 0 30px rgba(255, 215, 0, 0.8);
+}
+.star-icon-rarity-4 {
+  color: #ce93d8;
+  text-shadow: 0 0 30px rgba(206, 147, 216, 0.8);
+}
+.star-icon-rarity-3 {
+  color: #64b5f6;
+  text-shadow: 0 0 30px rgba(100, 181, 246, 0.6);
+}
+.star-icon-rarity-2 {
+  color: #81c784;
+  text-shadow: 0 0 30px rgba(129, 199, 132, 0.6);
+}
+.star-icon-rarity-1 {
+  color: #ffb74d;
+  text-shadow: 0 0 30px rgba(255, 183, 77, 0.6);
+}
 
 .card-prize-name {
   font-size: 24px;
@@ -1773,11 +2422,23 @@ onMounted(() => {
   margin: 0 0 12px;
 }
 
-.name-rarity-5 { color: #FFD700; text-shadow: 0 0 20px rgba(255, 215, 0, 0.5); }
-.name-rarity-4 { color: #CE93D8; text-shadow: 0 0 20px rgba(206, 147, 216, 0.5); }
-.name-rarity-3 { color: #64B5F6; }
-.name-rarity-2 { color: #81C784; }
-.name-rarity-1 { color: #FFB74D; }
+.name-rarity-5 {
+  color: #ffd700;
+  text-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+}
+.name-rarity-4 {
+  color: #ce93d8;
+  text-shadow: 0 0 20px rgba(206, 147, 216, 0.5);
+}
+.name-rarity-3 {
+  color: #64b5f6;
+}
+.name-rarity-2 {
+  color: #81c784;
+}
+.name-rarity-1 {
+  color: #ffb74d;
+}
 
 .card-prize-desc {
   font-size: 14px;
@@ -1795,11 +2456,23 @@ onMounted(() => {
   font-size: 24px;
 }
 
-.rarity-star-5 { color: #FFD700; text-shadow: 0 0 10px rgba(255, 215, 0, 0.6); }
-.rarity-star-4 { color: #CE93D8; text-shadow: 0 0 10px rgba(206, 147, 216, 0.6); }
-.rarity-star-3 { color: #64B5F6; }
-.rarity-star-2 { color: #81C784; }
-.rarity-star-1 { color: #FFB74D; }
+.rarity-star-5 {
+  color: #ffd700;
+  text-shadow: 0 0 10px rgba(255, 215, 0, 0.6);
+}
+.rarity-star-4 {
+  color: #ce93d8;
+  text-shadow: 0 0 10px rgba(206, 147, 216, 0.6);
+}
+.rarity-star-3 {
+  color: #64b5f6;
+}
+.rarity-star-2 {
+  color: #81c784;
+}
+.rarity-star-1 {
+  color: #ffb74d;
+}
 
 .card-footer {
   padding: 0 24px 24px;
@@ -1816,33 +2489,43 @@ onMounted(() => {
   transition: all 0.2s;
 
   &.btn-rarity-5 {
-    background: linear-gradient(135deg, #FFD700, #FFA500);
-    color: #5D4E00;
-    &:hover { box-shadow: 0 4px 20px rgba(255, 215, 0, 0.6); }
+    background: linear-gradient(135deg, #ffd700, #ffa500);
+    color: #5d4e00;
+    &:hover {
+      box-shadow: 0 4px 20px rgba(255, 215, 0, 0.6);
+    }
   }
 
   &.btn-rarity-4 {
-    background: linear-gradient(135deg, #CE93D8, #BA68C8);
+    background: linear-gradient(135deg, #ce93d8, #ba68c8);
     color: white;
-    &:hover { box-shadow: 0 4px 20px rgba(186, 104, 200, 0.6); }
+    &:hover {
+      box-shadow: 0 4px 20px rgba(186, 104, 200, 0.6);
+    }
   }
 
   &.btn-rarity-3 {
-    background: linear-gradient(135deg, #64B5F6, #42A5F5);
+    background: linear-gradient(135deg, #64b5f6, #42a5f5);
     color: white;
-    &:hover { box-shadow: 0 4px 20px rgba(66, 165, 245, 0.6); }
+    &:hover {
+      box-shadow: 0 4px 20px rgba(66, 165, 245, 0.6);
+    }
   }
 
   &.btn-rarity-2 {
-    background: linear-gradient(135deg, #81C784, #66BB6A);
+    background: linear-gradient(135deg, #81c784, #66bb6a);
     color: white;
-    &:hover { box-shadow: 0 4px 20px rgba(102, 187, 106, 0.6); }
+    &:hover {
+      box-shadow: 0 4px 20px rgba(102, 187, 106, 0.6);
+    }
   }
 
   &.btn-rarity-1 {
-    background: linear-gradient(135deg, #FFB74D, #FFA726);
-    color: #5D3E00;
-    &:hover { box-shadow: 0 4px 20px rgba(255, 167, 38, 0.6); }
+    background: linear-gradient(135deg, #ffb74d, #ffa726);
+    color: #5d3e00;
+    &:hover {
+      box-shadow: 0 4px 20px rgba(255, 167, 38, 0.6);
+    }
   }
 }
 </style>
