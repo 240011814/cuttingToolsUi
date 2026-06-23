@@ -256,6 +256,7 @@ const local: App.I18n.Schema = {
     "system_ai-config": "AI 配置管理",
     system_config: "系统配置",
     "system_lottery": "抽奖管理",
+    "system_model-scenario": "模型和场景",
     user: "用户",
     user_profile: "个人中心",
     share: "分享对话",

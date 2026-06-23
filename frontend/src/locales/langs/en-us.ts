@@ -260,6 +260,7 @@ const local: App.I18n.Schema = {
     "system_ai-config": "AI Config Management",
     system_config: "System Config",
     "system_lottery": "Lottery Management",
+    "system_model-scenario": "Models & Scenarios",
     user: "User",
     user_profile: "Profile",
     share: "Shared Conversation",

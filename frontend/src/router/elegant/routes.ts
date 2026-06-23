@@ -360,6 +360,18 @@ export const generatedRoutes: GeneratedRoute[] = [
         }
       },
       {
+        name: 'system_model-scenario',
+        path: '/system/model-scenario',
+        component: 'view.system_model-scenario',
+        meta: {
+          title: 'system_model-scenario',
+          i18nKey: 'route.system_model-scenario',
+          icon: 'mdi:lightbulb-on-outline',
+          permissions: ['model_scenario:view'],
+          order: 6
+        }
+      },
+      {
         name: 'system_permission',
         path: '/system/permission',
         component: 'view.system_permission',

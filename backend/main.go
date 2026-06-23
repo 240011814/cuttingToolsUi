@@ -70,6 +70,9 @@ func main() {
 	lotteryService := service.NewLotteryService()
 	lotteryHandler := api.NewLotteryHandler(lotteryService)
 
+	modelScenarioService := service.NewModelScenarioService()
+	modelScenarioHandler := api.NewModelScenarioHandler(modelScenarioService)
+
 	r.GET("/api/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"status":  "ok",
@@ -180,6 +183,16 @@ func main() {
 			cutRecordGroup.POST("/add", api.RequirePermission("cut:record:create"), cutHandler.HandleAddRecord)
 			cutRecordGroup.GET("/list", api.RequirePermission("cut:record:view"), cutHandler.HandleListRecords)
 			cutRecordGroup.POST("/delete/:id", api.RequirePermission("cut:record:delete"), cutHandler.HandleDeleteRecord)
+		}
+
+		// 模型和场景 APIs
+		modelScenarioGroup := apiGroup.Group("/model-scenario")
+		modelScenarioGroup.Use(api.RequirePermission("model_scenario:view"))
+		{
+			modelScenarioGroup.GET("", modelScenarioHandler.HandleList)
+			modelScenarioGroup.POST("", api.RequirePermission("model_scenario:create"), modelScenarioHandler.HandleCreate)
+			modelScenarioGroup.PUT("/:id", api.RequirePermission("model_scenario:update"), modelScenarioHandler.HandleUpdate)
+			modelScenarioGroup.DELETE("/:id", api.RequirePermission("model_scenario:delete"), modelScenarioHandler.HandleDelete)
 		}
 
 		// Lottery Admin APIs (需要登录+权限)

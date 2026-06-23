@@ -47,6 +47,7 @@ declare module "@elegant-router/types" {
     "system_ai-config": "/system/ai-config";
     "system_config": "/system/config";
     "system_lottery": "/system/lottery";
+    "system_model-scenario": "/system/model-scenario";
     "system_permission": "/system/permission";
     "system_user": "/system/user";
     "user": "/user";
@@ -137,6 +138,7 @@ declare module "@elegant-router/types" {
     | "system_ai-config"
     | "system_config"
     | "system_lottery"
+    | "system_model-scenario"
     | "system_permission"
     | "system_user"
     | "user_profile"
