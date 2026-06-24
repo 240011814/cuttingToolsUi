@@ -1,6 +1,8 @@
 package service
 
 import (
+	"errors"
+
 	"backend/model"
 )
 
@@ -12,6 +14,17 @@ func NewVocabularyService() *VocabularyService {
 
 // AddWord 添加生词
 func (s *VocabularyService) AddWord(userID uint, req model.CreateVocabularyRequest) (*model.Vocabulary, error) {
+	// 重复检查：同一用户下单词不重复（忽略大小写）
+	var count int64
+	if err := DB.Model(&model.Vocabulary{}).
+		Where("user_id = ? AND LOWER(word) = LOWER(?)", userID, req.Word).
+		Count(&count).Error; err != nil {
+		return nil, err
+	}
+	if count > 0 {
+		return nil, errors.New("该单词已存在")
+	}
+
 	word := model.Vocabulary{
 		UserID:        userID,
 		Word:          req.Word,

@@ -79,6 +79,9 @@ const loadData = async () => {
         router.push({ name: "ai_vocabulary" });
       } else {
         rawWords.value.forEach((item) => {
+          // \u4fdd\u5b58\u62ec\u53f7\u4e2d\u7684\u4e2d\u6587\u7ffb\u8bd1
+          const match = item.example.match(/\s*\(([^)]*[\u4e00-\u9fa5][^)]*)\)\s*$/);
+          item._translation = match ? match[1] : "";
           item.example = item.example.replace(/\s*\([^)]*[\u4e00-\u9fa5][^)]*\)\s*$/, "");
         });
       }
@@ -143,6 +146,35 @@ const handleGlobalKeydown = (e: KeyboardEvent) => {
     ["Backspace", "Enter", "ArrowLeft", "ArrowRight", " "].includes(e.key)
   ) {
     playClick();
+  }
+
+  // 下箭头：显示当前单词提示
+  if (e.key === "ArrowDown") {
+    e.preventDefault();
+    const word = targetWords.value[activeWordIndex.value];
+    if (word) {
+      message.info(`提示：${word}`, { duration: 3000 });
+    }
+    return;
+  }
+
+  // 上箭头：跳过当前单词，自动填入正确答案并移到下一个
+  if (e.key === "ArrowUp") {
+    e.preventDefault();
+    const idx = activeWordIndex.value;
+    const target = targetWords.value[idx];
+    if (target) {
+      wordResults.value[idx] = { typed: target, status: "correct" };
+      errorCounts.value[idx] = 0;
+      if (idx < targetWords.value.length - 1) {
+        activeWordIndex.value = idx + 1;
+        currentInput.value = wordResults.value[activeWordIndex.value].typed;
+      } else {
+        // eslint-disable-next-line @typescript-eslint/no-use-before-define
+        validateWord(idx, target);
+      }
+    }
+    return;
   }
 
   // 方向键导航：切换前校验
@@ -307,6 +339,8 @@ watch(
           <span>Backspace 回退</span>
           <span>Space 跳转</span>
           <span>Enter 重播</span>
+          <span>↓ 提示</span>
+          <span>↑ 跳过</span>
         </div>
       </div>
     </div>
@@ -339,6 +373,12 @@ watch(
             class="text-2xl text-gray-400 dark:text-gray-500 font-medium tracking-wide"
           >
             {{ currentItem.definition }}
+          </div>
+          <div
+            v-if="currentItem._translation"
+            class="text-2xl text-gray-400 dark:text-gray-500 font-medium tracking-wide mt-2"
+          >
+            {{ currentItem._translation }}
           </div>
         </div>
 
@@ -404,6 +444,8 @@ watch(
             <span class="flex items-center gap-2"><NTag size="small" :bordered="false" round>← →</NTag> 切换单词</span>
             <span class="flex items-center gap-2"><NTag size="small" :bordered="false" round>Space</NTag> 下一个</span>
             <span class="flex items-center gap-2"><NTag size="small" :bordered="false" round>Enter</NTag> 重播</span>
+            <span class="flex items-center gap-2"><NTag size="small" :bordered="false" round>↓</NTag> 提示</span>
+            <span class="flex items-center gap-2"><NTag size="small" :bordered="false" round>↑</NTag> 跳过</span>
           </div>
         </div>
       </div>
