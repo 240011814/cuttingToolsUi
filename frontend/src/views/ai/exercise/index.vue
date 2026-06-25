@@ -193,7 +193,7 @@ const handleGlobalKeydown = (e: KeyboardEvent) => {
     validateWord(activeWordIndex.value, currentInput.value);
     // 如果没全对，可以触发重播
     if (!wordResults.value.every((r) => r.status === "correct")) {
-      playCurrent(3);
+      playCurrent(1);
     }
     return;
   }
