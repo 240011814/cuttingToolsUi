@@ -103,23 +103,19 @@ const initSentence = () => {
   playCurrent(3);
 };
 
-const playCurrent = (times = 3) => {
+const playCurrent = async (times = 3) => {
   isPlaying.value = true;
-  let count = 0;
-  const _play = () => {
-    if (count < times && !isFinished.value) {
-      speak(targetSentence.value, {
-        lang: "en-US",
-        rate: 0.9,
-      }).catch((err) => {
-        message.error("语音播放失败 - " + err.message);
-        console.error(err);
-      });
-      count++;
+  for (let i = 0; i < times; i++) {
+    if (isFinished.value) break;
+    try {
+      await speak(targetSentence.value, { lang: "en-US", rate: 0.9 });
+    } catch (err: any) {
+      message.error("语音播放失败 - " + err.message);
+      console.error(err);
+      break;
     }
-    isPlaying.value = false;
-  };
-  _play();
+  }
+  isPlaying.value = false;
 };
 
 const selectWord = (index: number) => {
@@ -280,7 +276,15 @@ const validateWord = (index: number, typedValue: string) => {
   }
 };
 
+const shuffleArray = (arr: any[]) => {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+};
+
 const startPractice = () => {
+  shuffleArray(rawWords.value);
   isStarted.value = true;
   initSentence();
 };

@@ -61,13 +61,18 @@ export const speak = async (
     utterance.voice = voice;
   }
 
-  utterance.addEventListener('error', (e) => {
-    console.error('TTS error:', e);
-  });
+  // 4. 返回 Promise，播放结束时 resolve
+  return new Promise<void>((resolve, reject) => {
+    utterance.addEventListener('end', () => resolve());
+    utterance.addEventListener('error', (e) => {
+      console.error('TTS error:', e);
+      reject(e);
+    });
 
-  // 4. Chrome 稳定技巧：延迟一帧
-  requestAnimationFrame(() => {
-    synth.speak(utterance);
+    // Chrome 稳定技巧：延迟一帧
+    requestAnimationFrame(() => {
+      synth.speak(utterance);
+    });
   });
 };
 
