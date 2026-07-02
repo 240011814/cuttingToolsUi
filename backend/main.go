@@ -73,6 +73,9 @@ func main() {
 	modelScenarioService := service.NewModelScenarioService()
 	modelScenarioHandler := api.NewModelScenarioHandler(modelScenarioService)
 
+	courseService := service.NewCourseService()
+	courseHandler := api.NewCourseHandler(courseService)
+
 	r.GET("/api/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"status":  "ok",
@@ -193,6 +196,23 @@ func main() {
 			modelScenarioGroup.POST("", api.RequirePermission("model_scenario:create"), modelScenarioHandler.HandleCreate)
 			modelScenarioGroup.PUT("/:id", api.RequirePermission("model_scenario:update"), modelScenarioHandler.HandleUpdate)
 			modelScenarioGroup.DELETE("/:id", api.RequirePermission("model_scenario:delete"), modelScenarioHandler.HandleDelete)
+		}
+
+		// Course APIs
+		courseGroup := apiGroup.Group("/courses")
+		courseGroup.Use(api.RequirePermission("ai:course:view"))
+		{
+			courseGroup.GET("", courseHandler.ListCourses)
+			courseGroup.GET("/:id", courseHandler.GetCourse)
+			courseGroup.POST("", api.RequirePermission("ai:course:create"), courseHandler.CreateCourse)
+			courseGroup.PUT("/:id", api.RequirePermission("ai:course:edit"), courseHandler.UpdateCourse)
+			courseGroup.DELETE("/:id", api.RequirePermission("ai:course:delete"), courseHandler.DeleteCourse)
+			courseGroup.GET("/:id/items", courseHandler.GetCourseItems)
+			courseGroup.POST("/:id/items", api.RequirePermission("ai:course:edit"), courseHandler.CreateCourseItem)
+			courseGroup.POST("/:id/items/batch", api.RequirePermission("ai:course:edit"), courseHandler.BatchCreateCourseItems)
+			courseGroup.DELETE("/:id/items/batch", api.RequirePermission("ai:course:delete"), courseHandler.BatchDeleteCourseItems)
+			courseGroup.PUT("/:id/items/:itemId", api.RequirePermission("ai:course:edit"), courseHandler.UpdateCourseItem)
+			courseGroup.DELETE("/:id/items/:itemId", api.RequirePermission("ai:course:edit"), courseHandler.DeleteCourseItem)
 		}
 
 		// Lottery Admin APIs (需要登录+权限)

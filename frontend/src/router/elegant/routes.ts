@@ -63,6 +63,29 @@ export const generatedRoutes: GeneratedRoute[] = [
         }
       },
       {
+        name: 'ai_course',
+        path: '/ai/course',
+        component: 'view.ai_course',
+        meta: {
+          title: 'ai_course',
+          i18nKey: 'route.ai_course',
+          icon: 'mdi:book-education',
+          permissions: ['ai:course:view'],
+          order: 5
+        }
+      },
+      {
+        name: 'ai_course-detail',
+        path: '/ai/course-detail/:id',
+        component: 'view.ai_course-detail',
+        meta: {
+          title: 'ai_course-detail',
+          i18nKey: 'route.ai_course-detail',
+          permissions: ['ai:course:view'],
+          hideInMenu: true
+        }
+      },
+      {
         name: 'ai_custom-training',
         path: '/ai/custom-training/:id',
         component: 'view.ai_custom-training',

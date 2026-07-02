@@ -247,6 +247,8 @@ const local: App.I18n.Schema = {
     ai_history: "History Records",
     ai_memory: "Memory",
     ai_exercise: "Exercise",
+    ai_course: "Course Pack",
+    "ai_course-detail": "Edit Course",
     cut: "Cutting Tools",
     cut_bar: "1D Cutting",
     cut_plane: "2D Cutting",

@@ -2,7 +2,7 @@
 import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useMessage } from "naive-ui";
-import { fetchGetVocabularyList } from "@/service/api";
+import { fetchGetVocabularyList, fetchCourseDetail } from "@/service/api";
 import { speak } from "@/utils/tts";
 
 import typingSound from "@/assets/sound/typing.mp3";
@@ -40,7 +40,7 @@ const errorCounts = ref<number[]>([]);
 
 // --- Computed ---
 const currentItem = computed(() => rawWords.value[currentSentenceIndex.value] || null);
-const targetSentence = computed(() => currentItem.value?.example || "");
+const targetSentence = computed(() => currentItem.value?.example || currentItem.value?.english_sentence || "");
 const targetWords = computed(() => {
   if (!targetSentence.value) return [];
   return targetSentence.value.trim().split(/\s+/);
@@ -55,17 +55,32 @@ const progress = computed(() => {
 const loadData = async () => {
   loading.value = true;
   try {
+    const courseId = route.query.courseId as string;
+    const ids = route.query.ids as string;
+    const mode = route.query.mode as string;
+
+    // 课程包模式
+    if (courseId) {
+      const { data } = await fetchCourseDetail(Number(courseId));
+      if (data) {
+        rawWords.value = data.items.filter((item) => item.english_sentence);
+        if (rawWords.value.length === 0) {
+          message.warning("课程中没有可练习的句子");
+          router.push({ name: "ai_course" });
+        }
+      }
+      return;
+    }
+
+    // 生词本模式
     const { data: res } = await fetchGetVocabularyList({ isMastered: false });
     if (res) {
-      const { ids, mode } = route.query;
       if (mode === "all") {
         rawWords.value = res.filter((item) => item.example);
       } else if (ids) {
-        // 如果指定了 ID，则需要重新获取完整列表（或者单独获取这些 ID），因为上面的请求只拿了未掌握的
-        // 为了简单起见，如果传了 ids，我们重新请求一次不带过滤的列表
         const { data: allRes } = await fetchGetVocabularyList();
         if (allRes) {
-          const idList = (ids as string).split(",").map(Number);
+          const idList = ids.split(",").map(Number);
           rawWords.value = allRes.filter(
             (item) => idList.includes(item.id) && item.example
           );
@@ -79,10 +94,9 @@ const loadData = async () => {
         router.push({ name: "ai_vocabulary" });
       } else {
         rawWords.value.forEach((item) => {
-          // \u4fdd\u5b58\u62ec\u53f7\u4e2d\u7684\u4e2d\u6587\u7ffb\u8bd1
-          const match = item.example.match(/\s*\(([^)]*[\u4e00-\u9fa5][^)]*)\)\s*$/);
+          const match = item.example.match(/\s*\(([^)]*[一-龥][^)]*)\)\s*$/);
           item._translation = match ? match[1] : "";
-          item.example = item.example.replace(/\s*\([^)]*[\u4e00-\u9fa5][^)]*\)\s*$/, "");
+          item.example = item.example.replace(/\s*\([^)]*[一-龥][^)]*\)\s*$/, "");
         });
       }
     }
@@ -290,7 +304,12 @@ const startPractice = () => {
 };
 
 const goBack = () => {
-  router.push({ name: "ai_vocabulary" });
+  const courseId = route.query.courseId as string;
+  if (courseId) {
+    router.push({ name: "ai_course-detail", params: { id: courseId } });
+  } else {
+    router.push({ name: "ai_vocabulary" });
+  }
 };
 
 onMounted(() => {
@@ -379,10 +398,10 @@ watch(
             {{ currentItem.definition }}
           </div>
           <div
-            v-if="currentItem._translation"
+            v-if="currentItem._translation || currentItem.chinese_translation"
             class="text-2xl text-gray-400 dark:text-gray-500 font-medium tracking-wide mt-2"
           >
-            {{ currentItem._translation }}
+            {{ currentItem._translation || currentItem.chinese_translation }}
           </div>
         </div>
 

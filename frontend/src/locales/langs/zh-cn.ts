@@ -243,6 +243,8 @@ const local: App.I18n.Schema = {
     ai_history: "历史记录",
     ai_memory: "记忆管理",
     ai_exercise: "练习",
+    ai_course: "课程包",
+    "ai_course-detail": "编辑课程",
     cut: "切割工具",
     cut_bar: "一维切割",
     cut_plane: "平面切割",
