@@ -76,6 +76,9 @@ func main() {
 	courseService := service.NewCourseService()
 	courseHandler := api.NewCourseHandler(courseService)
 
+	errorBookService := service.NewErrorBookService()
+	errorBookHandler := api.NewErrorBookHandler(errorBookService)
+
 	r.GET("/api/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"status":  "ok",
@@ -213,6 +216,18 @@ func main() {
 			courseGroup.DELETE("/:id/items/batch", api.RequirePermission("ai:course:delete"), courseHandler.BatchDeleteCourseItems)
 			courseGroup.PUT("/:id/items/:itemId", api.RequirePermission("ai:course:edit"), courseHandler.UpdateCourseItem)
 			courseGroup.DELETE("/:id/items/:itemId", api.RequirePermission("ai:course:edit"), courseHandler.DeleteCourseItem)
+		}
+
+		// Error Book APIs
+		errorBookGroup := apiGroup.Group("/error-book")
+		errorBookGroup.Use(api.RequirePermission("ai:error-book:view"))
+		{
+			errorBookGroup.POST("", api.RequirePermission("ai:error-book:add"), errorBookHandler.HandleAddErrorBook)
+			errorBookGroup.GET("", errorBookHandler.HandleListErrorBooks)
+			errorBookGroup.GET("/practice", api.RequirePermission("ai:error-book:practice"), errorBookHandler.HandleGetErrorBookForPractice)
+			errorBookGroup.GET("/stats", errorBookHandler.HandleGetErrorBookStats)
+			errorBookGroup.PUT("/:id", api.RequirePermission("ai:error-book:edit"), errorBookHandler.HandleUpdateErrorBook)
+			errorBookGroup.DELETE("/:id", api.RequirePermission("ai:error-book:delete"), errorBookHandler.HandleDeleteErrorBook)
 		}
 
 		// Lottery Admin APIs (需要登录+权限)

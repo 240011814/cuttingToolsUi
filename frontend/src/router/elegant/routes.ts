@@ -122,6 +122,15 @@ export const generatedRoutes: GeneratedRoute[] = [
         }
       },
       {
+        name: 'ai_error-book',
+        path: '/ai/error-book',
+        component: 'view.ai_error-book',
+        meta: {
+          title: 'ai_error-book',
+          i18nKey: 'route.ai_error-book'
+        }
+      },
+      {
         name: 'ai_exercise',
         path: '/ai/exercise',
         component: 'view.ai_exercise',

@@ -13,3 +13,4 @@ export * from './user-preference';
 export * from './lottery';
 export * from './model-scenario';
 export * from './course';
+export * from './error-book';

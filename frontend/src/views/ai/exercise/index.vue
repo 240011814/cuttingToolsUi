@@ -2,7 +2,8 @@
 import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useMessage } from "naive-ui";
-import { fetchGetVocabularyList, fetchCourseDetail } from "@/service/api";
+import { fetchGetVocabularyList, fetchCourseDetail, fetchGetErrorBookForPractice } from "@/service/api";
+import { fetchAddErrorBook } from "@/service/api/error-book";
 import { speak } from "@/utils/tts";
 
 import typingSound from "@/assets/sound/typing.mp3";
@@ -51,6 +52,31 @@ const progress = computed(() => {
   return Math.round((currentSentenceIndex.value / rawWords.value.length) * 100);
 });
 
+// --- Error Book ---
+const addToErrorBook = async (word: string) => {
+  try {
+    const item = currentItem.value;
+    const isCourseMode = !!route.query.courseId;
+
+    // 都记录例句，contentType 区分来源
+    const contentType = isCourseMode ? "sentence" : "word";
+    const content = targetSentence.value;
+    const translation = item?._translation || item?.chinese_translation || "";
+    const sourceType = isCourseMode ? "course" : "vocabulary";
+    const sourceId = item?.id || 0;
+
+    await fetchAddErrorBook({
+      contentType,
+      content,
+      translation,
+      sourceType,
+      sourceId,
+    });
+  } catch (err: any) {
+    console.error("添加错题本失败", err);
+  }
+};
+
 // --- Methods ---
 const loadData = async () => {
   loading.value = true;
@@ -58,6 +84,7 @@ const loadData = async () => {
     const courseId = route.query.courseId as string;
     const ids = route.query.ids as string;
     const mode = route.query.mode as string;
+    const type = route.query.type as string;
 
     // 课程包模式
     if (courseId) {
@@ -67,6 +94,26 @@ const loadData = async () => {
         if (rawWords.value.length === 0) {
           message.warning("课程中没有可练习的句子");
           router.push({ name: "ai_course" });
+        }
+      }
+      return;
+    }
+
+    // 错题本模式
+    if (mode === "error-book") {
+      const { data: res } = await fetchGetErrorBookForPractice({
+        contentType: type || undefined,
+      });
+      if (res) {
+        rawWords.value = res.map((item) => ({
+          id: item.id,
+          example: item.content,
+          _translation: item.translation || "",
+          word: item.content,
+        }));
+        if (rawWords.value.length === 0) {
+          message.warning("没有待练习的错题");
+          router.push({ name: "ai_error-book" });
         }
       }
       return;
@@ -164,6 +211,7 @@ const handleGlobalKeydown = (e: KeyboardEvent) => {
     const word = targetWords.value[activeWordIndex.value];
     if (word) {
       message.info(`提示：${word}`, { duration: 3000 });
+      addToErrorBook(word);
     }
     return;
   }
@@ -174,6 +222,7 @@ const handleGlobalKeydown = (e: KeyboardEvent) => {
     const idx = activeWordIndex.value;
     const target = targetWords.value[idx];
     if (target) {
+      addToErrorBook(target);
       wordResults.value[idx] = { typed: target, status: "correct" };
       errorCounts.value[idx] = 0;
       if (idx < targetWords.value.length - 1) {
@@ -264,6 +313,7 @@ const validateWord = (index: number, typedValue: string) => {
     errorCounts.value[index]++;
     if (errorCounts.value[index] >= 6) {
       message.info(`提示：${target}`, { duration: 5000 });
+      addToErrorBook(target);
     }
   } else {
     errorCounts.value[index] = 0;
@@ -305,8 +355,11 @@ const startPractice = () => {
 
 const goBack = () => {
   const courseId = route.query.courseId as string;
+  const mode = route.query.mode as string;
   if (courseId) {
     router.push({ name: "ai_course-detail", params: { id: courseId } });
+  } else if (mode === "error-book") {
+    router.push({ name: "ai_error-book" });
   } else {
     router.push({ name: "ai_vocabulary" });
   }
@@ -491,7 +544,7 @@ watch(
               class="px-12 rd-lg"
               @click="goBack"
             >
-              返回生词本
+              {{ route.query.mode === 'error-book' ? '返回错题本' : '返回生词本' }}
             </NButton>
             <NButton
               size="large"

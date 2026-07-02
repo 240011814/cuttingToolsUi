@@ -239,6 +239,7 @@ const local: App.I18n.Schema = {
     ai_training: "训练中心",
     "ai_custom-training": "自定义训练",
     ai_vocabulary: "生词本",
+    "ai_error-book": "错题本",
     ai_note: "笔记本",
     ai_history: "历史记录",
     ai_memory: "记忆管理",
