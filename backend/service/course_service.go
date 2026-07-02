@@ -147,6 +147,14 @@ func (s *CourseService) CreateCourseItem(userID uint, courseID uint, req model.C
 	if course.UserID != userID {
 		return nil, errors.New("只能向自己创建的课程包添加条目")
 	}
+	// 检查是否已存在相同句子
+	var count int64
+	if err := DB.Model(&model.CourseItem{}).Where("course_id = ? AND english_sentence = ?", courseID, req.EnglishSentence).Count(&count).Error; err != nil {
+		return nil, err
+	}
+	if count > 0 {
+		return nil, errors.New("该句子已存在")
+	}
 	item := model.CourseItem{
 		CourseID:           courseID,
 		EnglishSentence:    req.EnglishSentence,
@@ -222,35 +230,67 @@ func (s *CourseService) DeleteCourseItem(userID uint, itemID uint) error {
 }
 
 // BatchCreateCourseItems 批量创建课程条目
-func (s *CourseService) BatchCreateCourseItems(userID uint, courseID uint, items []model.CreateCourseItemRequest) ([]model.CourseItem, error) {
+func (s *CourseService) BatchCreateCourseItems(userID uint, courseID uint, items []model.CreateCourseItemRequest) ([]model.CourseItem, int, error) {
 	// 检查课程包是否存在且属于当前用户
 	var course model.Course
 	if err := DB.First(&course, courseID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New("课程包不存在")
+			return nil, 0, errors.New("课程包不存在")
 		}
-		return nil, err
+		return nil, 0, err
 	}
 	if course.UserID != userID {
-		return nil, errors.New("只能向自己创建的课程包添加条目")
+		return nil, 0, errors.New("只能向自己创建的课程包添加条目")
 	}
-	courseItems := make([]model.CourseItem, len(items))
+
+	// 收集所有英语句子用于查重
+	sentences := make([]string, len(items))
 	for i, req := range items {
-		courseItems[i] = model.CourseItem{
+		sentences[i] = req.EnglishSentence
+	}
+
+	// 查询已存在的句子
+	var existingSentences []string
+	if err := DB.Model(&model.CourseItem{}).Where("course_id = ? AND english_sentence IN ?", courseID, sentences).Pluck("english_sentence", &existingSentences).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// 构建已存在句子的集合
+	existingSet := make(map[string]bool, len(existingSentences))
+	for _, s := range existingSentences {
+		existingSet[s] = true
+	}
+
+	// 过滤掉重复的句子
+	var courseItems []model.CourseItem
+	duplicateCount := 0
+	for _, req := range items {
+		if existingSet[req.EnglishSentence] {
+			duplicateCount++
+			continue
+		}
+		courseItems = append(courseItems, model.CourseItem{
 			CourseID:           courseID,
 			EnglishSentence:    req.EnglishSentence,
 			ChineseTranslation: req.ChineseTranslation,
 			SortOrder:          req.SortOrder,
-		}
+		})
+		// 标记为已处理，避免批量导入中自身重复
+		existingSet[req.EnglishSentence] = true
 	}
+
+	if len(courseItems) == 0 {
+		return nil, duplicateCount, errors.New("所有句子都已存在")
+	}
+
 	err := DB.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(&courseItems).Error; err != nil {
 			return err
 		}
 		// 更新课程包的条目数量
-		return tx.Model(&course).UpdateColumn("item_count", gorm.Expr("item_count + ?", len(items))).Error
+		return tx.Model(&course).UpdateColumn("item_count", gorm.Expr("item_count + ?", len(courseItems))).Error
 	})
-	return courseItems, err
+	return courseItems, duplicateCount, err
 }
 
 // BatchDeleteCourseItems 批量删除课程条目

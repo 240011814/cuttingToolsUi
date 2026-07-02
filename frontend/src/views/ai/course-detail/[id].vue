@@ -108,8 +108,8 @@ const handleAddItem = async () => {
     showAddItem.value = false
     itemForm.value = { english_sentence: '', chinese_translation: '', sort_order: 0 }
     loadCourse()
-  } catch {
-    message.error('添加失败')
+  } catch (err: any) {
+    // 错误消息已由 request 函数自动显示
   } finally {
     saving.value = false
   }
@@ -198,8 +198,16 @@ const handleBatchImport = async () => {
   if (!batchPreview.value.length) return message.warning('没有可导入的内容')
   saving.value = true
   try {
-    await fetchBatchCreateCourseItems(courseId.value, batchPreview.value.map((item, i) => ({ ...item, sort_order: i })))
-    message.success(`成功导入 ${batchPreview.value.length} 条`)
+    const { data } = await fetchBatchCreateCourseItems(courseId.value, batchPreview.value.map((item, i) => ({ ...item, sort_order: i })))
+    if (data) {
+      const importedCount = data.items ? data.items.length : 0
+      const duplicateCount = data.duplicate_count || 0
+      if (duplicateCount > 0) {
+        message.success(`成功导入 ${importedCount} 条，跳过 ${duplicateCount} 条重复`)
+      } else {
+        message.success(`成功导入 ${importedCount} 条`)
+      }
+    }
     showBatchImport.value = false
     batchText.value = ''
     batchPreview.value = []

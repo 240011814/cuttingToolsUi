@@ -213,12 +213,15 @@ func (h *CourseHandler) BatchCreateCourseItems(c *gin.Context) {
 		SendError(c, "400", "请求参数错误")
 		return
 	}
-	items, err := h.courseService.BatchCreateCourseItems(userID, uint(courseID), req.Items)
-	if err != nil {
+	items, duplicateCount, err := h.courseService.BatchCreateCourseItems(userID, uint(courseID), req.Items)
+	if err != nil && items == nil {
 		SendError(c, "500", err.Error())
 		return
 	}
-	SendSuccess(c, items)
+	SendSuccess(c, gin.H{
+		"items":           items,
+		"duplicate_count": duplicateCount,
+	})
 }
 
 // BatchDeleteCourseItems 批量删除课程条目
