@@ -127,7 +127,10 @@ export const generatedRoutes: GeneratedRoute[] = [
         component: 'view.ai_error-book',
         meta: {
           title: 'ai_error-book',
-          i18nKey: 'route.ai_error-book'
+          i18nKey: 'route.ai_error-book',
+          icon: 'mdi:book-alert-outline',
+          permissions: ['ai:error-book:view'],
+          order: 7
         }
       },
       {
