@@ -5,6 +5,7 @@ export interface Course {
   user_id: number;
   title: string;
   description: string;
+  tags: string;
   is_public: boolean;
   item_count: number;
   created_at: string;
@@ -28,12 +29,14 @@ export interface CourseDetail extends Course {
 export interface CreateCourseParams {
   title: string;
   description?: string;
+  tags?: string[];
   is_public?: boolean;
 }
 
 export interface UpdateCourseParams {
   title?: string;
   description?: string;
+  tags?: string[];
   is_public?: boolean;
 }
 
@@ -53,6 +56,7 @@ export interface CourseListParams {
   show_all?: boolean;
   keyword?: string;
   is_public?: boolean;
+  tag?: string;
   page?: number;
   page_size?: number;
 }

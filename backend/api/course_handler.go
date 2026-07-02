@@ -21,6 +21,7 @@ func (h *CourseHandler) ListCourses(c *gin.Context) {
 	userID := c.GetUint("userId")
 	showAll := c.Query("show_all") == "true"
 	keyword := c.Query("keyword")
+	tag := c.Query("tag")
 
 	var isPublic *bool
 	if v := c.Query("is_public"); v != "" {
@@ -37,7 +38,7 @@ func (h *CourseHandler) ListCourses(c *gin.Context) {
 		pageSize = 12
 	}
 
-	courses, total, err := h.courseService.ListCourses(userID, showAll, keyword, isPublic, page, pageSize)
+	courses, total, err := h.courseService.ListCourses(userID, showAll, keyword, isPublic, tag, page, pageSize)
 	if err != nil {
 		SendError(c, "500", "获取课程包列表失败")
 		return

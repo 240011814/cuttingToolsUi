@@ -3,6 +3,7 @@ package service
 import (
 	"backend/model"
 	"errors"
+	"strings"
 
 	"gorm.io/gorm"
 )
@@ -14,7 +15,7 @@ func NewCourseService() *CourseService {
 }
 
 // ListCourses 获取课程包列表（支持分页、搜索、筛选）
-func (s *CourseService) ListCourses(userID uint, showAll bool, keyword string, isPublic *bool, page, pageSize int) ([]model.Course, int64, error) {
+func (s *CourseService) ListCourses(userID uint, showAll bool, keyword string, isPublic *bool, tag string, page, pageSize int) ([]model.Course, int64, error) {
 	var courses []model.Course
 	var total int64
 
@@ -27,6 +28,9 @@ func (s *CourseService) ListCourses(userID uint, showAll bool, keyword string, i
 	}
 	if isPublic != nil {
 		query = query.Where("is_public = ?", *isPublic)
+	}
+	if tag != "" {
+		query = query.Where("FIND_IN_SET(?, tags)", tag)
 	}
 
 	if err := query.Count(&total).Error; err != nil {
@@ -60,10 +64,12 @@ func (s *CourseService) GetCourseByID(userID uint, courseID uint) (*model.Course
 
 // CreateCourse 创建课程包
 func (s *CourseService) CreateCourse(userID uint, req model.CreateCourseRequest) (*model.Course, error) {
+	tagsStr := strings.Join(req.Tags, ",")
 	course := model.Course{
 		UserID:      userID,
 		Title:       req.Title,
 		Description: req.Description,
+		Tags:        tagsStr,
 		IsPublic:    req.IsPublic,
 	}
 	err := DB.Create(&course).Error
@@ -88,6 +94,9 @@ func (s *CourseService) UpdateCourse(userID uint, courseID uint, req model.Updat
 	}
 	if req.Description != "" {
 		course.Description = req.Description
+	}
+	if req.Tags != nil {
+		course.Tags = strings.Join(req.Tags, ",")
 	}
 	if req.IsPublic != nil {
 		course.IsPublic = *req.IsPublic

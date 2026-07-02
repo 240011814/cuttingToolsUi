@@ -8,6 +8,7 @@ type Course struct {
 	UserID      uint      `json:"user_id"`
 	Title       string    `json:"title" gorm:"size:200;not null"`
 	Description string    `json:"description" gorm:"size:500"`
+	Tags        string    `json:"tags" gorm:"size:500;default:''"`
 	IsPublic    bool      `json:"is_public" gorm:"default:false"`
 	ItemCount   int       `json:"item_count" gorm:"default:0"`
 	CreatedAt   time.Time `json:"created_at"`
@@ -27,16 +28,18 @@ type CourseItem struct {
 
 // CreateCourseRequest 创建课程包请求
 type CreateCourseRequest struct {
-	Title       string `json:"title" binding:"required"`
-	Description string `json:"description"`
-	IsPublic    bool   `json:"is_public"`
+	Title       string   `json:"title" binding:"required"`
+	Description string   `json:"description"`
+	Tags        []string `json:"tags"`
+	IsPublic    bool     `json:"is_public"`
 }
 
 // UpdateCourseRequest 更新课程包请求
 type UpdateCourseRequest struct {
-	Title       string `json:"title"`
-	Description string `json:"description"`
-	IsPublic    *bool  `json:"is_public"`
+	Title       string   `json:"title"`
+	Description string   `json:"description"`
+	Tags        []string `json:"tags"`
+	IsPublic    *bool    `json:"is_public"`
 }
 
 // CreateCourseItemRequest 创建课程条目请求

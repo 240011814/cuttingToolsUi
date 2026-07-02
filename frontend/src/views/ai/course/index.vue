@@ -2,7 +2,7 @@
 import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMessage, NCard, NButton, NTag, NEmpty, NSpin, NModal, NForm, NFormItem, NInput, NSwitch, NSpace, NPopconfirm, NPagination, NSelect } from 'naive-ui'
-import { fetchCourseList, fetchCreateCourse, fetchDeleteCourse, type Course } from '@/service/api'
+import { fetchCourseList, fetchCreateCourse, fetchUpdateCourse, fetchDeleteCourse, type Course } from '@/service/api'
 import { useAuth } from '@/hooks/business/auth'
 
 defineOptions({ name: 'AiCourse' })
@@ -16,8 +16,18 @@ const courses = ref<Course[]>([])
 const showModal = ref(false)
 const submitting = ref(false)
 
+const editingCourseId = ref<number | null>(null)
+const showEditModal = ref(false)
+const editForm = ref({
+  title: '',
+  description: '',
+  tags: [] as string[],
+  is_public: false
+})
+
 const keyword = ref('')
 const isPublicFilter = ref<boolean | null>(null)
+const tagFilter = ref('')
 const currentPage = ref(1)
 const pageSize = ref(12)
 const total = ref(0)
@@ -25,8 +35,25 @@ const total = ref(0)
 const formData = ref({
   title: '',
   description: '',
+  tags: [] as string[],
   is_public: false
 })
+
+const tagOptions = [
+  { label: '四级', value: '四级' },
+  { label: '六级', value: '六级' },
+  { label: '考研', value: '考研' },
+  { label: '雅思', value: '雅思' },
+  { label: '托福', value: '托福' },
+  { label: '小学', value: '小学' },
+  { label: '初中', value: '初中' },
+  { label: '高中', value: '高中' },
+  { label: '日常对话', value: '日常对话' },
+  { label: '商务英语', value: '商务英语' },
+  { label: '旅游出行', value: '旅游出行' },
+  { label: '学术英语', value: '学术英语' },
+  { label: '面试求职', value: '面试求职' }
+]
 
 const filterOptions = [
   { label: '全部', value: 'all' },
@@ -42,6 +69,7 @@ const loadCourses = async () => {
     const { data } = await fetchCourseList({
       keyword: keyword.value || undefined,
       is_public: isPublicFilter.value ?? undefined,
+      tag: tagFilter.value || undefined,
       page: currentPage.value,
       page_size: pageSize.value
     })
@@ -80,7 +108,7 @@ const handlePageChange = (page: number) => {
 }
 
 const handleCreate = () => {
-  formData.value = { title: '', description: '', is_public: false }
+  formData.value = { title: '', description: '', tags: [], is_public: false }
   showModal.value = true
 }
 
@@ -114,6 +142,36 @@ const handleDelete = async (id: number) => {
   }
 }
 
+const handleEdit = (course: Course) => {
+  editingCourseId.value = course.id
+  editForm.value = {
+    title: course.title,
+    description: course.description,
+    tags: course.tags ? course.tags.split(',') : [],
+    is_public: course.is_public
+  }
+  showEditModal.value = true
+}
+
+const handleUpdateSubmit = async () => {
+  if (!editForm.value.title.trim()) {
+    message.warning('请输入课程标题')
+    return
+  }
+  if (!editingCourseId.value) return
+  submitting.value = true
+  try {
+    await fetchUpdateCourse(editingCourseId.value, editForm.value)
+    message.success('更新成功')
+    showEditModal.value = false
+    loadCourses()
+  } catch (err: any) {
+    message.error('更新失败')
+  } finally {
+    submitting.value = false
+  }
+}
+
 const goToPractice = (id: number) => {
   router.push({ name: 'ai_exercise', query: { courseId: id } })
 }
@@ -141,9 +199,17 @@ onMounted(() => {
         v-model:value="keyword"
         placeholder="搜索课程包..."
         clearable
-        style="width: 300px"
+        style="width: 250px"
         @keyup.enter="handleSearch"
         @clear="handleSearch"
+      />
+      <NSelect
+        :value="tagFilter"
+        :options="tagOptions"
+        placeholder="筛选标签"
+        clearable
+        style="width: 140px"
+        @update:value="(val: string) => { tagFilter = val || ''; currentPage = 1; loadCourses() }"
       />
       <NSelect
         :value="publicFilterValue"
@@ -174,8 +240,11 @@ onMounted(() => {
           <template #header>
             <div class="flex items-center justify-between">
               <span class="text-lg font-semibold truncate">{{ course.title }}</span>
-              <NTag v-if="course.is_public" type="success" size="small">公开</NTag>
-              <NTag v-else type="default" size="small">私有</NTag>
+              <div class="flex items-center gap-1">
+                <NTag v-for="tag in (course.tags ? course.tags.split(',') : [])" :key="tag" v-if="course.tags" type="info" size="small">{{ tag }}</NTag>
+                <NTag v-if="course.is_public" type="success" size="small">公开</NTag>
+                <NTag v-else type="default" size="small">私有</NTag>
+              </div>
             </div>
           </template>
 
@@ -193,6 +262,12 @@ onMounted(() => {
 
           <template #action>
             <NSpace justify="end">
+              <NButton
+                size="small"
+                @click.stop="handleEdit(course)"
+              >
+                编辑
+              </NButton>
               <NButton
                 size="small"
                 type="primary"
@@ -238,6 +313,14 @@ onMounted(() => {
         <NFormItem label="课程标题" required>
           <NInput v-model:value="formData.title" placeholder="请输入课程标题" />
         </NFormItem>
+        <NFormItem label="课程标签">
+          <NSelect
+            v-model:value="formData.tags"
+            :options="tagOptions"
+            multiple
+            placeholder="请选择标签"
+          />
+        </NFormItem>
         <NFormItem label="课程描述">
           <NInput
             v-model:value="formData.description"
@@ -248,6 +331,42 @@ onMounted(() => {
         </NFormItem>
         <NFormItem label="公开课程">
           <NSwitch v-model:value="formData.is_public" />
+          <span class="ml-2 text-sm text-gray-500">开启后所有用户可见</span>
+        </NFormItem>
+      </NForm>
+    </NModal>
+
+    <NModal
+      v-model:show="showEditModal"
+      title="编辑课程包"
+      preset="dialog"
+      positive-text="保存"
+      negative-text="取消"
+      :loading="submitting"
+      @positive-click="handleUpdateSubmit"
+    >
+      <NForm :model="editForm" label-placement="top">
+        <NFormItem label="课程标题" required>
+          <NInput v-model:value="editForm.title" placeholder="请输入课程标题" />
+        </NFormItem>
+        <NFormItem label="课程标签">
+          <NSelect
+            v-model:value="editForm.tags"
+            :options="tagOptions"
+            multiple
+            placeholder="请选择标签"
+          />
+        </NFormItem>
+        <NFormItem label="课程描述">
+          <NInput
+            v-model:value="editForm.description"
+            type="textarea"
+            placeholder="请输入课程描述"
+            :rows="3"
+          />
+        </NFormItem>
+        <NFormItem label="公开课程">
+          <NSwitch v-model:value="editForm.is_public" />
           <span class="ml-2 text-sm text-gray-500">开启后所有用户可见</span>
         </NFormItem>
       </NForm>

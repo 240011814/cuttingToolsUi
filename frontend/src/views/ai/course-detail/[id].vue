@@ -3,7 +3,7 @@ import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   NCard, NButton, NInput, NSpin, NEmpty, NSpace, NPopconfirm,
-  NModal, NForm, NFormItem, NInputNumber, NTag, useMessage
+  NModal, NForm, NFormItem, NInputNumber, NSelect, useMessage
 } from 'naive-ui'
 import {
   fetchCourseDetail, fetchCreateCourseItem, fetchUpdateCourseItem,
@@ -24,7 +24,23 @@ const course = ref<CourseDetail | null>(null)
 const courseId = computed(() => Number(route.params.id))
 
 const editingCourse = ref(false)
-const courseForm = ref({ title: '', description: '', is_public: false })
+const courseForm = ref({ title: '', description: '', tags: [] as string[], is_public: false })
+
+const tagOptions = [
+  { label: '四级', value: '四级' },
+  { label: '六级', value: '六级' },
+  { label: '考研', value: '考研' },
+  { label: '雅思', value: '雅思' },
+  { label: '托福', value: '托福' },
+  { label: '小学', value: '小学' },
+  { label: '初中', value: '初中' },
+  { label: '高中', value: '高中' },
+  { label: '日常对话', value: '日常对话' },
+  { label: '商务英语', value: '商务英语' },
+  { label: '旅游出行', value: '旅游出行' },
+  { label: '学术英语', value: '学术英语' },
+  { label: '面试求职', value: '面试求职' }
+]
 
 const showAddItem = ref(false)
 const itemForm = ref({ english_sentence: '', chinese_translation: '', sort_order: 0 })
@@ -52,11 +68,6 @@ const filteredItems = computed(() => {
   )
 })
 
-const itemStats = computed(() => {
-  const total = course.value?.items?.length || 0
-  return { total }
-})
-
 const loadCourse = async () => {
   loading.value = true
   try {
@@ -64,7 +75,7 @@ const loadCourse = async () => {
     if (data) {
       if (!data.items) data.items = []
       course.value = data
-      courseForm.value = { title: data.title, description: data.description, is_public: data.is_public }
+      courseForm.value = { title: data.title, description: data.description, tags: data.tags ? data.tags.split(',') : [], is_public: data.is_public }
     }
   } catch {
     message.error('加载课程失败')
@@ -200,8 +211,6 @@ const handleBatchImport = async () => {
   }
 }
 
-const goToPractice = () => router.push({ name: 'ai_exercise', query: { courseId: courseId.value } })
-
 const handlePlay = async (item: CourseItem) => {
   if (playingItemId.value === item.id) {
     window.speechSynthesis.cancel()
@@ -228,56 +237,14 @@ onMounted(loadCourse)
     </div>
 
     <template v-else-if="course">
-      <NCard class="course-header-card">
-        <div class="flex flex-col gap-4">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-3">
-              <NButton quaternary circle @click="router.push({ name: 'ai_course' })">
-                <template #icon>
-                  <SvgIcon icon="mdi:arrow-left" class="text-lg" />
-                </template>
-              </NButton>
-              <div>
-                <div class="flex items-center gap-2">
-                  <h1 class="text-2xl font-bold m-0">{{ course.title }}</h1>
-                  <NTag v-if="course.is_public" type="success" size="small">公开</NTag>
-                  <NTag v-else type="default" size="small">私有</NTag>
-                </div>
-                <p class="text-gray-500 mt-1 mb-0">{{ course.description || '暂无描述' }}</p>
-              </div>
-            </div>
-            <NSpace>
-              <NButton @click="editingCourse = true">
-                <template #icon>
-                  <SvgIcon icon="mdi:pencil-outline" />
-                </template>
-                编辑信息
-              </NButton>
-              <NButton type="primary" :disabled="!(course.items && course.items.length)" @click="goToPractice">
-                <template #icon>
-                  <SvgIcon icon="mdi:play" />
-                </template>
-                开始练习 ({{ course.items ? course.items.length : 0 }}句)
-              </NButton>
-            </NSpace>
-          </div>
-
-          <div class="flex items-center gap-6 text-sm text-gray-500">
-            <div class="flex items-center gap-1">
-              <SvgIcon icon="mdi:file-document-outline" class="text-base" />
-              <span>{{ itemStats.total }} 个句子</span>
-            </div>
-            <div class="flex items-center gap-1">
-              <SvgIcon icon="mdi:clock-outline" class="text-base" />
-              <span>创建于 {{ new Date(course.created_at).toLocaleDateString() }}</span>
-            </div>
-            <div class="flex items-center gap-1">
-              <SvgIcon icon="mdi:identifier" class="text-base" />
-              <span>课程ID: {{ course.id }}</span>
-            </div>
-          </div>
-        </div>
-      </NCard>
+      <div class="flex items-center gap-3">
+        <NButton quaternary circle @click="router.push({ name: 'ai_course' })">
+          <template #icon>
+            <SvgIcon icon="mdi:arrow-left" class="text-lg" />
+          </template>
+        </NButton>
+        <h2 class="text-lg font-semibold m-0">{{ course.title }}</h2>
+      </div>
 
       <div class="flex justify-between items-center">
         <div class="flex items-center gap-4">
@@ -396,6 +363,14 @@ onMounted(loadCourse)
         <NFormItem label="课程标题" required>
           <NInput v-model:value="courseForm.title" placeholder="请输入课程标题" />
         </NFormItem>
+        <NFormItem label="课程标签">
+          <NSelect
+            v-model:value="courseForm.tags"
+            :options="tagOptions"
+            multiple
+            placeholder="请选择标签"
+          />
+        </NFormItem>
         <NFormItem label="课程描述">
           <NInput v-model:value="courseForm.description" type="textarea" placeholder="请输入课程描述" :rows="3" />
         </NFormItem>
@@ -462,11 +437,6 @@ onMounted(loadCourse)
 </template>
 
 <style scoped>
-.course-header-card {
-  border-radius: 12px;
-  background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%);
-}
-
 .item-card {
   border-radius: 8px;
   transition: all 0.2s ease;
