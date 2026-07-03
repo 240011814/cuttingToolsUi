@@ -1,8 +1,12 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { useMessage } from "naive-ui";
-import { fetchGetVocabularyList, fetchCourseDetail, fetchGetErrorBookForPractice } from "@/service/api";
+import { useMessage, NSwitch } from "naive-ui";
+import {
+  fetchGetVocabularyList,
+  fetchCourseDetail,
+  fetchGetErrorBookForPractice,
+} from "@/service/api";
 import { fetchAddErrorBook } from "@/service/api/error-book";
 import { speak } from "@/utils/tts";
 
@@ -38,10 +42,13 @@ const activeWordIndex = ref(0);
 const currentInput = ref("");
 const wordResults = ref<{ typed: string; status: "pending" | "correct" | "error" }[]>([]);
 const errorCounts = ref<number[]>([]);
+const autoPlayThreeTimes = ref(true);
 
 // --- Computed ---
 const currentItem = computed(() => rawWords.value[currentSentenceIndex.value] || null);
-const targetSentence = computed(() => currentItem.value?.example || currentItem.value?.english_sentence || "");
+const targetSentence = computed(
+  () => currentItem.value?.example || currentItem.value?.english_sentence || ""
+);
 const targetWords = computed(() => {
   if (!targetSentence.value) return [];
   return targetSentence.value.trim().split(/\s+/);
@@ -53,7 +60,7 @@ const progress = computed(() => {
 });
 
 // --- Error Book ---
-const addToErrorBook = async (word: string) => {
+const addToErrorBook = async () => {
   try {
     const item = currentItem.value;
     const isCourseMode = !!route.query.courseId;
@@ -161,7 +168,7 @@ const initSentence = () => {
   wordResults.value = targetWords.value.map(() => ({ typed: "", status: "pending" }));
   errorCounts.value = targetWords.value.map(() => 0);
   // eslint-disable-next-line @typescript-eslint/no-use-before-define
-  playCurrent(3);
+  if (autoPlayThreeTimes.value) playCurrent(3);
 };
 
 const playCurrent = async (times = 3) => {
@@ -211,7 +218,7 @@ const handleGlobalKeydown = (e: KeyboardEvent) => {
     const word = targetWords.value[activeWordIndex.value];
     if (word) {
       message.info(`提示：${word}`, { duration: 3000 });
-      addToErrorBook(word);
+      addToErrorBook();
     }
     return;
   }
@@ -222,7 +229,7 @@ const handleGlobalKeydown = (e: KeyboardEvent) => {
     const idx = activeWordIndex.value;
     const target = targetWords.value[idx];
     if (target) {
-      addToErrorBook(target);
+      addToErrorBook();
       wordResults.value[idx] = { typed: target, status: "correct" };
       errorCounts.value[idx] = 0;
       if (idx < targetWords.value.length - 1) {
@@ -313,7 +320,7 @@ const validateWord = (index: number, typedValue: string) => {
     errorCounts.value[index]++;
     if (errorCounts.value[index] >= 6) {
       message.info(`提示：${target}`, { duration: 5000 });
-      addToErrorBook(target);
+      addToErrorBook();
     }
   } else {
     errorCounts.value[index] = 0;
@@ -400,6 +407,10 @@ watch(
           <p class="text-lg text-gray-500">
             听发音，还原地道例句，开启听觉与肌肉记忆之旅
           </p>
+        </div>
+        <div class="flex items-center justify-center gap-3 py-2">
+          <NSwitch v-model:value="autoPlayThreeTimes" />
+          <span class="text-sm text-gray-500">自动播放三遍</span>
         </div>
         <NButton
           type="primary"
@@ -544,7 +555,7 @@ watch(
               class="px-12 rd-lg"
               @click="goBack"
             >
-              {{ route.query.mode === 'error-book' ? '返回错题本' : '返回生词本' }}
+              {{ route.query.mode === "error-book" ? "返回错题本" : "返回生词本" }}
             </NButton>
             <NButton
               size="large"
