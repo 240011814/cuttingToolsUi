@@ -13,6 +13,7 @@ import {
 } from "@/service/api";
 import { fetchGetAIModels, fetchGetUserPrompt, fetchChatStream } from "@/service/api/ai";
 import { fetchSearchMemories } from "@/service/api/memory";
+import { fetchCourseList, fetchCreateCourseItem, type Course } from "@/service/api/course";
 import { useAuth } from "@/hooks/business/auth";
 import MarkdownIt from "markdown-it";
 import texmath from "markdown-it-texmath";
@@ -29,11 +30,17 @@ interface VocabSuggestion {
   confusingWords?: string;
 }
 
+interface ExpressionSuggestion {
+  english: string;
+  chinese: string;
+}
+
 interface ChatMessage {
   role: "user" | "assistant" | "system";
   content: string;
   renderedContent?: string;
   suggestions?: VocabSuggestion[];
+  expressions?: ExpressionSuggestion[];
   isError?: boolean;
 }
 
@@ -82,6 +89,12 @@ function formatDisplayContent(content: string) {
   let cleaned = content.replace(/<vocabs>[\s\S]*?<\/vocabs>/g, "");
   // 移除不完整的 <vocabs> 标签（流式响应时可能出现）
   cleaned = cleaned.replace(/<vocabs>[\s\S]*$/, "");
+  
+  // 移除完整的 <expressions>...</expressions> 标签
+  cleaned = cleaned.replace(/<expressions>[\s\S]*?<\/expressions>/g, "");
+  // 移除不完整的 <expressions> 标签（流式响应时可能出现）
+  cleaned = cleaned.replace(/<expressions>[\s\S]*$/, "");
+  
   return cleaned.trim();
 }
 
@@ -106,12 +119,30 @@ const parseVocabsFromContent = (content: string): VocabSuggestion[] | undefined 
   return undefined;
 };
 
+const parseExpressionsFromContent = (content: string): ExpressionSuggestion[] | undefined => {
+  if (!props.enableVocabulary) return undefined;
+
+  const match = content.match(/<expressions>([\s\S]*?)<\/expressions>/);
+  if (!match?.[1]) return undefined;
+
+  try {
+    const expressions = JSON.parse(match[1]);
+    if (Array.isArray(expressions) && expressions.length > 0) {
+      return expressions.filter(e => e.english);
+    }
+  } catch (error) {
+    console.error("Failed to parse expressions:", error);
+  }
+  return undefined;
+};
+
 const createChatMessage = (role: ChatMessage["role"], content: string): ChatMessage => {
   return {
     role,
     content,
     renderedContent: renderMessageContent(content),
     suggestions: parseVocabsFromContent(content),
+    expressions: parseExpressionsFromContent(content),
   };
 };
 
@@ -210,6 +241,15 @@ const noteForm = ref({
   content: "",
 });
 
+const showCourseModal = ref(false);
+const courseLoading = ref(false);
+const courseOptions = ref<{ label: string; value: number }[]>([]);
+const selectedCourseId = ref<number | null>(null);
+const courseItemForm = ref({
+  english_sentence: "",
+  chinese_translation: "",
+});
+
 const route = useRoute();
 const routeTitleMap: Record<string, string> = {
   ai_chat: "英语训练",
@@ -233,6 +273,42 @@ const openNoteModal = (content: string) => {
     content: formatDisplayContent(content),
   };
   showNoteModal.value = true;
+};
+
+const loadCourseOptions = async () => {
+  try {
+    const { data } = await fetchCourseList({ page_size: 100 });
+    if (data?.list) {
+      courseOptions.value = data.list.map((course: Course) => ({
+        label: course.title,
+        value: course.id,
+      }));
+    }
+  } catch (err: any) {
+    message.error(`加载课程包失败: ${err?.message || "未知错误"}`);
+  }
+};
+
+const submitCourseItem = async () => {
+  if (!selectedCourseId.value) {
+    message.warning("请选择课程包");
+    return;
+  }
+  if (!courseItemForm.value.english_sentence.trim()) {
+    message.warning("请输入英文例句");
+    return;
+  }
+
+  courseLoading.value = true;
+  try {
+    await fetchCreateCourseItem(selectedCourseId.value, courseItemForm.value);
+    message.success("已添加到课程包");
+    showCourseModal.value = false;
+  } catch (err: any) {
+    message.error(`添加失败: ${err?.message || "未知错误"}`);
+  } finally {
+    courseLoading.value = false;
+  }
 };
 
 const submitNote = async () => {
@@ -475,6 +551,15 @@ const handleApplySuggestion = (vocab: VocabSuggestion) => {
     confusingWords: vocab.confusingWords || "",
   };
   showVocabModal.value = true;
+};
+
+const handleAddExpression = (expr: ExpressionSuggestion) => {
+  courseItemForm.value = {
+    english_sentence: expr.english,
+    chinese_translation: expr.chinese || "",
+  };
+  loadCourseOptions();
+  showCourseModal.value = true;
 };
 
 const handlePlay = (text: string) => {
@@ -766,6 +851,28 @@ onBeforeUnmount(() => {
                       {{ vocab.word }}
                     </NTag>
                   </div>
+
+                  <div
+                    v-if="hasAuth('ai:course:edit') && msg.expressions?.length"
+                    class="flex flex-wrap gap-2 mt-2"
+                  >
+                    <span class="text-xs text-gray-400 self-center">添加到课程:</span>
+                    <NTag
+                      v-for="(expr, exprIndex) in msg.expressions"
+                      :key="exprIndex"
+                      size="small"
+                      round
+                      type="success"
+                      check-strategy="child"
+                      class="cursor-pointer hover:shadow-sm transition-shadow"
+                      @click="handleAddExpression(expr)"
+                    >
+                      <template #icon>
+                        <div class="i-mdi:plus" />
+                      </template>
+                      {{ expr.english.slice(0, 30) }}{{ expr.english.length > 30 ? '...' : '' }}
+                    </NTag>
+                  </div>
                 </div>
               </template>
 
@@ -854,6 +961,28 @@ onBeforeUnmount(() => {
                         <div class="i-mdi:plus" />
                       </template>
                       {{ vocab.word }}
+                    </NTag>
+                  </div>
+
+                  <div
+                    v-if="hasAuth('ai:course:edit') && msg.expressions?.length"
+                    class="flex flex-wrap gap-2 mt-2"
+                  >
+                    <span class="text-xs text-gray-400 self-center">添加到课程:</span>
+                    <NTag
+                      v-for="(expr, exprIndex) in msg.expressions"
+                      :key="exprIndex"
+                      size="small"
+                      round
+                      type="success"
+                      check-strategy="child"
+                      class="cursor-pointer hover:shadow-sm transition-shadow"
+                      @click="handleAddExpression(expr)"
+                    >
+                      <template #icon>
+                        <div class="i-mdi:plus" />
+                      </template>
+                      {{ expr.english.slice(0, 30) }}{{ expr.english.length > 30 ? '...' : '' }}
                     </NTag>
                   </div>
                 </div>
@@ -1132,6 +1261,54 @@ onBeforeUnmount(() => {
         <div class="flex justify-end gap-3">
           <NButton @click="showNoteModal = false">取消</NButton>
           <NButton type="primary" :loading="noteLoading" @click="submitNote">
+            确认添加
+          </NButton>
+        </div>
+      </template>
+    </NModal>
+
+    <NModal
+      v-model:show="showCourseModal"
+      preset="card"
+      title="添加到课程包"
+      :style="{ width: appStore.isMobile ? '95vw' : '' }"
+      class="max-w-md"
+      :segmented="{ content: 'soft' }"
+    >
+      <NForm
+        :model="courseItemForm"
+        label-placement="left"
+        :label-width="appStore.isMobile ? '60' : '80'"
+      >
+        <NFormItem label="课程包" path="course_id">
+          <NSelect
+            v-model:value="selectedCourseId"
+            :options="courseOptions"
+            placeholder="请选择课程包"
+            filterable
+          />
+        </NFormItem>
+        <NFormItem label="英文例句" path="english_sentence">
+          <NInput
+            v-model:value="courseItemForm.english_sentence"
+            type="textarea"
+            :autosize="{ minRows: 3 }"
+            placeholder="英文例句"
+          />
+        </NFormItem>
+        <NFormItem label="中文翻译" path="chinese_translation">
+          <NInput
+            v-model:value="courseItemForm.chinese_translation"
+            type="textarea"
+            :autosize="{ minRows: 2 }"
+            placeholder="中文翻译（可选）"
+          />
+        </NFormItem>
+      </NForm>
+      <template #footer>
+        <div class="flex justify-end gap-3">
+          <NButton @click="showCourseModal = false">取消</NButton>
+          <NButton type="primary" :loading="courseLoading" @click="submitCourseItem">
             确认添加
           </NButton>
         </div>

@@ -19,15 +19,18 @@ const md = new MarkdownIt({
   typographer: true,
 }).use(texmath, { engine: katex, delimiters: "dollars" });
 
-/** 移除 vocabs 标签和尾部空白，渲染 markdown */
+/** 移除 vocabs/expressions 标签和尾部空白，渲染 markdown */
 const renderMarkdown = (content: string) => {
-  const cleaned = content.replace(/<vocabs>[\s\S]*?<\/vocabs>/g, "").trim();
-  return md.render(cleaned);
+  let cleaned = content.replace(/<vocabs>[\s\S]*?<\/vocabs>/g, "");
+  cleaned = cleaned.replace(/<expressions>[\s\S]*?<\/expressions>/g, "");
+  return md.render(cleaned.trim());
 };
 
-/** 获取纯文本内容（去除 vocabs 标签） */
+/** 获取纯文本内容（去除 vocabs/expressions 标签） */
 const getPlainContent = (content: string) => {
-  return content.replace(/<vocabs>[\s\S]*?<\/vocabs>/g, "").trim();
+  let cleaned = content.replace(/<vocabs>[\s\S]*?<\/vocabs>/g, "");
+  cleaned = cleaned.replace(/<expressions>[\s\S]*?<\/expressions>/g, "");
+  return cleaned.trim();
 };
 
 const loading = ref(true);

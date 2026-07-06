@@ -526,6 +526,13 @@ const local: App.I18n.Schema = {
         confirmAdd: "确认添加",
         save: "保存",
         noteTitle2: "添加笔记",
+        addToCourse: "添加到课程包",
+        selectCourse: "请选择课程包",
+        englishSentence: "英文例句",
+        chineseTranslation: "中文翻译",
+        chineseTranslationPlaceholder: "中文翻译（可选）",
+        addToCourseSuccess: "已添加到课程包",
+        noExpressionsFound: "未找到可添加的地道表达例句",
       },
       history: {
         title: "历史记录",

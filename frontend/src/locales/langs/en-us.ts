@@ -532,6 +532,13 @@ const local: App.I18n.Schema = {
         confirmAdd: "Confirm Add",
         save: "Save",
         noteTitle2: "Add Note",
+        addToCourse: "Add to Course Pack",
+        selectCourse: "Please select a course pack",
+        englishSentence: "English Sentence",
+        chineseTranslation: "Chinese Translation",
+        chineseTranslationPlaceholder: "Chinese translation (optional)",
+        addToCourseSuccess: "Added to course pack",
+        noExpressionsFound: "No authentic expressions found to add",
       },
       history: {
         title: "History Records",
