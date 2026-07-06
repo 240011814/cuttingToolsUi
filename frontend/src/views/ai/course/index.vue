@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onActivated } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMessage, NCard, NButton, NTag, NEmpty, NSpin, NModal, NForm, NFormItem, NInput, NSwitch, NSpace, NPopconfirm, NPagination, NSelect, NDropdown } from 'naive-ui'
 import { fetchCourseList, fetchCreateCourse, fetchUpdateCourse, fetchDeleteCourse, fetchTrainingStatus, fetchUpdateTrainingStatus, type Course, type UserCourseTraining } from '@/service/api'
@@ -193,7 +193,15 @@ const handleUpdateSubmit = async () => {
   }
 }
 
-const goToPractice = (id: number) => {
+const goToPractice = async (id: number) => {
+  try {
+    const { data } = await fetchUpdateTrainingStatus(id, 'in_progress')
+    if (data) {
+      trainingRecords.value[id] = data
+    }
+  } catch (err) {
+    // 忽略错误，继续跳转
+  }
   router.push({ name: 'ai_exercise', query: { courseId: id } })
 }
 
@@ -214,6 +222,10 @@ const goToEdit = (id: number) => {
 }
 
 onMounted(() => {
+  loadCourses()
+})
+
+onActivated(() => {
   loadCourses()
 })
 </script>
