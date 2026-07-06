@@ -436,6 +436,7 @@ const parseVocabSuggestions = () => {
     ...lastMsg,
     renderedContent: renderMessageContent(lastMsg.content),
     suggestions: parseVocabsFromContent(lastMsg.content),
+    expressions: parseExpressionsFromContent(lastMsg.content),
   };
 };
 
