@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { useMessage, NCard, NButton, NTag, NEmpty, NSpin, NModal, NForm, NFormItem, NInput, NSwitch, NSpace, NPopconfirm, NPagination, NSelect } from 'naive-ui'
-import { fetchCourseList, fetchCreateCourse, fetchUpdateCourse, fetchDeleteCourse, type Course } from '@/service/api'
+import { useMessage, NCard, NButton, NTag, NEmpty, NSpin, NModal, NForm, NFormItem, NInput, NSwitch, NSpace, NPopconfirm, NPagination, NSelect, NDropdown } from 'naive-ui'
+import { fetchCourseList, fetchCreateCourse, fetchUpdateCourse, fetchDeleteCourse, fetchTrainingStatus, fetchUpdateTrainingStatus, type Course, type UserCourseTraining } from '@/service/api'
 import { useAuth } from '@/hooks/business/auth'
 
 defineOptions({ name: 'AiCourse' })
@@ -15,6 +15,7 @@ const loading = ref(false)
 const courses = ref<Course[]>([])
 const showModal = ref(false)
 const submitting = ref(false)
+const trainingRecords = ref<Record<number, UserCourseTraining>>({})
 
 const editingCourseId = ref<number | null>(null)
 const showEditModal = ref(false)
@@ -55,6 +56,12 @@ const tagOptions = [
   { label: '面试求职', value: '面试求职' }
 ]
 
+const trainingStatusOptions = [
+  { label: '未开始', key: 'not_started' },
+  { label: '进行中', key: 'in_progress' },
+  { label: '已完成', key: 'completed' }
+]
+
 const filterOptions = [
   { label: '全部', value: 'all' },
   { label: '公开', value: 'public' },
@@ -76,11 +83,25 @@ const loadCourses = async () => {
     if (data) {
       courses.value = data.list
       total.value = data.total
+      loadTrainingRecords()
     }
   } catch (err: any) {
     message.error('加载课程包失败')
   } finally {
     loading.value = false
+  }
+}
+
+const loadTrainingRecords = async () => {
+  for (const course of courses.value) {
+    try {
+      const { data } = await fetchTrainingStatus(course.id)
+      if (data) {
+        trainingRecords.value[course.id] = data
+      }
+    } catch (err) {
+      // 忽略单个课程的训练记录加载失败
+    }
   }
 }
 
@@ -176,6 +197,18 @@ const goToPractice = (id: number) => {
   router.push({ name: 'ai_exercise', query: { courseId: id } })
 }
 
+const handleUpdateTrainingStatus = async (courseId: number, status: string) => {
+  try {
+    const { data } = await fetchUpdateTrainingStatus(courseId, status)
+    if (data) {
+      trainingRecords.value[courseId] = data
+      message.success('训练状态已更新')
+    }
+  } catch (err) {
+    message.error('更新训练状态失败')
+  }
+}
+
 const goToEdit = (id: number) => {
   router.push({ name: 'ai_course-detail', params: { id } })
 }
@@ -241,7 +274,15 @@ onMounted(() => {
             <div class="flex items-center justify-between">
               <span class="text-lg font-semibold truncate">{{ course.title }}</span>
               <div class="flex items-center gap-1">
-                <NTag v-for="tag in (course.tags ? course.tags.split(',') : [])" :key="tag" v-if="course.tags" type="info" size="small">{{ tag }}</NTag>
+                <NTag
+                  v-for="tag in course.tags ? course.tags.split(',') : []"
+                  v-if="course.tags"
+                  :key="tag"
+                  type="info"
+                  size="small"
+                >
+                  {{ tag }}
+                </NTag>
                 <NTag v-if="course.is_public" type="success" size="small">公开</NTag>
                 <NTag v-else type="default" size="small">私有</NTag>
               </div>
@@ -249,7 +290,7 @@ onMounted(() => {
           </template>
 
           <div class="text-gray-500 mb-4 line-clamp-2 h-10">
-            {{ course.description || '暂无描述' }}
+            {{ course.description || "暂无描述" }}
           </div>
 
           <div class="flex items-center justify-between text-sm text-gray-400 mb-2">
@@ -257,17 +298,38 @@ onMounted(() => {
               <span class="i-carbon-document text-base"></span>
               {{ course.item_count }} 个句子
             </span>
-            <span>{{ new Date(course.created_at).toLocaleDateString() }}</span>
+            <span v-if="trainingRecords[course.id]" class="flex items-center gap-1">
+              <NTag
+                :type="
+                  trainingRecords[course.id].training_status === 'completed'
+                    ? 'success'
+                    : trainingRecords[course.id].training_status === 'in_progress'
+                      ? 'warning'
+                      : 'default'
+                "
+                size="small"
+              >
+                {{
+                  trainingRecords[course.id].training_status === "completed"
+                    ? "已完成"
+                    : trainingRecords[course.id].training_status === "in_progress"
+                      ? "进行中"
+                      : "未开始"
+                }}
+              </NTag>
+              <span>{{ trainingRecords[course.id].training_count }} 次</span>
+            </span>
           </div>
 
           <template #action>
             <NSpace justify="end">
-              <NButton
-                size="small"
-                @click.stop="handleEdit(course)"
+              <NButton size="small" @click.stop="handleEdit(course)"> 编辑 </NButton>
+              <NDropdown
+                :options="trainingStatusOptions"
+                @select="(key: string) => handleUpdateTrainingStatus(course.id, key)"
               >
-                编辑
-              </NButton>
+                <NButton size="small" @click.stop> 训练状态 </NButton>
+              </NDropdown>
               <NButton
                 size="small"
                 type="primary"
@@ -278,7 +340,12 @@ onMounted(() => {
               </NButton>
               <NPopconfirm @positive-click.stop="handleDelete(course.id)">
                 <template #trigger>
-                  <NButton v-if="hasAuth('ai:course:delete')" size="small" type="error" @click.stop>
+                  <NButton
+                    v-if="hasAuth('ai:course:delete')"
+                    size="small"
+                    type="error"
+                    @click.stop
+                  >
                     删除
                   </NButton>
                 </template>

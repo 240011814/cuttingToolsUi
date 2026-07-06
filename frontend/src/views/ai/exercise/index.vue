@@ -6,6 +6,7 @@ import {
   fetchGetVocabularyList,
   fetchCourseDetail,
   fetchGetErrorBookForPractice,
+  fetchIncrementTrainingCount,
 } from "@/service/api";
 import { fetchAddErrorBook } from "@/service/api/error-book";
 import { speak } from "@/utils/tts";
@@ -341,6 +342,10 @@ const validateWord = (index: number, typedValue: string) => {
           initSentence();
         } else {
           isFinished.value = true;
+          const courseId = route.query.courseId as string;
+          if (courseId) {
+            fetchIncrementTrainingCount(Number(courseId)).catch(() => {});
+          }
         }
       }
     }, 800);

@@ -216,6 +216,9 @@ func main() {
 			courseGroup.DELETE("/:id/items/batch", api.RequirePermission("ai:course:delete"), courseHandler.BatchDeleteCourseItems)
 			courseGroup.PUT("/:id/items/:itemId", api.RequirePermission("ai:course:edit"), courseHandler.UpdateCourseItem)
 			courseGroup.DELETE("/:id/items/:itemId", api.RequirePermission("ai:course:edit"), courseHandler.DeleteCourseItem)
+			courseGroup.GET("/:id/training", courseHandler.GetTrainingStatus)
+			courseGroup.PUT("/:id/training", courseHandler.UpdateTrainingStatus)
+			courseGroup.POST("/:id/training/increment", courseHandler.IncrementTrainingCount)
 		}
 
 		// Error Book APIs

@@ -4,6 +4,7 @@ import (
 	"backend/model"
 	"errors"
 	"strings"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -291,6 +292,67 @@ func (s *CourseService) BatchCreateCourseItems(userID uint, courseID uint, items
 		return tx.Model(&course).UpdateColumn("item_count", gorm.Expr("item_count + ?", len(courseItems))).Error
 	})
 	return courseItems, duplicateCount, err
+}
+
+// GetOrCreateTraining 获取或创建用户课程训练记录
+func (s *CourseService) GetOrCreateTraining(userID uint, courseID uint) (*model.UserCourseTraining, error) {
+	var training model.UserCourseTraining
+	err := DB.Where("user_id = ? AND course_id = ?", userID, courseID).First(&training).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			// 创建新的训练记录
+			training = model.UserCourseTraining{
+				UserID:         userID,
+				CourseID:       courseID,
+				TrainingStatus: model.TrainingStatusNotStarted,
+				TrainingCount:  0,
+			}
+			if err := DB.Create(&training).Error; err != nil {
+				return nil, err
+			}
+			return &training, nil
+		}
+		return nil, err
+	}
+	return &training, nil
+}
+
+// UpdateTrainingStatus 更新训练状态
+func (s *CourseService) UpdateTrainingStatus(userID uint, courseID uint, status string) (*model.UserCourseTraining, error) {
+	training, err := s.GetOrCreateTraining(userID, courseID)
+	if err != nil {
+		return nil, err
+	}
+	training.TrainingStatus = status
+	err = DB.Save(training).Error
+	return training, err
+}
+
+// IncrementTrainingCount 增加训练次数
+func (s *CourseService) IncrementTrainingCount(userID uint, courseID uint) (*model.UserCourseTraining, error) {
+	training, err := s.GetOrCreateTraining(userID, courseID)
+	if err != nil {
+		return nil, err
+	}
+	now := time.Now()
+	training.TrainingCount++
+	training.LastTrainedAt = &now
+	training.TrainingStatus = model.TrainingStatusCompleted
+	err = DB.Save(training).Error
+	return training, err
+}
+
+// GetUserCourseTrainings 获取用户的所有课程训练记录
+func (s *CourseService) GetUserCourseTrainings(userID uint) (map[uint]*model.UserCourseTraining, error) {
+	var trainings []model.UserCourseTraining
+	if err := DB.Where("user_id = ?", userID).Find(&trainings).Error; err != nil {
+		return nil, err
+	}
+	result := make(map[uint]*model.UserCourseTraining, len(trainings))
+	for i := range trainings {
+		result[trainings[i].CourseID] = &trainings[i]
+	}
+	return result, nil
 }
 
 // BatchDeleteCourseItems 批量删除课程条目

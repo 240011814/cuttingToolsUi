@@ -151,3 +151,31 @@ export function fetchBatchDeleteCourseItems(courseId: number, ids: number[]) {
     data: { ids }
   });
 }
+
+export interface UserCourseTraining {
+  training_status: 'not_started' | 'in_progress' | 'completed';
+  training_count: number;
+  last_trained_at: string | null;
+}
+
+export function fetchTrainingStatus(courseId: number) {
+  return request<UserCourseTraining>({
+    url: `/api/courses/${courseId}/training`,
+    method: 'get'
+  });
+}
+
+export function fetchUpdateTrainingStatus(courseId: number, status: string) {
+  return request<UserCourseTraining>({
+    url: `/api/courses/${courseId}/training`,
+    method: 'put',
+    data: { training_status: status }
+  });
+}
+
+export function fetchIncrementTrainingCount(courseId: number) {
+  return request<UserCourseTraining>({
+    url: `/api/courses/${courseId}/training/increment`,
+    method: 'post'
+  });
+}

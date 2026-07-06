@@ -224,6 +224,71 @@ func (h *CourseHandler) BatchCreateCourseItems(c *gin.Context) {
 	})
 }
 
+// GetTrainingStatus 获取课程训练状态
+func (h *CourseHandler) GetTrainingStatus(c *gin.Context) {
+	userID := c.GetUint("userId")
+	courseID, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		SendError(c, "400", "无效的课程包ID")
+		return
+	}
+	training, err := h.courseService.GetOrCreateTraining(userID, uint(courseID))
+	if err != nil {
+		SendError(c, "500", "获取训练状态失败")
+		return
+	}
+	SendSuccess(c, model.UserCourseTrainingResponse{
+		TrainingStatus: training.TrainingStatus,
+		TrainingCount:  training.TrainingCount,
+		LastTrainedAt:  training.LastTrainedAt,
+	})
+}
+
+// UpdateTrainingStatus 更新课程训练状态
+func (h *CourseHandler) UpdateTrainingStatus(c *gin.Context) {
+	userID := c.GetUint("userId")
+	courseID, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		SendError(c, "400", "无效的课程包ID")
+		return
+	}
+	var req model.UpdateTrainingStatusRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		SendError(c, "400", "请求参数错误")
+		return
+	}
+	training, err := h.courseService.UpdateTrainingStatus(userID, uint(courseID), req.TrainingStatus)
+	if err != nil {
+		SendError(c, "500", "更新训练状态失败")
+		return
+	}
+	SendSuccess(c, model.UserCourseTrainingResponse{
+		TrainingStatus: training.TrainingStatus,
+		TrainingCount:  training.TrainingCount,
+		LastTrainedAt:  training.LastTrainedAt,
+	})
+}
+
+// IncrementTrainingCount 增加课程训练次数
+func (h *CourseHandler) IncrementTrainingCount(c *gin.Context) {
+	userID := c.GetUint("userId")
+	courseID, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		SendError(c, "400", "无效的课程包ID")
+		return
+	}
+	training, err := h.courseService.IncrementTrainingCount(userID, uint(courseID))
+	if err != nil {
+		SendError(c, "500", "更新训练次数失败")
+		return
+	}
+	SendSuccess(c, model.UserCourseTrainingResponse{
+		TrainingStatus: training.TrainingStatus,
+		TrainingCount:  training.TrainingCount,
+		LastTrainedAt:  training.LastTrainedAt,
+	})
+}
+
 // BatchDeleteCourseItems 批量删除课程条目
 func (h *CourseHandler) BatchDeleteCourseItems(c *gin.Context) {
 	userID := c.GetUint("userId")
