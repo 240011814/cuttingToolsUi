@@ -4,11 +4,12 @@ import { useRoute, useRouter } from "vue-router";
 import { useMessage, NSwitch } from "naive-ui";
 import {
   fetchGetVocabularyList,
+  fetchUpdateVocabulary,
   fetchCourseDetail,
   fetchGetErrorBookForPractice,
   fetchIncrementTrainingCount,
 } from "@/service/api";
-import { fetchAddErrorBook } from "@/service/api/error-book";
+import { fetchAddErrorBook, fetchUpdateErrorBook } from "@/service/api/error-book";
 import { speak } from "@/utils/tts";
 
 import typingSound from "@/assets/sound/typing.mp3";
@@ -44,6 +45,29 @@ const currentInput = ref("");
 const wordResults = ref<{ typed: string; status: "pending" | "correct" | "error" }[]>([]);
 const errorCounts = ref<number[]>([]);
 const autoPlayThreeTimes = ref(true);
+
+const elapsedSeconds = ref(0);
+let timerInterval: ReturnType<typeof setInterval> | null = null;
+
+const formatTime = (seconds: number) => {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+};
+
+const startTimer = () => {
+  elapsedSeconds.value = 0;
+  timerInterval = setInterval(() => {
+    elapsedSeconds.value++;
+  }, 1000);
+};
+
+const stopTimer = () => {
+  if (timerInterval) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+  }
+};
 
 // --- Computed ---
 const currentItem = computed(() => rawWords.value[currentSentenceIndex.value] || null);
@@ -82,6 +106,28 @@ const addToErrorBook = async () => {
     });
   } catch (err: any) {
     console.error("添加错题本失败", err);
+  }
+};
+
+const markAsMastered = async () => {
+  const item = currentItem.value;
+  if (!item?.id) {
+    message.warning("无法标记：当前题目没有ID");
+    return;
+  }
+
+  try {
+    const mode = route.query.mode as string;
+    if (mode === "error-book") {
+      await fetchUpdateErrorBook(item.id, { isMastered: true });
+      message.success("已标记为掌握");
+    } else {
+      await fetchUpdateVocabulary(item.id, { isMastered: true });
+      message.success("已标记为掌握");
+    }
+  } catch (err: any) {
+    console.error("标记已掌握失败", err);
+    message.error("标记失败");
   }
 };
 
@@ -300,6 +346,13 @@ const handleGlobalKeydown = (e: KeyboardEvent) => {
     return;
   }
 
+  // Ctrl+M：标记当前题目为已掌握
+  if (e.key === "m" && (e.ctrlKey || e.metaKey)) {
+    e.preventDefault();
+    markAsMastered();
+    return;
+  }
+
   // 字母与符号
   if (e.key.length === 1) {
     currentInput.value += e.key;
@@ -342,6 +395,7 @@ const validateWord = (index: number, typedValue: string) => {
           initSentence();
         } else {
           isFinished.value = true;
+          stopTimer();
           const courseId = route.query.courseId as string;
           if (courseId) {
             fetchIncrementTrainingCount(Number(courseId)).catch(() => {});
@@ -362,6 +416,7 @@ const shuffleArray = (arr: any[]) => {
 const startPractice = () => {
   shuffleArray(rawWords.value);
   isStarted.value = true;
+  startTimer();
   initSentence();
 };
 
@@ -386,6 +441,7 @@ onMounted(() => {
 onUnmounted(() => {
   window.speechSynthesis.cancel();
   window.removeEventListener("keydown", handleGlobalKeydown);
+  stopTimer();
 });
 
 watch(
@@ -433,6 +489,7 @@ watch(
           <span>Enter 重播</span>
           <span>↓ 提示</span>
           <span>↑ 跳过</span>
+          <span>Ctrl+M 标记掌握</span>
         </div>
       </div>
     </div>
@@ -442,15 +499,19 @@ watch(
       v-else-if="!isFinished"
       class="flex-1 flex flex-col items-center justify-center relative border-none shadow-none bg-transparent"
     >
-      <NProgress
-        type="line"
-        :percentage="progress"
-        :show-indicator="false"
-        class="absolute top-0 left-0 w-full"
-        processing
-        :height="3"
-        color="#2080f0"
-      />
+      <div class="absolute top-0 left-0 w-full flex items-center gap-2">
+        <NProgress
+          type="line"
+          :percentage="progress"
+          :show-indicator="false"
+          class="flex-1"
+          processing
+          :height="3"
+          color="#2080f0"
+        />
+        <span class="text-xs text-gray-400 pr-2">{{ currentSentenceIndex + 1 }}/{{ rawWords.length }}</span>
+        <span class="text-xs text-gray-400 pr-2">{{ formatTime(elapsedSeconds) }}</span>
+      </div>
 
       <div v-if="loading" class="flex-center h-full">
         <NSpin size="large" />
@@ -538,6 +599,7 @@ watch(
             <span class="flex items-center gap-2"><NTag size="small" :bordered="false" round>Enter</NTag> 重播</span>
             <span class="flex items-center gap-2"><NTag size="small" :bordered="false" round>↓</NTag> 提示</span>
             <span class="flex items-center gap-2"><NTag size="small" :bordered="false" round>↑</NTag> 跳过</span>
+            <span class="flex items-center gap-2"><NTag size="small" :bordered="false" round>Ctrl+M</NTag> 标记掌握</span>
           </div>
         </div>
       </div>
