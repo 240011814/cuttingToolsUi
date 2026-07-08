@@ -346,10 +346,14 @@ const handleGlobalKeydown = (e: KeyboardEvent) => {
     return;
   }
 
-  // Ctrl+M：标记当前题目为已掌握
+  // Ctrl+M：标记当前题目为已掌握（仅在生词本和错题本模式下可用）
   if (e.key === "m" && (e.ctrlKey || e.metaKey)) {
-    e.preventDefault();
-    markAsMastered();
+    const mode = route.query.mode as string;
+    const courseId = route.query.courseId as string;
+    if (mode === "error-book" || !courseId) {
+      e.preventDefault();
+      markAsMastered();
+    }
     return;
   }
 
@@ -489,7 +493,7 @@ watch(
           <span>Enter 重播</span>
           <span>↓ 提示</span>
           <span>↑ 跳过</span>
-          <span>Ctrl+M 标记掌握</span>
+          <span v-if="route.query.mode === 'error-book' || !route.query.courseId">Ctrl+M 标记掌握</span>
         </div>
       </div>
     </div>
@@ -599,7 +603,7 @@ watch(
             <span class="flex items-center gap-2"><NTag size="small" :bordered="false" round>Enter</NTag> 重播</span>
             <span class="flex items-center gap-2"><NTag size="small" :bordered="false" round>↓</NTag> 提示</span>
             <span class="flex items-center gap-2"><NTag size="small" :bordered="false" round>↑</NTag> 跳过</span>
-            <span class="flex items-center gap-2"><NTag size="small" :bordered="false" round>Ctrl+M</NTag> 标记掌握</span>
+            <span v-if="route.query.mode === 'error-book' || !route.query.courseId" class="flex items-center gap-2"><NTag size="small" :bordered="false" round>Ctrl+M</NTag> 标记掌握</span>
           </div>
         </div>
       </div>
