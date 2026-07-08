@@ -155,20 +155,39 @@ const loadData = async () => {
 
     // 错题本模式
     if (mode === "error-book") {
-      const { data: res } = await fetchGetErrorBookForPractice({
-        contentType: type || undefined,
-      });
-      if (res) {
-        rawWords.value = res.map((item) => ({
-          id: item.id,
-          example: item.content,
-          _translation: item.translation || "",
-          word: item.content,
-        }));
-        if (rawWords.value.length === 0) {
-          message.warning("没有待练习的错题");
-          router.push({ name: "ai_error-book" });
+      if (ids) {
+        // 指定IDs模式（随机练习）
+        const idList = ids.split(",").map(Number);
+        const { data: res } = await fetchGetErrorBookForPractice({
+          contentType: type || undefined,
+        });
+        if (res) {
+          rawWords.value = res
+            .filter((item) => idList.includes(item.id))
+            .map((item) => ({
+              id: item.id,
+              example: item.content,
+              _translation: item.translation || "",
+              word: item.content,
+            }));
         }
+      } else {
+        // 全量模式（错题练习）
+        const { data: res } = await fetchGetErrorBookForPractice({
+          contentType: type || undefined,
+        });
+        if (res) {
+          rawWords.value = res.map((item) => ({
+            id: item.id,
+            example: item.content,
+            _translation: item.translation || "",
+            word: item.content,
+          }));
+        }
+      }
+      if (rawWords.value.length === 0) {
+        message.warning("没有待练习的错题");
+        router.push({ name: "ai_error-book" });
       }
       return;
     }
@@ -626,7 +645,7 @@ watch(
               class="px-12 rd-lg"
               @click="goBack"
             >
-              {{ route.query.mode === "error-book" ? "返回错题本" : "返回生词本" }}
+              {{ route.query.courseId ? "返回课程" : route.query.mode === "error-book" ? "返回错题本" : "返回生词本" }}
             </NButton>
             <NButton
               size="large"

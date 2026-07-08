@@ -58,3 +58,15 @@ export function fetchUpdateVocabulary(id: number, data: {
     data
   });
 }
+
+/**
+ * 随机获取指定数量的生词
+ * @param params 查询参数
+ */
+export function fetchGetRandomVocabulary(params: { count?: number; isMastered?: boolean }) {
+  return request<any[]>({
+    url: '/api/vocabulary/random',
+    method: 'get',
+    params
+  });
+}

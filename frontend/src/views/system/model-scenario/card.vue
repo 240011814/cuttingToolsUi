@@ -2,17 +2,17 @@
 import { computed } from 'vue';
 import { NButton, NPopconfirm, NTag } from 'naive-ui';
 import { useAuth } from '@/hooks/business/auth';
-import type { Api } from '@/service/api';
+import type { ModelScenarioItem } from '@/service/api';
 
 interface Props {
-  item: Api.ModelScenario.Item;
+  item: ModelScenarioItem;
   expanded: boolean;
 }
 
 const props = defineProps<Props>();
 const emit = defineEmits<{
   toggle: [];
-  edit: [item: Api.ModelScenario.Item];
+  edit: [item: ModelScenarioItem];
   delete: [id: number];
 }>();
 

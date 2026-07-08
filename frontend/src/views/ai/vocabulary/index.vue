@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { h, onMounted, ref, resolveComponent, computed } from "vue";
-import { NButton, NPopconfirm, useMessage, useDialog } from "naive-ui";
+import { NButton, NPopconfirm, NModal, NInputNumber, useMessage, useDialog } from "naive-ui";
 import type { DataTableColumns, DataTableRowKey } from "naive-ui";
 import { useRouterPush } from "@/hooks/common/router";
 import {
   fetchDeleteVocabulary,
   fetchGetVocabularyList,
   fetchUpdateVocabulary,
+  fetchGetRandomVocabulary,
 } from "@/service/api";
 import { onKeyStroke } from "@vueuse/core";
 import { speak } from "@/utils/tts";
@@ -24,6 +25,8 @@ const keyword = ref("");
 const checkedRowKeys = ref<DataTableRowKey[]>([]);
 const isSelectionMode = ref(false);
 const activeTab = ref<"new" | "mastered">("new");
+const showRandomPractice = ref(false);
+const practiceCount = ref(10);
 
 const columns = computed<DataTableColumns<any>>(() => {
   const cols: DataTableColumns<any> = [
@@ -233,6 +236,27 @@ const handleStartExercise = () => {
   }
 };
 
+const handleRandomPractice = async () => {
+  if (practiceCount.value <= 0) {
+    message.warning("请输入有效的练习数量");
+    return;
+  }
+  try {
+    const { data: res } = await fetchGetRandomVocabulary({
+      count: practiceCount.value,
+      isMastered: activeTab.value === "mastered",
+    });
+    if (res && res.length > 0) {
+      const ids = res.map((item: any) => item.id).join(",");
+      routerPushByKey("ai_exercise", { query: { ids } });
+    } else {
+      message.warning("没有可练习的词汇");
+    }
+  } catch (err: any) {
+    message.error(`获取随机词汇失败: ${err?.message || "未知错误"}`);
+  }
+};
+
 onMounted(() => {
   loadData();
 });
@@ -294,6 +318,15 @@ onMounted(() => {
                 </template>
               </NButton>
               <NButton
+                type="warning"
+                size="small"
+                @click="showRandomPractice = true"
+              >
+                <template #icon>
+                  <IconMdiDiceMultipleOutline class="text-icon" />
+                </template>
+              </NButton>
+              <NButton
                 type="info"
                 size="small"
                 @click="handleStartExercise"
@@ -340,6 +373,12 @@ onMounted(() => {
                     ? $t("page.ai.vocabulary.selectMode")
                     : $t("page.ai.vocabulary.selectModeOn")
                 }}
+              </NButton>
+              <NButton type="warning" @click="showRandomPractice = true">
+                <template #icon>
+                  <IconMdiDiceMultipleOutline class="text-icon" />
+                </template>
+                随机练习
               </NButton>
               <NButton type="info" @click="handleStartExercise">
                 <template #icon>
@@ -428,6 +467,23 @@ onMounted(() => {
         </div>
       </div>
     </NCard>
+
+    <!-- Random Practice Dialog -->
+    <NModal v-model:show="showRandomPractice" preset="dialog" title="指定数量随机练习" :style="{ width: appStore.isMobile ? '90%' : '400px' }">
+      <div class="flex flex-col gap-4 py-4">
+        <div class="text-gray-500">
+          输入要练习的词汇数量，系统将随机选取对应数量的词汇进行练习。
+        </div>
+        <div class="flex items-center gap-4">
+          <span class="w-20">练习数量：</span>
+          <NInputNumber v-model:value="practiceCount" :min="1" :max="100" placeholder="请输入数量" class="flex-1" />
+        </div>
+      </div>
+      <template #action>
+        <NButton @click="showRandomPractice = false">取消</NButton>
+        <NButton type="primary" @click="showRandomPractice = false; handleRandomPractice()">开始练习</NButton>
+      </template>
+    </NModal>
   </div>
 </template>
 

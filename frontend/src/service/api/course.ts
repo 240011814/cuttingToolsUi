@@ -121,8 +121,13 @@ export function fetchCreateCourseItem(courseId: number, data: CreateCourseItemPa
   });
 }
 
+export interface BatchCreateCourseItemsResult {
+  items: CourseItem[];
+  duplicate_count: number;
+}
+
 export function fetchBatchCreateCourseItems(courseId: number, items: CreateCourseItemParams[]) {
-  return request<CourseItem[]>({
+  return request<BatchCreateCourseItemsResult>({
     url: `/api/courses/${courseId}/items/batch`,
     method: 'post',
     data: { items }

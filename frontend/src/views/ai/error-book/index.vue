@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { h, onMounted, ref, computed, resolveComponent } from "vue";
-import { NButton, NPopconfirm, useMessage, useDialog } from "naive-ui";
+import { NButton, NPopconfirm, NModal, NInputNumber, useMessage, useDialog } from "naive-ui";
 import type { DataTableColumns, DataTableRowKey } from "naive-ui";
 import { useRouterPush } from "@/hooks/common/router";
 import {
@@ -8,6 +8,7 @@ import {
   fetchUpdateErrorBook,
   fetchDeleteErrorBook,
   fetchGetErrorBookStats,
+  fetchGetRandomErrorBooks,
 } from "@/service/api";
 import { speak } from "@/utils/tts";
 import { useAppStore } from "@/store/modules/app";
@@ -24,6 +25,8 @@ const checkedRowKeys = ref<DataTableRowKey[]>([]);
 const isSelectionMode = ref(false);
 const activeTab = ref<"unmastered" | "mastered">("unmastered");
 const activeType = ref<"" | "word" | "sentence">("");
+const showRandomPractice = ref(false);
+const practiceCount = ref(10);
 
 const stats = ref({
   total: 0,
@@ -32,6 +35,112 @@ const stats = ref({
   wordCount: 0,
   sentenceCount: 0,
 });
+
+const loadData = async () => {
+  loading.value = true;
+  try {
+    const { data: res } = await fetchGetErrorBookList({
+      sourceType: activeType.value || undefined,
+      keyword: keyword.value || undefined,
+      isMastered: activeTab.value === "mastered",
+    });
+    if (res) {
+      data.value = res;
+    }
+  } catch (err: any) {
+    message.error(`加载失败: ${err?.message || "未知错误"}`);
+  } finally {
+    loading.value = false;
+  }
+};
+
+const loadStats = async () => {
+  try {
+    const { data: res } = await fetchGetErrorBookStats();
+    if (res) {
+      stats.value = res;
+    }
+  } catch (err: any) {
+    console.error("加载统计失败", err);
+  }
+};
+
+const handlePlay = (text: string) => {
+  speak(text, {
+    lang: "en-US",
+    rate: 0.9,
+  }).catch((err) => {
+    message.error("语音播放失败");
+    console.error(err);
+  });
+};
+
+const handleDelete = async (id: number) => {
+  try {
+    await fetchDeleteErrorBook(id);
+    message.success("删除成功");
+    loadData();
+    loadStats();
+  } catch (err: any) {
+    message.error(`删除失败: ${err?.message || "未知错误"}`);
+  }
+};
+
+const handleToggleMastered = async (row: any) => {
+  try {
+    const newStatus = !row.isMastered;
+    await fetchUpdateErrorBook(row.id, { isMastered: newStatus });
+    message.success(newStatus ? "已标记为掌握" : "已移回错题本");
+    loadData();
+    loadStats();
+  } catch (err: any) {
+    message.error(`操作失败: ${err?.message || "未知错误"}`);
+  }
+};
+
+const handleStartPractice = () => {
+  const selectedIds = checkedRowKeys.value;
+  if (selectedIds.length > 0) {
+    // 使用选中的IDs进行练习
+    routerPushByKey("ai_exercise", {
+      query: { ids: selectedIds.join(","), mode: "error-book" },
+    });
+  } else {
+    // 练习所有未掌握的错题
+    dialog.info({
+      title: "错题练习",
+      content: "将开始练习所有未掌握的错题，确定开始吗？",
+      positiveText: "确定",
+      negativeText: "取消",
+      onPositiveClick: () => {
+        routerPushByKey("ai_exercise", {
+          query: { mode: "error-book", ...(activeType.value ? { type: activeType.value } : {}) },
+        });
+      },
+    });
+  }
+};
+
+const handleRandomPractice = async () => {
+  if (practiceCount.value <= 0) {
+    message.warning("请输入有效的练习数量");
+    return;
+  }
+  try {
+    const { data: res } = await fetchGetRandomErrorBooks({
+      count: practiceCount.value,
+      contentType: activeType.value || undefined,
+    });
+    if (res && res.length > 0) {
+      const ids = res.map((item: any) => item.id).join(",");
+      routerPushByKey("ai_exercise", { query: { ids, mode: "error-book" } });
+    } else {
+      message.warning("没有可练习的错题");
+    }
+  } catch (err: any) {
+    message.error(`获取随机错题失败: ${err?.message || "未知错误"}`);
+  }
+};
 
 const columns = computed<DataTableColumns<any>>(() => {
   const cols: DataTableColumns<any> = [
@@ -158,103 +267,6 @@ const columns = computed<DataTableColumns<any>>(() => {
   return cols;
 });
 
-const loadData = async () => {
-  loading.value = true;
-  try {
-    const { data: res } = await fetchGetErrorBookList({
-      sourceType: activeType.value || undefined,
-      keyword: keyword.value || undefined,
-      isMastered: activeTab.value === "mastered",
-    });
-    if (res) {
-      data.value = res;
-    }
-  } catch (err: any) {
-    message.error(`加载失败: ${err?.message || "未知错误"}`);
-  } finally {
-    loading.value = false;
-  }
-};
-
-const loadStats = async () => {
-  try {
-    const { data: res } = await fetchGetErrorBookStats();
-    if (res) {
-      stats.value = res;
-    }
-  } catch (err: any) {
-    console.error("加载统计失败", err);
-  }
-};
-
-const handleDelete = async (id: number) => {
-  try {
-    await fetchDeleteErrorBook(id);
-    message.success("删除成功");
-    loadData();
-    loadStats();
-  } catch (err: any) {
-    message.error(`删除失败: ${err?.message || "未知错误"}`);
-  }
-};
-
-const handleToggleMastered = async (row: any) => {
-  try {
-    const newStatus = !row.isMastered;
-    await fetchUpdateErrorBook(row.id, { isMastered: newStatus });
-    message.success(newStatus ? "已标记为掌握" : "已移回错题本");
-    loadData();
-    loadStats();
-  } catch (err: any) {
-    message.error(`操作失败: ${err?.message || "未知错误"}`);
-  }
-};
-
-const handleBatchMastered = async () => {
-  if (checkedRowKeys.value.length === 0) {
-    message.warning("请先选择要操作的错题");
-    return;
-  }
-  try {
-    const isToMastered = activeTab.value === "unmastered";
-    await Promise.all(
-      checkedRowKeys.value.map((id) =>
-        fetchUpdateErrorBook(id as number, { isMastered: isToMastered })
-      )
-    );
-    message.success(isToMastered ? "批量标记为掌握成功" : "批量移回错题成功");
-    checkedRowKeys.value = [];
-    loadData();
-    loadStats();
-  } catch (err: any) {
-    message.error(`批量操作失败: ${err?.message || "未知错误"}`);
-  }
-};
-
-const handlePlay = (text: string) => {
-  speak(text, {
-    lang: "en-US",
-    rate: 0.9,
-  }).catch((err) => {
-    message.error("语音播放失败");
-    console.error(err);
-  });
-};
-
-const handleStartPractice = () => {
-  dialog.info({
-    title: "错题练习",
-    content: "将开始练习所有未掌握的错题，确定开始吗？",
-    positiveText: "确定",
-    negativeText: "取消",
-    onPositiveClick: () => {
-      routerPushByKey("ai_exercise", {
-        query: { mode: "error-book", ...(activeType.value ? { type: activeType.value } : {}) },
-      });
-    },
-  });
-};
-
 onMounted(() => {
   loadData();
   loadStats();
@@ -363,6 +375,15 @@ onMounted(() => {
                 </template>
               </NButton>
               <NButton
+                type="warning"
+                size="small"
+                @click="showRandomPractice = true"
+              >
+                <template #icon>
+                  <IconMdiDiceMultipleOutline class="text-icon" />
+                </template>
+              </NButton>
+              <NButton
                 type="error"
                 size="small"
                 @click="handleStartPractice"
@@ -407,17 +428,13 @@ onMounted(() => {
                 </template>
                 {{ isSelectionMode ? "选择模式" : "批量选择" }}
               </NButton>
-              <NButton
-                v-if="isSelectionMode"
-                type="success"
-                @click="handleBatchMastered"
-              >
+              <NButton type="warning" @click="showRandomPractice = true">
                 <template #icon>
-                  <IconMdiCheckAll class="text-icon" />
+                  <IconMdiDiceMultipleOutline class="text-icon" />
                 </template>
-                批量标记掌握
+                随机练习
               </NButton>
-              <NButton type="error" @click="handleStartPractice">
+              <NButton type="info" @click="handleStartPractice">
                 <template #icon>
                   <IconMdiPlayCircleOutline class="text-icon" />
                 </template>
@@ -510,6 +527,23 @@ onMounted(() => {
         </div>
       </div>
     </NCard>
+
+    <!-- Random Practice Dialog -->
+    <NModal v-model:show="showRandomPractice" preset="dialog" title="指定数量随机练习" :style="{ width: appStore.isMobile ? '90%' : '400px' }">
+      <div class="flex flex-col gap-4 py-4">
+        <div class="text-gray-500">
+          输入要练习的错题数量，系统将随机选取对应数量的错题进行练习。
+        </div>
+        <div class="flex items-center gap-4">
+          <span class="w-20">练习数量：</span>
+          <NInputNumber v-model:value="practiceCount" :min="1" :max="100" placeholder="请输入数量" class="flex-1" />
+        </div>
+      </div>
+      <template #action>
+        <NButton @click="showRandomPractice = false">取消</NButton>
+        <NButton type="primary" @click="showRandomPractice = false; handleRandomPractice()">开始练习</NButton>
+      </template>
+    </NModal>
   </div>
 </template>
 

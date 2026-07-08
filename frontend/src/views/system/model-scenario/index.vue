@@ -11,7 +11,7 @@ import { useAuth } from '@/hooks/business/auth';
 import {
   fetchModelScenarios, fetchCreateModelScenario, fetchUpdateModelScenario, fetchDeleteModelScenario,
 } from '@/service/api';
-import type { Api } from '@/service/api';
+import type { ModelScenarioItem, ModelScenarioCreateRequest } from '@/service/api';
 import ModelScenarioCard from './card.vue';
 
 const message = useMessage();
@@ -21,7 +21,7 @@ const { hasAuth } = useAuth();
 // ============ State ============
 const activeTab = ref('model');
 const loading = ref(false);
-const items = ref<Api.ModelScenario.Item[]>([]);
+const items = ref<ModelScenarioItem[]>([]);
 const expandedId = ref<number | null>(null);
 const searchText = ref('');
 const filterCategory = ref<string | null>(null);
@@ -29,7 +29,7 @@ const filterCategory = ref<string | null>(null);
 const showModal = ref(false);
 const editingId = ref<number | null>(null);
 const formRef = ref<FormInst | null>(null);
-const form = reactive<Api.ModelScenario.CreateRequest>({
+const form = reactive<ModelScenarioCreateRequest>({
   type: 'model', name: '', summary: '', description: '', detail: '',
   category: '', sortOrder: 0,
 });
@@ -93,7 +93,7 @@ function openCreate() {
   showModal.value = true;
 }
 
-function openEdit(row: Api.ModelScenario.Item) {
+function openEdit(row: ModelScenarioItem) {
   editingId.value = row.id;
   Object.assign(form, {
     type: row.type, name: row.name, summary: row.summary,

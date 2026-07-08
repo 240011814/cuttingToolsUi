@@ -71,6 +71,36 @@ func (h *VocabularyHandler) HandleDeleteWord(c *gin.Context) {
 	SendSuccess(c, nil)
 }
 
+// HandleGetRandomWords 随机获取指定数量的生词
+func (h *VocabularyHandler) HandleGetRandomWords(c *gin.Context) {
+	userId := GetUserID(c)
+	countStr := c.DefaultQuery("count", "10")
+	count, err := strconv.Atoi(countStr)
+	if err != nil || count <= 0 {
+		count = 10
+	}
+	if count > 100 {
+		count = 100
+	}
+
+	isMasteredStr := c.Query("isMastered")
+	var isMastered *bool
+	if isMasteredStr != "" {
+		b, err := strconv.ParseBool(isMasteredStr)
+		if err == nil {
+			isMastered = &b
+		}
+	}
+
+	list, err := h.svc.GetRandomWords(userId, count, isMastered)
+	if err != nil {
+		SendError(c, "500", "获取随机词汇失败: "+err.Error())
+		return
+	}
+
+	SendSuccess(c, list)
+}
+
 // HandleUpdateWord 更新生词
 func (h *VocabularyHandler) HandleUpdateWord(c *gin.Context) {
 	userId := GetUserID(c)

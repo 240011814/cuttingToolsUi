@@ -100,7 +100,7 @@ async function getData() {
       total.value = res.total || 0;
       pagination.value.itemCount = total.value;
     }
-  } catch (err) {
+  } catch {
     message.error('加载失败');
   } finally {
     loading.value = false;

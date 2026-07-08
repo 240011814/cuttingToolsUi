@@ -108,7 +108,7 @@ const handleAddItem = async () => {
     showAddItem.value = false
     itemForm.value = { english_sentence: '', chinese_translation: '', sort_order: 0 }
     loadCourse()
-  } catch (err: any) {
+  } catch {
     // 错误消息已由 request 函数自动显示
   } finally {
     saving.value = false
@@ -271,9 +271,13 @@ onMounted(loadCourse)
         <NSpace>
           <template v-if="isSelecting">
             <NButton @click="toggleSelectAll">
-              {{ selectedIds.length === filteredItems.length ? '取消全选' : '全选' }}
+              {{ selectedIds.length === filteredItems.length ? "取消全选" : "全选" }}
             </NButton>
-            <NButton type="error" :disabled="!selectedIds.length" @click="handleBatchDelete">
+            <NButton
+              type="error"
+              :disabled="!selectedIds.length"
+              @click="handleBatchDelete"
+            >
               <template #icon>
                 <SvgIcon icon="mdi:delete" />
               </template>
@@ -282,7 +286,7 @@ onMounted(loadCourse)
             <NButton @click="cancelSelect">取消</NButton>
           </template>
           <template v-else>
-            <NButton @click="isSelecting = true" :disabled="!filteredItems.length">
+            <NButton :disabled="!filteredItems.length" @click="isSelecting = true">
               <template #icon>
                 <SvgIcon icon="mdi:checkbox-multiple-marked-outline" />
               </template>
@@ -305,7 +309,9 @@ onMounted(loadCourse)
       </div>
 
       <div v-if="!filteredItems.length" class="flex-1 flex items-center justify-center">
-        <NEmpty :description="searchKeyword ? '没有匹配的句子' : '暂无句子，点击上方按钮添加'" />
+        <NEmpty
+          :description="searchKeyword ? '没有匹配的句子' : '暂无句子，点击上方按钮添加'"
+        />
       </div>
 
       <div v-else class="flex-1 overflow-auto">
@@ -323,21 +329,35 @@ onMounted(loadCourse)
                 <div class="flex items-start gap-3">
                   <div v-if="isSelecting" class="flex items-center">
                     <SvgIcon
-                      :icon="selectedIds.includes(item.id) ? 'mdi:checkbox-marked-circle' : 'mdi:checkbox-blank-circle-outline'"
-                      :class="selectedIds.includes(item.id) ? 'text-primary' : 'text-gray-400'"
+                      :icon="
+                        selectedIds.includes(item.id)
+                          ? 'mdi:checkbox-marked-circle'
+                          : 'mdi:checkbox-blank-circle-outline'
+                      "
+                      :class="
+                        selectedIds.includes(item.id) ? 'text-primary' : 'text-gray-400'
+                      "
                       class="text-xl cursor-pointer"
                     />
                   </div>
-                  <span class="text-gray-400 text-sm font-mono min-w-[24px]">{{ index + 1 }}</span>
+                  <span class="text-gray-400 text-sm font-mono min-w-[24px]">{{
+                    index + 1
+                  }}</span>
                   <div class="flex-1">
-                    <div class="font-medium text-base mb-1">{{ item.english_sentence }}</div>
-                    <div class="text-gray-500 text-sm">{{ item.chinese_translation || '暂无翻译' }}</div>
+                    <div class="font-medium text-base mb-1">
+                      {{ item.english_sentence }}
+                    </div>
+                    <div class="text-gray-500 text-sm">
+                      {{ item.chinese_translation || "暂无翻译" }}
+                    </div>
                   </div>
                 </div>
               </div>
               <NSpace v-if="!isSelecting" size="small">
                 <ButtonIcon
-                  :icon="playingItemId === item.id ? 'mdi:volume-high' : 'mdi:volume-medium'"
+                  :icon="
+                    playingItemId === item.id ? 'mdi:volume-high' : 'mdi:volume-medium'
+                  "
                   :tooltip-content="playingItemId === item.id ? '停止播放' : '播放发音'"
                   :class="playingItemId === item.id ? 'text-primary' : ''"
                   @click.stop="handlePlay(item)"
@@ -347,7 +367,10 @@ onMounted(loadCourse)
                   tooltip-content="编辑"
                   @click.stop="handleEditItem(item)"
                 />
-                <NPopconfirm placement="top" @positive-click.stop="handleDeleteItem(item.id)">
+                <NPopconfirm
+                  placement="top"
+                  @positive-click.stop="handleDeleteItem(item.id)"
+                >
                   <template #trigger>
                     <div @click.stop>
                       <ButtonIcon
@@ -366,7 +389,15 @@ onMounted(loadCourse)
       </div>
     </template>
 
-    <NModal v-model:show="editingCourse" title="编辑课程信息" preset="dialog" positive-text="保存" negative-text="取消" :loading="saving" @positive-click="handleUpdateCourse">
+    <NModal
+      v-model:show="editingCourse"
+      title="编辑课程信息"
+      preset="dialog"
+      positive-text="保存"
+      negative-text="取消"
+      :loading="saving"
+      @positive-click="handleUpdateCourse"
+    >
       <NForm :model="courseForm" label-placement="top">
         <NFormItem label="课程标题" required>
           <NInput v-model:value="courseForm.title" placeholder="请输入课程标题" />
@@ -380,7 +411,12 @@ onMounted(loadCourse)
           />
         </NFormItem>
         <NFormItem label="课程描述">
-          <NInput v-model:value="courseForm.description" type="textarea" placeholder="请输入课程描述" :rows="3" />
+          <NInput
+            v-model:value="courseForm.description"
+            type="textarea"
+            placeholder="请输入课程描述"
+            :rows="3"
+          />
         </NFormItem>
         <NFormItem label="公开课程">
           <NSwitch v-model:value="courseForm.is_public" />
@@ -389,39 +425,94 @@ onMounted(loadCourse)
       </NForm>
     </NModal>
 
-    <NModal v-model:show="showAddItem" title="添加句子" preset="dialog" positive-text="保存" negative-text="取消" :loading="saving" @positive-click="handleAddItem">
+    <NModal
+      v-model:show="showAddItem"
+      title="添加句子"
+      preset="dialog"
+      positive-text="保存"
+      negative-text="取消"
+      :loading="saving"
+      @positive-click="handleAddItem"
+    >
       <NForm :model="itemForm" label-placement="top">
         <NFormItem label="英语句子" required>
-          <NInput v-model:value="itemForm.english_sentence" type="textarea" placeholder="请输入英语句子" :rows="2" />
+          <NInput
+            v-model:value="itemForm.english_sentence"
+            type="textarea"
+            placeholder="请输入英语句子"
+            :rows="2"
+          />
         </NFormItem>
         <NFormItem label="中文翻译">
-          <NInput v-model:value="itemForm.chinese_translation" type="textarea" placeholder="请输入中文翻译" :rows="2" />
+          <NInput
+            v-model:value="itemForm.chinese_translation"
+            type="textarea"
+            placeholder="请输入中文翻译"
+            :rows="2"
+          />
         </NFormItem>
         <NFormItem label="排序">
-          <NInputNumber v-model:value="itemForm.sort_order" :min="0" placeholder="排序号" />
+          <NInputNumber
+            v-model:value="itemForm.sort_order"
+            :min="0"
+            placeholder="排序号"
+          />
         </NFormItem>
       </NForm>
     </NModal>
 
-    <NModal v-model:show="showEditItem" title="编辑句子" preset="dialog" positive-text="保存" negative-text="取消" :loading="saving" @positive-click="handleUpdateItem">
+    <NModal
+      v-model:show="showEditItem"
+      title="编辑句子"
+      preset="dialog"
+      positive-text="保存"
+      negative-text="取消"
+      :loading="saving"
+      @positive-click="handleUpdateItem"
+    >
       <NForm :model="editItemForm" label-placement="top">
         <NFormItem label="英语句子" required>
-          <NInput v-model:value="editItemForm.english_sentence" type="textarea" placeholder="请输入英语句子" :rows="2" />
+          <NInput
+            v-model:value="editItemForm.english_sentence"
+            type="textarea"
+            placeholder="请输入英语句子"
+            :rows="2"
+          />
         </NFormItem>
         <NFormItem label="中文翻译">
-          <NInput v-model:value="editItemForm.chinese_translation" type="textarea" placeholder="请输入中文翻译" :rows="2" />
+          <NInput
+            v-model:value="editItemForm.chinese_translation"
+            type="textarea"
+            placeholder="请输入中文翻译"
+            :rows="2"
+          />
         </NFormItem>
         <NFormItem label="排序">
-          <NInputNumber v-model:value="editItemForm.sort_order" :min="0" placeholder="排序号" />
+          <NInputNumber
+            v-model:value="editItemForm.sort_order"
+            :min="0"
+            placeholder="排序号"
+          />
         </NFormItem>
       </NForm>
     </NModal>
 
-    <NModal v-model:show="showBatchImport" title="批量导入" preset="dialog" positive-text="导入" negative-text="取消" style="width:700px" :loading="saving" @positive-click="handleBatchImport">
+    <NModal
+      v-model:show="showBatchImport"
+      title="批量导入"
+      preset="dialog"
+      positive-text="导入"
+      negative-text="取消"
+      style="width: 700px"
+      :loading="saving"
+      @positive-click="handleBatchImport"
+    >
       <div class="space-y-4">
         <div>
           <div class="mb-2 font-medium">输入内容（每行一句）</div>
-          <div class="mb-2 text-sm text-gray-500">支持格式：English | 中文 或 English（中文） 或 English(中文)</div>
+          <div class="mb-2 text-sm text-gray-500">
+            支持格式：English | 中文 或 English（中文） 或 English(中文)
+          </div>
           <NInput
             v-model:value="batchText"
             type="textarea"
@@ -433,7 +524,11 @@ onMounted(loadCourse)
         <div v-if="batchPreview.length">
           <div class="mb-2 font-medium">预览 ({{ batchPreview.length }}条)</div>
           <div class="max-h-60 overflow-auto border rounded-lg p-3 bg-gray-50">
-            <div v-for="(item, i) in batchPreview" :key="i" class="py-2 border-b last:border-0">
+            <div
+              v-for="(item, i) in batchPreview"
+              :key="i"
+              class="py-2 border-b last:border-0"
+            >
               <div class="font-medium">{{ item.english_sentence }}</div>
               <div class="text-sm text-gray-500">{{ item.chinese_translation }}</div>
             </div>

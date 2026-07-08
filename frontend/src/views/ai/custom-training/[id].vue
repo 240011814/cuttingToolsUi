@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, nextTick, onActivated } from "vue";
+import { ref, onActivated } from "vue";
 
 defineOptions({
   name: 'AiCustomTraining'

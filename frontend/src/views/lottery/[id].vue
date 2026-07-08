@@ -67,7 +67,7 @@ function playSound(
 
     oscillator.start(ctx.currentTime);
     oscillator.stop(ctx.currentTime + duration);
-  } catch (e) {
+  } catch {
     // 静默处理音频错误
   }
 }

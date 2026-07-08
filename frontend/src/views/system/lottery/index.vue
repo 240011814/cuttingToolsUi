@@ -15,8 +15,6 @@ import {
   NSelect,
   NSpace,
   NSpin,
-  NTabPane,
-  NTabs,
   NTag,
   useMessage
 } from 'naive-ui'
@@ -37,7 +35,6 @@ import {
 } from '@/service/api'
 import { useAuth } from '@/hooks/business/auth'
 import { useAppStore } from '@/store/modules/app'
-import { $t } from '@/locales'
 
 const message = useMessage()
 const { hasAuth } = useAuth()

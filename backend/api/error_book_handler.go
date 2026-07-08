@@ -72,6 +72,29 @@ func (h *ErrorBookHandler) HandleGetErrorBookForPractice(c *gin.Context) {
 	SendSuccess(c, list)
 }
 
+// HandleGetRandomErrorBooks 随机获取指定数量的错题
+func (h *ErrorBookHandler) HandleGetRandomErrorBooks(c *gin.Context) {
+	userId := GetUserID(c)
+	countStr := c.DefaultQuery("count", "10")
+	count, err := strconv.Atoi(countStr)
+	if err != nil || count <= 0 {
+		count = 10
+	}
+	if count > 100 {
+		count = 100
+	}
+
+	contentType := c.Query("contentType")
+
+	list, err := h.svc.GetRandomErrorBooks(userId, count, contentType)
+	if err != nil {
+		SendError(c, "500", "获取随机错题失败: "+err.Error())
+		return
+	}
+
+	SendSuccess(c, list)
+}
+
 // HandleUpdateErrorBook 更新错题状态
 func (h *ErrorBookHandler) HandleUpdateErrorBook(c *gin.Context) {
 	userId := GetUserID(c)

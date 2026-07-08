@@ -80,6 +80,19 @@ func (s *ErrorBookService) GetErrorBookForPractice(userID uint, contentType stri
 	return list, nil
 }
 
+// GetRandomErrorBooks 随机获取指定数量的错题
+func (s *ErrorBookService) GetRandomErrorBooks(userID uint, count int, contentType string) ([]model.ErrorBook, error) {
+	var list []model.ErrorBook
+	query := DB.Where("user_id = ? AND is_mastered = ?", userID, false)
+	if contentType != "" {
+		query = query.Where("content_type = ?", contentType)
+	}
+	if err := query.Order("RAND()").Limit(count).Find(&list).Error; err != nil {
+		return nil, err
+	}
+	return list, nil
+}
+
 // UpdateErrorBook 更新错题状态
 func (s *ErrorBookService) UpdateErrorBook(userID, id uint, req model.UpdateErrorBookRequest) error {
 	updates := map[string]interface{}{}

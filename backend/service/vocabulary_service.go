@@ -62,6 +62,19 @@ func (s *VocabularyService) DeleteWord(userID, id uint) error {
 	return DB.Where("id = ? AND user_id = ?", id, userID).Delete(&model.Vocabulary{}).Error
 }
 
+// GetRandomWords 随机获取指定数量的生词
+func (s *VocabularyService) GetRandomWords(userID uint, count int, isMastered *bool) ([]model.Vocabulary, error) {
+	var list []model.Vocabulary
+	query := DB.Where("user_id = ? AND example != '' AND example IS NOT NULL", userID)
+	if isMastered != nil {
+		query = query.Where("is_mastered = ?", *isMastered)
+	}
+	if err := query.Order("RAND()").Limit(count).Find(&list).Error; err != nil {
+		return nil, err
+	}
+	return list, nil
+}
+
 // UpdateWord 更新生词
 func (s *VocabularyService) UpdateWord(userID, id uint, req model.UpdateVocabularyRequest) error {
 	updates := map[string]interface{}{}

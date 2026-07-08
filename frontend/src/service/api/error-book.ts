@@ -89,3 +89,15 @@ export function fetchDeleteErrorBook(id: number) {
     method: 'delete'
   });
 }
+
+/**
+ * 随机获取指定数量的错题
+ * @param params 查询参数
+ */
+export function fetchGetRandomErrorBooks(params: { count?: number; contentType?: string }) {
+  return request<any[]>({
+    url: '/api/error-book/random',
+    method: 'get',
+    params
+  });
+}

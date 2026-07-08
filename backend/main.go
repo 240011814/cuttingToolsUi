@@ -130,6 +130,7 @@ func main() {
 		{
 			vocabGroup.POST("", api.RequirePermission("ai:vocabulary:add"), vocabHandler.HandleAddWord)
 			vocabGroup.GET("", vocabHandler.HandleListWords)
+			vocabGroup.GET("/random", vocabHandler.HandleGetRandomWords)
 			vocabGroup.PUT("/:id", api.RequirePermission("ai:vocabulary:edit"), vocabHandler.HandleUpdateWord)
 			vocabGroup.DELETE("/:id", api.RequirePermission("ai:vocabulary:delete"), vocabHandler.HandleDeleteWord)
 		}
@@ -228,6 +229,7 @@ func main() {
 			errorBookGroup.POST("", api.RequirePermission("ai:error-book:add"), errorBookHandler.HandleAddErrorBook)
 			errorBookGroup.GET("", errorBookHandler.HandleListErrorBooks)
 			errorBookGroup.GET("/practice", api.RequirePermission("ai:error-book:practice"), errorBookHandler.HandleGetErrorBookForPractice)
+			errorBookGroup.GET("/random", api.RequirePermission("ai:error-book:practice"), errorBookHandler.HandleGetRandomErrorBooks)
 			errorBookGroup.GET("/stats", errorBookHandler.HandleGetErrorBookStats)
 			errorBookGroup.PUT("/:id", api.RequirePermission("ai:error-book:edit"), errorBookHandler.HandleUpdateErrorBook)
 			errorBookGroup.DELETE("/:id", api.RequirePermission("ai:error-book:delete"), errorBookHandler.HandleDeleteErrorBook)

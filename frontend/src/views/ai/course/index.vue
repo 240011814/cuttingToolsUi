@@ -70,6 +70,19 @@ const filterOptions = [
 
 const publicFilterValue = ref<string>('all')
 
+const loadTrainingRecords = async () => {
+  for (const course of courses.value) {
+    try {
+      const { data } = await fetchTrainingStatus(course.id)
+      if (data) {
+        trainingRecords.value[course.id] = data
+      }
+    } catch {
+      // 忽略单个课程的训练记录加载失败
+    }
+  }
+}
+
 const loadCourses = async () => {
   loading.value = true
   try {
@@ -85,23 +98,10 @@ const loadCourses = async () => {
       total.value = data.total
       loadTrainingRecords()
     }
-  } catch (err: any) {
+  } catch {
     message.error('加载课程包失败')
   } finally {
     loading.value = false
-  }
-}
-
-const loadTrainingRecords = async () => {
-  for (const course of courses.value) {
-    try {
-      const { data } = await fetchTrainingStatus(course.id)
-      if (data) {
-        trainingRecords.value[course.id] = data
-      }
-    } catch (err) {
-      // 忽略单个课程的训练记录加载失败
-    }
   }
 }
 
@@ -146,7 +146,7 @@ const handleSubmit = async () => {
       showModal.value = false
       loadCourses()
     }
-  } catch (err: any) {
+  } catch {
     message.error('创建失败')
   } finally {
     submitting.value = false
@@ -158,7 +158,7 @@ const handleDelete = async (id: number) => {
     await fetchDeleteCourse(id)
     message.success('删除成功')
     loadCourses()
-  } catch (err: any) {
+  } catch {
     message.error('删除失败')
   }
 }
@@ -186,7 +186,7 @@ const handleUpdateSubmit = async () => {
     message.success('更新成功')
     showEditModal.value = false
     loadCourses()
-  } catch (err: any) {
+  } catch {
     message.error('更新失败')
   } finally {
     submitting.value = false
@@ -199,7 +199,7 @@ const goToPractice = async (id: number) => {
     if (data) {
       trainingRecords.value[id] = data
     }
-  } catch (err) {
+  } catch {
     // 忽略错误，继续跳转
   }
   router.push({ name: 'ai_exercise', query: { courseId: id } })
@@ -212,7 +212,7 @@ const handleUpdateTrainingStatus = async (courseId: number, status: string) => {
       trainingRecords.value[courseId] = data
       message.success('训练状态已更新')
     }
-  } catch (err) {
+  } catch {
     message.error('更新训练状态失败')
   }
 }
@@ -286,15 +286,16 @@ onActivated(() => {
             <div class="flex items-center justify-between">
               <span class="text-lg font-semibold truncate">{{ course.title }}</span>
               <div class="flex items-center gap-1">
-                <NTag
-                  v-for="tag in course.tags ? course.tags.split(',') : []"
-                  v-if="course.tags"
-                  :key="tag"
-                  type="info"
-                  size="small"
-                >
-                  {{ tag }}
-                </NTag>
+                <template v-if="course.tags">
+                  <NTag
+                    v-for="tag in course.tags.split(',')"
+                    :key="tag"
+                    type="info"
+                    size="small"
+                  >
+                    {{ tag }}
+                  </NTag>
+                </template>
                 <NTag v-if="course.is_public" type="success" size="small">公开</NTag>
                 <NTag v-else type="default" size="small">私有</NTag>
               </div>
@@ -340,7 +341,7 @@ onActivated(() => {
                 :options="trainingStatusOptions"
                 @select="(key: string) => handleUpdateTrainingStatus(course.id, key)"
               >
-                <NButton size="small" @click.stop> 训练状态 </NButton>
+                <NButton size="small" @click.stop> 训练状态</NButton>
               </NDropdown>
               <NButton
                 size="small"
@@ -361,7 +362,7 @@ onActivated(() => {
                     删除
                   </NButton>
                 </template>
-                确定删除此课程包？
+                确定删除此课程包吗？
               </NPopconfirm>
             </NSpace>
           </template>
@@ -390,7 +391,9 @@ onActivated(() => {
     >
       <NForm :model="formData" label-placement="top">
         <NFormItem label="课程标题" required>
-          <NInput v-model:value="formData.title" placeholder="请输入课程标题" />
+          <NInput
+            v-model:value="formData.title" placeholder="请输入课程标题"
+          />
         </NFormItem>
         <NFormItem label="课程标签">
           <NSelect
@@ -426,7 +429,9 @@ onActivated(() => {
     >
       <NForm :model="editForm" label-placement="top">
         <NFormItem label="课程标题" required>
-          <NInput v-model:value="editForm.title" placeholder="请输入课程标题" />
+          <NInput
+            v-model:value="editForm.title" placeholder="请输入课程标题"
+          />
         </NFormItem>
         <NFormItem label="课程标签">
           <NSelect
