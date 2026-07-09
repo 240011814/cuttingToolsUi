@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onActivated } from 'vue'
 import { useRouter } from 'vue-router'
-import { useMessage, NCard, NButton, NTag, NEmpty, NSpin, NModal, NForm, NFormItem, NInput, NSwitch, NSpace, NPopconfirm, NPagination, NSelect, NDropdown } from 'naive-ui'
+import { useMessage, NCard, NButton, NTag, NEmpty, NSpin, NModal, NForm, NFormItem, NInput, NSwitch, NSpace, NPopconfirm, NPagination, NSelect } from 'naive-ui'
 import { fetchCourseList, fetchCreateCourse, fetchUpdateCourse, fetchDeleteCourse, fetchTrainingStatus, fetchUpdateTrainingStatus, type Course, type UserCourseTraining } from '@/service/api'
 import { useAuth } from '@/hooks/business/auth'
 
@@ -56,11 +56,7 @@ const tagOptions = [
   { label: '面试求职', value: '面试求职' }
 ]
 
-const trainingStatusOptions = [
-  { label: '未开始', key: 'not_started' },
-  { label: '进行中', key: 'in_progress' },
-  { label: '已完成', key: 'completed' }
-]
+
 
 const filterOptions = [
   { label: '全部', value: 'all' },
@@ -205,17 +201,7 @@ const goToPractice = async (id: number) => {
   router.push({ name: 'ai_exercise', query: { courseId: id } })
 }
 
-const handleUpdateTrainingStatus = async (courseId: number, status: string) => {
-  try {
-    const { data } = await fetchUpdateTrainingStatus(courseId, status)
-    if (data) {
-      trainingRecords.value[courseId] = data
-      message.success('训练状态已更新')
-    }
-  } catch {
-    message.error('更新训练状态失败')
-  }
-}
+
 
 const goToEdit = (id: number) => {
   router.push({ name: 'ai_course-detail', params: { id } })
@@ -337,12 +323,7 @@ onActivated(() => {
           <template #action>
             <NSpace justify="end">
               <NButton size="small" @click.stop="handleEdit(course)"> 编辑 </NButton>
-              <NDropdown
-                :options="trainingStatusOptions"
-                @select="(key: string) => handleUpdateTrainingStatus(course.id, key)"
-              >
-                <NButton size="small" @click.stop> 训练状态</NButton>
-              </NDropdown>
+
               <NButton
                 size="small"
                 type="primary"
