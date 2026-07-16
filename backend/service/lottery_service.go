@@ -349,7 +349,7 @@ func (s *LotteryService) Draw(userID, activityID uint, userName string) (*model.
 					// 权重模式：random ∈ [0, totalProb)，必中奖
 					random = rand.Float64() * totalProb
 				}
-				log.Panicln("Random number:", random)
+				log.Println("Random number:", random)
 
 				// 按概率/权重选择奖品
 				cumulativeProb := 0.0
