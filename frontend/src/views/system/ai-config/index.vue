@@ -23,6 +23,7 @@ import {
   fetchGetAIProviders,
   fetchUpdateAIModel,
   fetchUpdateAIProvider,
+  fetchTestAIConnection,
 } from "@/service/api/admin";
 import { $t } from "@/locales";
 
@@ -175,6 +176,7 @@ async function handleDeleteProvider(id: number) {
 
 // Model Management
 const activeModels = ref<Api.Admin.AIModel[]>([]);
+const testingModelId = ref<number | null>(null);
 const modelColumns = computed<DataTableColumns<Api.Admin.AIModel>>(() => [
   { title: $t("page.system.aiConfig.modelCode"), key: "model_code" },
   { title: $t("page.system.aiConfig.displayName"), key: "display_name" },
@@ -204,6 +206,16 @@ const modelColumns = computed<DataTableColumns<Api.Admin.AIModel>>(() => [
               NButton,
               { size: "small", onClick: () => handleEditModel(row) },
               { default: () => $t("common.edit") }
+            ),
+            h(
+              NButton,
+              {
+                size: "small",
+                type: "info",
+                loading: testingModelId.value === row.id,
+                onClick: () => handleTestSingleModel(row),
+              },
+              { default: () => $t("page.system.aiConfig.testConnection") }
             ),
             h(
               NPopconfirm,
@@ -287,6 +299,32 @@ async function handleDeleteModel(row: Api.Admin.AIModel) {
     if (current) {
       activeModels.value = current.models || [];
     }
+  }
+}
+
+async function handleTestSingleModel(row: Api.Admin.AIModel) {
+  const currentProvider = providers.value.find((p) => p.id === currentProviderId.value);
+  if (!currentProvider?.api_key) {
+    message.error($t("page.system.aiConfig.apiKeyPlaceholder"));
+    return;
+  }
+  testingModelId.value = row.id;
+  try {
+    const { error } = await fetchTestAIConnection({
+      api_key: currentProvider.api_key,
+      base_url: currentProvider.base_url,
+      model_code: row.model_code,
+    });
+    if (!error) {
+      message.success($t("page.system.aiConfig.testSuccess"));
+    } else {
+      message.error($t("page.system.aiConfig.testFailed"));
+    }
+  } catch (e) {
+    message.error($t("page.system.aiConfig.testFailed"));
+    console.error(e);
+  } finally {
+    testingModelId.value = null;
   }
 }
 
@@ -391,7 +429,7 @@ onMounted(() => {
           <NInput
             v-model:value="modelForm.config_json"
             type="textarea"
-            placeholder="{&quot;temperature&quot;: 0.7}"
+            placeholder='{"temperature": 0.7}'
           />
         </NFormItem>
         <div class="flex justify-end gap-2">

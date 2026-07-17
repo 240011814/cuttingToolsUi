@@ -425,6 +425,10 @@ const local: App.I18n.Schema = {
         updateSuccess: "Updated successfully",
         deleteSuccess: "Deleted successfully",
         actions: "Actions",
+        testConnection: "Test Connection",
+        testSuccess: "Connection test successful",
+        testFailed: "Connection test failed",
+        testing: "Testing...",
       },
     },
     ai: {

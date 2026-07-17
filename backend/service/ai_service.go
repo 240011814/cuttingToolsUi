@@ -199,3 +199,45 @@ func (s *AIService) ListEnabledModels() ([]model.AIModel, error) {
 	}
 	return s.enabledModels, nil
 }
+
+// TestConnection 测试 AI 提供商连接
+func (s *AIService) TestConnection(apiKey, baseURL, modelCode string) error {
+	if apiKey == "" {
+		return errors.New("API Key 不能为空")
+	}
+
+	config := openai.DefaultConfig(apiKey)
+	if baseURL != "" {
+		config.BaseURL = baseURL
+	}
+	config.HTTPClient = &http.Client{
+		Timeout: 30 * time.Second,
+	}
+	client := openai.NewClientWithConfig(config)
+
+	// 使用默认模型或指定模型
+	testModel := modelCode
+	if testModel == "" {
+		testModel = "gpt-3.5-turbo"
+	}
+
+	// 发送一个简单的测试请求
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	_, err := client.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
+		Model: testModel,
+		Messages: []openai.ChatCompletionMessage{
+			{
+				Role:    openai.ChatMessageRoleUser,
+				Content: "Hello",
+			},
+		},
+		MaxTokens: 5,
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

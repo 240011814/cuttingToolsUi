@@ -87,3 +87,7 @@ export function fetchUpdateAIModel(id: number, data: Partial<Api.Admin.AIModel>)
 export function fetchDeleteAIModel(id: number) {
   return request({ url: `/api/admin/ai-models/${id}`, method: 'delete' });
 }
+
+export function fetchTestAIConnection(data: { api_key: string; base_url?: string; model_code?: string }) {
+  return request<string>({ url: '/api/admin/ai-test', method: 'post', data });
+}

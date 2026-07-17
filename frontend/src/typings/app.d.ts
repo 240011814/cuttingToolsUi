@@ -658,6 +658,10 @@ declare namespace App {
             updateSuccess: string;
             deleteSuccess: string;
             actions: string;
+            testConnection: string;
+            testSuccess: string;
+            testFailed: string;
+            testing: string;
           };
         };
         ai: {

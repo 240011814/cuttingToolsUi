@@ -288,6 +288,7 @@ func main() {
 			adminGroup.POST("/ai-models", api.RequirePermission("system:ai-model:create"), adminHandler.HandleCreateAIModel)
 			adminGroup.PUT("/ai-models/:id", api.RequirePermission("system:ai-model:update"), adminHandler.HandleUpdateAIModel)
 			adminGroup.DELETE("/ai-models/:id", api.RequirePermission("system:ai-model:delete"), adminHandler.HandleDeleteAIModel)
+			adminGroup.POST("/ai-test", api.RequirePermission("system:ai-provider:view"), adminHandler.HandleTestAIConnection)
 
 			// System Config (R_SUPER only)
 			configGroup := adminGroup.Group("/system-config")

@@ -290,3 +290,20 @@ func (h *AdminHandler) HandleDeleteAIModel(c *gin.Context) {
 	h.aiSvc.ReloadConfig()
 	SendSuccess(c, nil)
 }
+
+func (h *AdminHandler) HandleTestAIConnection(c *gin.Context) {
+	var req struct {
+		APIKey   string `json:"api_key"`
+		BaseURL  string `json:"base_url"`
+		ModelCode string `json:"model_code"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		SendError(c, "400", "请求参数错误: "+err.Error())
+		return
+	}
+	if err := h.aiSvc.TestConnection(req.APIKey, req.BaseURL, req.ModelCode); err != nil {
+		SendError(c, "500", "连接测试失败: "+err.Error())
+		return
+	}
+	SendSuccess(c, "连接测试成功")
+}
