@@ -10,6 +10,7 @@ import LayoutSettings from '@/layouts/modules/theme-drawer/modules/layout/index.
 import GeneralSettings from '@/layouts/modules/theme-drawer/modules/general/index.vue';
 import PresetSettings from '@/layouts/modules/theme-drawer/modules/preset/index.vue';
 import ConfigOperation from '@/layouts/modules/theme-drawer/modules/config-operation.vue';
+import { useClipboard } from '@vueuse/core';
 
 defineOptions({ name: 'UserProfile' });
 
@@ -24,6 +25,8 @@ const themeTab = ref('appearance');
 const telegramStatus = ref<Api.Telegram.StatusResponse>({ isBound: false });
 const telegramBindCode = ref<Api.Telegram.BindCodeResponse | null>(null);
 const telegramLoading = ref(false);
+
+const { copy, isSupported } = useClipboard();
 
 const profileFormRef = ref<FormInst | null>(null);
 const passwordFormRef = ref<FormInst | null>(null);
@@ -147,6 +150,26 @@ async function handleUnbindTelegram() {
 
 function formatExpireTime(timestamp: number) {
   return new Date(timestamp * 1000).toLocaleString();
+}
+
+async function handleCopyBindCode() {
+  if (!telegramBindCode.value) return;
+
+  const text = `/bind ${telegramBindCode.value.bindCode}`;
+
+  if (isSupported) {
+    await copy(text);
+    message.success('已复制到剪贴板');
+  } else {
+    // Fallback for browsers without clipboard API
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
+    message.success('已复制到剪贴板');
+  }
 }
 
 // Load profile and telegram status on mount
@@ -343,9 +366,24 @@ loadTelegramStatus();
                             </div>
                           </div>
                         </NCard>
+
+                        <div class="flex gap-2 justify-center">
+                          <NButton type="primary" @click="handleCopyBindCode">
+                            <template #icon>
+                              <SvgIcon icon="mdi:content-copy" />
+                            </template>
+                            复制命令
+                          </NButton>
+                          <NButton :loading="telegramLoading" @click="handleGenerateBindCode">
+                            <template #icon>
+                              <SvgIcon icon="mdi:refresh" />
+                            </template>
+                            重新生成
+                          </NButton>
+                        </div>
                       </div>
 
-                      <NButton type="primary" :loading="telegramLoading" @click="handleGenerateBindCode">
+                      <NButton v-else type="primary" :loading="telegramLoading" @click="handleGenerateBindCode">
                         <template #icon>
                           <SvgIcon icon="mdi:link-variant" />
                         </template>
