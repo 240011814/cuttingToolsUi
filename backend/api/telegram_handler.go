@@ -8,10 +8,20 @@ import (
 
 type TelegramHandler struct {
 	telegramService *service.TelegramService
+	configService   *service.SystemConfigService
 }
 
-func NewTelegramHandler(telegramService *service.TelegramService) *TelegramHandler {
-	return &TelegramHandler{telegramService: telegramService}
+func NewTelegramHandler(telegramService *service.TelegramService, configService *service.SystemConfigService) *TelegramHandler {
+	return &TelegramHandler{
+		telegramService: telegramService,
+		configService:   configService,
+	}
+}
+
+// HandleGetTelegramConfig 获取 Telegram 配置状态（是否配置了 Bot Token）
+func (h *TelegramHandler) HandleGetTelegramConfig(c *gin.Context) {
+	token := h.configService.GetTelegramBotToken()
+	SendSuccess(c, gin.H{"configured": token != ""})
 }
 
 // HandleGenerateBindCode 生成 Telegram 绑定码

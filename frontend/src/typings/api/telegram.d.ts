@@ -1,5 +1,9 @@
 declare namespace Api {
   namespace Telegram {
+    interface ConfigResponse {
+      configured: boolean;
+    }
+
     interface StatusResponse {
       isBound: boolean;
       telegramUsername?: string;

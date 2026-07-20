@@ -61,7 +61,7 @@ func main() {
 
 	// Telegram Bot
 	telegramService := service.NewTelegramService(systemConfigService)
-	telegramHandler := api.NewTelegramHandler(telegramService)
+	telegramHandler := api.NewTelegramHandler(telegramService, systemConfigService)
 
 	systemConfigHandler := api.NewSystemConfigHandler(systemConfigService, mem0Service, telegramService)
 
@@ -116,6 +116,7 @@ func main() {
 		apiGroup.PUT("/user/preferences/theme", userPrefHandler.SaveThemePreference)
 
 		// Telegram Binding
+		apiGroup.GET("/telegram/config", telegramHandler.HandleGetTelegramConfig)
 		apiGroup.GET("/telegram/status", telegramHandler.HandleGetTelegramStatus)
 		apiGroup.POST("/telegram/bind-code", telegramHandler.HandleGenerateBindCode)
 		apiGroup.POST("/telegram/unbind", telegramHandler.HandleUnbindTelegram)

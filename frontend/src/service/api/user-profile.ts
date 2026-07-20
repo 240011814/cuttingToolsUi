@@ -13,6 +13,10 @@ export function fetchChangePassword(data: Api.Admin.ChangePasswordParams) {
 }
 
 // Telegram Binding APIs
+export function fetchGetTelegramConfig() {
+  return request<Api.Telegram.ConfigResponse>({ url: '/api/telegram/config' });
+}
+
 export function fetchGetTelegramStatus() {
   return request<Api.Telegram.StatusResponse>({ url: '/api/telegram/status' });
 }

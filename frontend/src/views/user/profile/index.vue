@@ -2,7 +2,7 @@
 import { reactive, ref } from 'vue';
 import { useMessage } from 'naive-ui';
 import type { FormInst, FormRules } from 'naive-ui';
-import { fetchChangePassword, fetchGetUserProfile, fetchUpdateProfile, fetchGetTelegramStatus, fetchGenerateTelegramBindCode, fetchUnbindTelegram } from '@/service/api';
+import { fetchChangePassword, fetchGetUserProfile, fetchUpdateProfile, fetchGetTelegramConfig, fetchGetTelegramStatus, fetchGenerateTelegramBindCode, fetchUnbindTelegram } from '@/service/api';
 import { useAuthStore } from '@/store/modules/auth';
 import { $t } from '@/locales';
 import AppearanceSettings from '@/layouts/modules/theme-drawer/modules/appearance/index.vue';
@@ -22,6 +22,7 @@ const activeTab = ref('profile');
 const themeTab = ref('appearance');
 
 // Telegram binding state
+const telegramConfigured = ref(false);
 const telegramStatus = ref<Api.Telegram.StatusResponse>({ isBound: false });
 const telegramBindCode = ref<Api.Telegram.BindCodeResponse | null>(null);
 const telegramLoading = ref(false);
@@ -120,6 +121,16 @@ async function handleChangePassword() {
 }
 
 // Telegram binding functions
+async function loadTelegramConfig() {
+  const { data, error } = await fetchGetTelegramConfig();
+  if (!error) {
+    telegramConfigured.value = data.configured;
+    if (data.configured) {
+      loadTelegramStatus();
+    }
+  }
+}
+
 async function loadTelegramStatus() {
   const { data, error } = await fetchGetTelegramStatus();
   if (!error) {
@@ -172,9 +183,9 @@ async function handleCopyBindCode() {
   }
 }
 
-// Load profile and telegram status on mount
+// Load profile and telegram config on mount
 loadProfile();
-loadTelegramStatus();
+loadTelegramConfig();
 </script>
 
 <template>
@@ -319,7 +330,7 @@ loadTelegramStatus();
               </div>
             </NTabPane>
 
-            <NTabPane name="telegram" :tab="$t('page.userProfile.telegramBinding')">
+            <NTabPane v-if="telegramConfigured" name="telegram" :tab="$t('page.userProfile.telegramBinding')">
               <div class="max-w-600px py-4">
                 <NCard :title="$t('page.userProfile.telegramBinding')">
                   <NSpin :show="telegramLoading">
