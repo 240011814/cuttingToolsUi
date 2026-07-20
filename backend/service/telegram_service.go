@@ -64,7 +64,30 @@ func (s *TelegramService) StartBot() error {
 	}
 
 	go s.listenUpdates()
+	s.setBotCommands()
 	return nil
+}
+
+// setBotCommands 设置 Bot 命令菜单
+func (s *TelegramService) setBotCommands() {
+	if s.bot == nil {
+		return
+	}
+
+	commands := []tgbotapi.BotCommand{
+		{Command: "start", Description: "开始使用"},
+		{Command: "bind", Description: "绑定账号 (例: /bind 123456)"},
+		{Command: "unbind", Description: "解绑账号"},
+		{Command: "status", Description: "查看绑定状态"},
+		{Command: "help", Description: "帮助信息"},
+	}
+
+	_, err := s.bot.Request(tgbotapi.NewSetMyCommands(commands...))
+	if err != nil {
+		log.Printf("[Telegram] Failed to set bot commands: %v", err)
+	} else {
+		log.Println("[Telegram] Bot commands set successfully")
+	}
 }
 
 // StopBot 停止 Bot
@@ -143,8 +166,10 @@ func (s *TelegramService) handleMessage(msg *tgbotapi.Message) {
 		s.handleUnbind(msg)
 	case "status":
 		s.handleStatus(msg)
+	case "help":
+		s.handleHelp(msg)
 	default:
-		s.reply(msg.Chat.ID, "未知命令。可用命令：\n/bind <code> - 绑定账号\n/unbind - 解绑\n/status - 查看状态")
+		s.reply(msg.Chat.ID, "未知命令。发送 /help 查看可用命令。")
 	}
 }
 
@@ -244,6 +269,24 @@ func (s *TelegramService) handleStatus(msg *tgbotapi.Message) {
 	}
 
 	s.reply(chatID, fmt.Sprintf("已绑定账号：%s (%s)", user.Username, user.Nickname))
+}
+
+// handleHelp 处理 /help 命令
+func (s *TelegramService) handleHelp(msg *tgbotapi.Message) {
+	helpText := `可用命令：
+
+/start - 开始使用
+/bind <code> - 绑定账号（在网页端生成绑定码）
+/unbind - 解绑账号
+/status - 查看绑定状态
+/help - 显示此帮助信息
+
+绑定步骤：
+1. 登录网页端，进入个人中心
+2. 点击 Telegram 绑定，生成绑定码
+3. 在这里发送 /bind <绑定码>`
+
+	s.reply(msg.Chat.ID, helpText)
 }
 
 // reply 发送回复消息
