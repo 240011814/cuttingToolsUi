@@ -73,3 +73,9 @@ func (s *SystemConfigService) IsTelegramEnabled() bool {
 	enabled, _ := s.GetValue("telegram_enabled")
 	return enabled != "false" // 默认启用
 }
+
+// GetTelegramWebhookURL 获取 Telegram Webhook URL
+func (s *SystemConfigService) GetTelegramWebhookURL() string {
+	url, _ := s.GetValue("telegram_webhook_url")
+	return url
+}

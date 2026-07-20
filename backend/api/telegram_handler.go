@@ -2,8 +2,11 @@ package api
 
 import (
 	"backend/service"
+	"log"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
 type TelegramHandler struct {
@@ -73,4 +76,24 @@ func (h *TelegramHandler) HandleUnbindTelegram(c *gin.Context) {
 	}
 
 	SendSuccess(c, nil)
+}
+
+// HandleWebhook 处理 Telegram Webhook 回调
+func (h *TelegramHandler) HandleWebhook(c *gin.Context) {
+	bot := h.telegramService.GetBot()
+	if bot == nil {
+		log.Println("[Telegram Webhook] Bot is not initialized")
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "bot not initialized"})
+		return
+	}
+
+	var update tgbotapi.Update
+	if err := c.ShouldBindJSON(&update); err != nil {
+		log.Printf("[Telegram Webhook] Failed to parse update: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid update"})
+		return
+	}
+
+	h.telegramService.HandleWebhookUpdate(update)
+	c.JSON(http.StatusOK, gin.H{"ok": true})
 }

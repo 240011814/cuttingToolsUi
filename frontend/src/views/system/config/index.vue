@@ -17,6 +17,7 @@ const showApiKey = ref(false);
 const telegramEnabled = ref(true);
 const telegramBotToken = ref("");
 const showTelegramToken = ref(false);
+const telegramWebhookUrl = ref("");
 
 async function loadConfig() {
   loading.value = true;
@@ -45,6 +46,9 @@ async function loadConfig() {
 
       const telegramTokenConfig = data.find((c: any) => c.key === "telegram_bot_token");
       telegramBotToken.value = telegramTokenConfig?.value || "";
+
+      const telegramWebhookUrlConfig = data.find((c: any) => c.key === "telegram_webhook_url");
+      telegramWebhookUrl.value = telegramWebhookUrlConfig?.value || "";
     }
   } catch (err: any) {
     message.error(`加载配置失败: ${err?.message || "未知错误"}`);
@@ -130,7 +134,8 @@ async function handleSaveTelegram() {
   saving.value = true;
   try {
     await saveConfig("telegram_bot_token", telegramBotToken.value, "Telegram Bot Token");
-    message.success("Telegram Bot Token 已保存，Bot 将自动重启");
+    await saveConfig("telegram_webhook_url", telegramWebhookUrl.value, "Telegram Webhook 回调地址 (留空使用 Long Polling 模式)");
+    message.success("Telegram 配置已保存，Bot 将自动重启");
   } catch (err: any) {
     message.error(`保存失败: ${err?.message || "未知错误"}`);
   } finally {
@@ -244,7 +249,7 @@ onMounted(() => {
               <div>
                 <div class="font-bold text-gray-800 dark:text-gray-200">Telegram Bot</div>
                 <div class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                  启用后用户可绑定 Telegram 使用学习助手功能。
+                  启用后用户可绑定 Telegram 使用学习助手功能。配置 Webhook URL 后使用回调模式，留空使用 Long Polling 模式。
                 </div>
               </div>
               <NSwitch
@@ -272,6 +277,13 @@ onMounted(() => {
                     />
                   </template>
                 </NInput>
+              </NFormItem>
+              <NFormItem label="Webhook URL">
+                <NInput
+                  v-model:value="telegramWebhookUrl"
+                  placeholder="https://your-domain.com (留空使用 Long Polling)"
+                  :disabled="!telegramEnabled"
+                />
               </NFormItem>
               <NFormItem>
                 <NButton type="primary" :loading="saving" :disabled="!telegramEnabled" @click="handleSaveTelegram">

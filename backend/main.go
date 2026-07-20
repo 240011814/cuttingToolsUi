@@ -90,6 +90,9 @@ func main() {
 		})
 	})
 
+	// Telegram Webhook (公开接口，无需认证)
+	r.POST("/api/telegram/webhook", telegramHandler.HandleWebhook)
+
 	authGroup := r.Group("/auth")
 	{
 		authGroup.POST("/login", api.HandleLogin(authService))

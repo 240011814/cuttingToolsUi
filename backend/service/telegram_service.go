@@ -8,6 +8,7 @@ import (
 	"log"
 	"math/big"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -241,6 +242,8 @@ type TelegramService struct {
 	mu              sync.Mutex
 	sessions        map[int64]*TelegramSession // chatID -> session
 	sessionsMu      sync.RWMutex
+	webhookURL      string // 当前使用的 webhook URL，空表示 long polling 模式
+	running         bool   // 是否正在运行
 }
 
 func NewTelegramService(sysCfgService *SystemConfigService) *TelegramService {
@@ -256,8 +259,20 @@ func NewTelegramService(sysCfgService *SystemConfigService) *TelegramService {
 
 // StartBot 启动 Telegram Bot
 func (s *TelegramService) StartBot() error {
+	s.mu.Lock()
+	if s.running {
+		s.mu.Unlock()
+		log.Println("[Telegram] Bot is already running, skipping")
+		return nil
+	}
+	s.running = true
+	s.mu.Unlock()
+
 	if !s.sysCfgService.IsTelegramEnabled() {
 		log.Println("[Telegram] Bot is disabled in system config, skipping")
+		s.mu.Lock()
+		s.running = false
+		s.mu.Unlock()
 		return nil
 	}
 
@@ -279,16 +294,26 @@ func (s *TelegramService) StartBot() error {
 	bot.Debug = true
 	log.Printf("[Telegram] Bot authorized as @%s (ID: %d)", bot.Self.UserName, bot.Self.ID)
 
-	// 删除 webhook 以使用 long polling
-	log.Println("[Telegram] Deleting webhook...")
-	_, err = bot.Request(tgbotapi.DeleteWebhookConfig{})
-	if err != nil {
-		log.Printf("[Telegram] Failed to delete webhook: %v", err)
+	// 检查是否配置了 webhook URL
+	webhookURL := s.sysCfgService.GetTelegramWebhookURL()
+	if webhookURL != "" {
+		// Webhook 模式 - 拼接完整路径
+		webhookURL = strings.TrimRight(webhookURL, "/") + "/api/telegram/webhook"
+		log.Printf("[Telegram] Using webhook mode, URL: %s", webhookURL)
+		if err := s.setupWebhook(webhookURL); err != nil {
+			log.Printf("[Telegram] Failed to setup webhook: %v, falling back to long polling", err)
+			s.webhookURL = ""
+			s.startLongPolling()
+		} else {
+			s.webhookURL = webhookURL
+		}
 	} else {
-		log.Println("[Telegram] Webhook deleted successfully")
+		// Long Polling 模式
+		log.Println("[Telegram] Using long polling mode")
+		s.webhookURL = ""
+		s.startLongPolling()
 	}
 
-	go s.listenUpdates()
 	s.setBotCommands()
 	return nil
 }
@@ -330,9 +355,21 @@ func (s *TelegramService) StopBot() {
 	}
 
 	if s.bot != nil {
-		s.bot.StopReceivingUpdates()
+		// 如果是 webhook 模式，删除 webhook
+		if s.webhookURL != "" {
+			log.Println("[Telegram] Deleting webhook...")
+			_, err := s.bot.Request(tgbotapi.DeleteWebhookConfig{})
+			if err != nil {
+				log.Printf("[Telegram] Failed to delete webhook: %v", err)
+			}
+		} else {
+			s.bot.StopReceivingUpdates()
+		}
 		s.bot = nil
+		s.webhookURL = ""
 	}
+
+	s.running = false
 }
 
 // RestartBot 重启 Bot（配置更新后调用）
@@ -344,6 +381,70 @@ func (s *TelegramService) RestartBot() error {
 	s.mu.Unlock()
 
 	return s.StartBot()
+}
+
+// setupWebhook 设置 Webhook
+func (s *TelegramService) setupWebhook(webhookURL string) error {
+	// 先删除旧的 webhook
+	_, err := s.bot.Request(tgbotapi.DeleteWebhookConfig{})
+	if err != nil {
+		log.Printf("[Telegram] Failed to delete old webhook: %v", err)
+	}
+
+	// 设置新的 webhook
+	wh, err := tgbotapi.NewWebhook(webhookURL)
+	if err != nil {
+		return fmt.Errorf("failed to create webhook config: %w", err)
+	}
+
+	_, err = s.bot.Request(wh)
+	if err != nil {
+		return fmt.Errorf("failed to set webhook: %w", err)
+	}
+
+	// 验证 webhook 设置
+	info, err := s.bot.GetWebhookInfo()
+	if err != nil {
+		return fmt.Errorf("failed to get webhook info: %w", err)
+	}
+
+	if info.LastErrorDate != 0 {
+		log.Printf("[Telegram] Webhook has error: %s", info.LastErrorMessage)
+	}
+
+	log.Printf("[Telegram] Webhook set successfully, pending updates: %d", info.PendingUpdateCount)
+	return nil
+}
+
+// startLongPolling 启动 Long Polling 模式
+func (s *TelegramService) startLongPolling() {
+	// 删除 webhook 以使用 long polling
+	log.Println("[Telegram] Deleting webhook...")
+	_, err := s.bot.Request(tgbotapi.DeleteWebhookConfig{})
+	if err != nil {
+		log.Printf("[Telegram] Failed to delete webhook: %v", err)
+	} else {
+		log.Println("[Telegram] Webhook deleted successfully")
+	}
+
+	go s.listenUpdates()
+}
+
+// GetBot 获取 Bot 实例（供 webhook handler 使用）
+func (s *TelegramService) GetBot() *tgbotapi.BotAPI {
+	return s.bot
+}
+
+// HandleWebhookUpdate 处理 Webhook 回调的 update
+func (s *TelegramService) HandleWebhookUpdate(update tgbotapi.Update) {
+	if update.Message != nil {
+		log.Printf("[Telegram] [Webhook] Received message from %s: %s", update.Message.From.UserName, update.Message.Text)
+		s.handleMessage(update.Message)
+	}
+	if update.CallbackQuery != nil {
+		log.Printf("[Telegram] [Webhook] Received callback: %s from %s", update.CallbackQuery.Data, update.CallbackQuery.From.UserName)
+		s.handleCallbackQuery(update.CallbackQuery)
+	}
 }
 
 // listenUpdates 监听消息更新
