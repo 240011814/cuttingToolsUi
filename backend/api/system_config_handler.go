@@ -58,7 +58,7 @@ func (h *SystemConfigHandler) Update(c *gin.Context) {
 	}
 
 	// Telegram Bot Token 变更后重启 Bot
-	if req.Key == "telegram_bot_token" {
+	if req.Key == "telegram_bot_token" || req.Key == "telegram_enabled" {
 		if h.telegramService != nil {
 			go h.telegramService.RestartBot()
 		}

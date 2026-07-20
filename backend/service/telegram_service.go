@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"math/big"
+	"sync"
 	"time"
 
 	"backend/model"
@@ -17,6 +18,7 @@ type TelegramService struct {
 	sysCfgService *SystemConfigService
 	bot           *tgbotapi.BotAPI
 	stopCh        chan struct{}
+	mu            sync.Mutex
 }
 
 func NewTelegramService(sysCfgService *SystemConfigService) *TelegramService {
@@ -29,6 +31,11 @@ func NewTelegramService(sysCfgService *SystemConfigService) *TelegramService {
 
 // StartBot 启动 Telegram Bot
 func (s *TelegramService) StartBot() error {
+	if !s.sysCfgService.IsTelegramEnabled() {
+		log.Println("[Telegram] Bot is disabled in system config, skipping")
+		return nil
+	}
+
 	token := s.sysCfgService.GetTelegramBotToken()
 	if token == "" {
 		log.Println("[Telegram] Bot Token not configured, skipping bot start")
@@ -62,16 +69,30 @@ func (s *TelegramService) StartBot() error {
 
 // StopBot 停止 Bot
 func (s *TelegramService) StopBot() {
-	close(s.stopCh)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	select {
+	case <-s.stopCh:
+		// already closed, do nothing
+	default:
+		close(s.stopCh)
+	}
+
 	if s.bot != nil {
 		s.bot.StopReceivingUpdates()
+		s.bot = nil
 	}
 }
 
 // RestartBot 重启 Bot（配置更新后调用）
 func (s *TelegramService) RestartBot() error {
 	s.StopBot()
+
+	s.mu.Lock()
 	s.stopCh = make(chan struct{})
+	s.mu.Unlock()
+
 	return s.StartBot()
 }
 

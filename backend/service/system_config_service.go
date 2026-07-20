@@ -67,3 +67,9 @@ func (s *SystemConfigService) GetTelegramBotToken() string {
 	token, _ := s.GetValue("telegram_bot_token")
 	return token
 }
+
+// IsTelegramEnabled 检查 Telegram Bot 是否启用
+func (s *SystemConfigService) IsTelegramEnabled() bool {
+	enabled, _ := s.GetValue("telegram_enabled")
+	return enabled != "false" // 默认启用
+}

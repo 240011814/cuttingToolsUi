@@ -14,6 +14,7 @@ const mem0Enabled = ref(true);
 const mem0ApiKey = ref("");
 const mem0BaseUrl = ref("");
 const showApiKey = ref(false);
+const telegramEnabled = ref(true);
 const telegramBotToken = ref("");
 const showTelegramToken = ref(false);
 
@@ -38,6 +39,9 @@ async function loadConfig() {
 
       const baseUrlConfig = data.find((c: any) => c.key === "mem0_base_url");
       mem0BaseUrl.value = baseUrlConfig?.value || "https://api.mem0.ai/v1";
+
+      const telegramEnabledConfig = data.find((c: any) => c.key === "telegram_enabled");
+      telegramEnabled.value = telegramEnabledConfig?.value !== "false";
 
       const telegramTokenConfig = data.find((c: any) => c.key === "telegram_bot_token");
       telegramBotToken.value = telegramTokenConfig?.value || "";
@@ -103,6 +107,19 @@ async function handleSaveMem0() {
     await saveConfig("mem0_base_url", mem0BaseUrl.value, "Mem0 API 地址");
     message.success("Mem0 配置已保存并生效");
   } catch (err: any) {
+    message.error(`保存失败: ${err?.message || "未知错误"}`);
+  } finally {
+    saving.value = false;
+  }
+}
+
+async function handleToggleTelegram(val: boolean) {
+  saving.value = true;
+  try {
+    await saveConfig("telegram_enabled", val ? "true" : "false", "Telegram Bot 开关");
+    message.success(val ? "Telegram Bot 已启用" : "Telegram Bot 已禁用");
+  } catch (err: any) {
+    telegramEnabled.value = !val;
     message.error(`保存失败: ${err?.message || "未知错误"}`);
   } finally {
     saving.value = false;
@@ -223,11 +240,21 @@ onMounted(() => {
 
           <!-- Telegram Bot 配置 -->
           <div class="p-4 rounded-lg border border-gray-200 dark:border-gray-700">
-            <div class="mb-4">
-              <div class="font-bold text-gray-800 dark:text-gray-200">Telegram Bot</div>
-              <div class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                配置 Telegram Bot Token 以启用学习助手功能。保存后 Bot 将自动重启。
+            <div class="flex items-center justify-between mb-4">
+              <div>
+                <div class="font-bold text-gray-800 dark:text-gray-200">Telegram Bot</div>
+                <div class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  启用后用户可绑定 Telegram 使用学习助手功能。
+                </div>
               </div>
+              <NSwitch
+                v-model:value="telegramEnabled"
+                :loading="saving"
+                @update:value="handleToggleTelegram"
+              >
+                <template #checked>开启</template>
+                <template #unchecked>关闭</template>
+              </NSwitch>
             </div>
             <NForm label-placement="left" label-width="100">
               <NFormItem label="Bot Token">
@@ -235,6 +262,7 @@ onMounted(() => {
                   v-model:value="telegramBotToken"
                   :type="showTelegramToken ? 'text' : 'password'"
                   placeholder="输入 Telegram Bot Token (从 @BotFather 获取)"
+                  :disabled="!telegramEnabled"
                 >
                   <template #suffix>
                     <div
@@ -246,7 +274,7 @@ onMounted(() => {
                 </NInput>
               </NFormItem>
               <NFormItem>
-                <NButton type="primary" :loading="saving" @click="handleSaveTelegram">
+                <NButton type="primary" :loading="saving" :disabled="!telegramEnabled" @click="handleSaveTelegram">
                   保存 Telegram 配置
                 </NButton>
               </NFormItem>

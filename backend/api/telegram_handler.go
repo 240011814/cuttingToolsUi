@@ -18,10 +18,11 @@ func NewTelegramHandler(telegramService *service.TelegramService, configService 
 	}
 }
 
-// HandleGetTelegramConfig 获取 Telegram 配置状态（是否配置了 Bot Token）
+// HandleGetTelegramConfig 获取 Telegram 配置状态（是否配置了 Bot Token 且启用）
 func (h *TelegramHandler) HandleGetTelegramConfig(c *gin.Context) {
+	enabled := h.configService.IsTelegramEnabled()
 	token := h.configService.GetTelegramBotToken()
-	SendSuccess(c, gin.H{"configured": token != ""})
+	SendSuccess(c, gin.H{"configured": enabled && token != ""})
 }
 
 // HandleGenerateBindCode 生成 Telegram 绑定码
