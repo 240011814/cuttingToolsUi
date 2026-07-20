@@ -31,17 +31,30 @@ func NewTelegramService(sysCfgService *SystemConfigService) *TelegramService {
 func (s *TelegramService) StartBot() error {
 	token := s.sysCfgService.GetTelegramBotToken()
 	if token == "" {
-		log.Println("Telegram Bot Token not configured, skipping bot start")
+		log.Println("[Telegram] Bot Token not configured, skipping bot start")
 		return nil
 	}
 
+	log.Printf("[Telegram] Starting bot with token: %s...", token[:10])
+
 	bot, err := tgbotapi.NewBotAPI(token)
 	if err != nil {
+		log.Printf("[Telegram] Failed to create bot: %v", err)
 		return fmt.Errorf("failed to create bot: %w", err)
 	}
 
 	s.bot = bot
-	log.Printf("Telegram Bot authorized as @%s", bot.Self.UserName)
+	bot.Debug = true
+	log.Printf("[Telegram] Bot authorized as @%s (ID: %d)", bot.Self.UserName, bot.Self.ID)
+
+	// 删除 webhook 以使用 long polling
+	log.Println("[Telegram] Deleting webhook...")
+	_, err = bot.Request(tgbotapi.DeleteWebhookConfig{})
+	if err != nil {
+		log.Printf("[Telegram] Failed to delete webhook: %v", err)
+	} else {
+		log.Println("[Telegram] Webhook deleted successfully")
+	}
 
 	go s.listenUpdates()
 	return nil
@@ -65,20 +78,26 @@ func (s *TelegramService) RestartBot() error {
 // listenUpdates 监听消息更新
 func (s *TelegramService) listenUpdates() {
 	if s.bot == nil {
+		log.Println("[Telegram] Bot is nil, cannot listen for updates")
 		return
 	}
+
+	log.Println("[Telegram] Starting to listen for updates...")
 
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60
 
 	updates := s.bot.GetUpdatesChan(u)
+	log.Println("[Telegram] Update channel created, waiting for messages...")
 
 	for {
 		select {
 		case <-s.stopCh:
+			log.Println("[Telegram] Stop signal received")
 			return
 		case update := <-updates:
 			if update.Message != nil {
+				log.Printf("[Telegram] Received message from %s: %s", update.Message.From.UserName, update.Message.Text)
 				s.handleMessage(update.Message)
 			}
 		}
@@ -87,7 +106,10 @@ func (s *TelegramService) listenUpdates() {
 
 // handleMessage 处理用户消息
 func (s *TelegramService) handleMessage(msg *tgbotapi.Message) {
+	log.Printf("[Telegram] Handling message: %s (IsCommand: %v)", msg.Text, msg.IsCommand())
+
 	if !msg.IsCommand() {
+		log.Println("[Telegram] Message is not a command, ignoring")
 		return
 	}
 
@@ -108,11 +130,14 @@ func (s *TelegramService) handleMessage(msg *tgbotapi.Message) {
 // handleStart 处理 /start 命令
 func (s *TelegramService) handleStart(msg *tgbotapi.Message) {
 	chatID := msg.Chat.ID
+	log.Printf("[Telegram] Handling /start command from chat %d", chatID)
 	user, _ := s.getUserByChatID(chatID)
 
 	if user != nil {
+		log.Printf("[Telegram] User found, sending bound message")
 		s.reply(chatID, fmt.Sprintf("你好 %s！你的账号已绑定。", user.Nickname))
 	} else {
+		log.Printf("[Telegram] User not bound, sending help message")
 		s.reply(chatID, "你好！请先在网页端生成绑定码，然后使用 /bind <code> 绑定你的账号。")
 	}
 }
@@ -203,10 +228,17 @@ func (s *TelegramService) handleStatus(msg *tgbotapi.Message) {
 // reply 发送回复消息
 func (s *TelegramService) reply(chatID int64, text string) {
 	if s.bot == nil {
+		log.Println("[Telegram] Bot is nil, cannot send reply")
 		return
 	}
+	log.Printf("[Telegram] Sending reply to chat %d: %s", chatID, text)
 	msg := tgbotapi.NewMessage(chatID, text)
-	s.bot.Send(msg)
+	_, err := s.bot.Send(msg)
+	if err != nil {
+		log.Printf("[Telegram] Failed to send message: %v", err)
+	} else {
+		log.Printf("[Telegram] Message sent successfully")
+	}
 }
 
 // getUserByChatID 通过 Telegram Chat ID 获取用户
