@@ -240,6 +240,7 @@ type TelegramService struct {
 	bot             *tgbotapi.BotAPI
 	stopCh          chan struct{}
 	mu              sync.Mutex
+	startMu         sync.Mutex // 启动专用锁，防止并发启动
 	sessions        map[int64]*TelegramSession // chatID -> session
 	sessionsMu      sync.RWMutex
 	webhookURL      string // 当前使用的 webhook URL，空表示 long polling 模式
@@ -259,6 +260,9 @@ func NewTelegramService(sysCfgService *SystemConfigService) *TelegramService {
 
 // StartBot 启动 Telegram Bot
 func (s *TelegramService) StartBot() error {
+	s.startMu.Lock()
+	defer s.startMu.Unlock()
+
 	s.mu.Lock()
 	if s.running {
 		s.mu.Unlock()
@@ -344,6 +348,9 @@ func (s *TelegramService) setBotCommands() {
 
 // StopBot 停止 Bot
 func (s *TelegramService) StopBot() {
+	s.startMu.Lock()
+	defer s.startMu.Unlock()
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
