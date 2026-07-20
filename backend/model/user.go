@@ -6,15 +6,19 @@ import (
 
 // User 用户实体类 (GORM Model)
 type User struct {
-	ID           uint       `gorm:"primaryKey;autoIncrement" json:"userId"`
-	Username     string     `gorm:"size:50;not null;unique" json:"userName"`
-	PasswordHash string     `gorm:"size:255;not null" json:"-"`
-	Nickname     string     `gorm:"size:100" json:"nickname"`
-	Role         string     `gorm:"size:20;default:'R_USER'" json:"role"`
-	TotpSecret   *string    `gorm:"column:totp_secret;size:64" json:"-"` // TOTP secret, nil = not set up
-	LastLoginAt  *time.Time `json:"lastLoginAt"`
-	CreatedAt    time.Time  `json:"createdAt"`
-	UpdatedAt    time.Time  `json:"updatedAt"`
+	ID                      uint       `gorm:"primaryKey;autoIncrement" json:"userId"`
+	Username                string     `gorm:"size:50;not null;unique" json:"userName"`
+	PasswordHash            string     `gorm:"size:255;not null" json:"-"`
+	Nickname                string     `gorm:"size:100" json:"nickname"`
+	Role                    string     `gorm:"size:20;default:'R_USER'" json:"role"`
+	TotpSecret              *string    `gorm:"column:totp_secret;size:64" json:"-"` // TOTP secret, nil = not set up
+	TelegramChatID          *int64     `gorm:"column:telegram_chat_id;uniqueIndex" json:"-"`
+	TelegramUsername         *string    `gorm:"column:telegram_username;size:100" json:"telegramUsername"`
+	TelegramBindCode        *string    `gorm:"column:telegram_bind_code;size:10" json:"-"`
+	TelegramBindCodeExpiresAt *time.Time `gorm:"column:telegram_bind_code_expires_at" json:"-"`
+	LastLoginAt             *time.Time `json:"lastLoginAt"`
+	CreatedAt               time.Time  `json:"createdAt"`
+	UpdatedAt               time.Time  `json:"updatedAt"`
 }
 
 // TableName 指定表名
@@ -104,4 +108,17 @@ type TwoFactorSetupResponse struct {
 // TwoFactorVerifyRequest request body for 2FA verification
 type TwoFactorVerifyRequest struct {
 	Code string `json:"code" binding:"required"`
+}
+
+// TelegramBindCodeResponse 绑定码响应
+type TelegramBindCodeResponse struct {
+	BindCode  string `json:"bindCode"`
+	ExpiresAt int64  `json:"expiresAt"` // Unix timestamp
+	BotName   string `json:"botName"`
+}
+
+// TelegramStatusResponse Telegram 绑定状态响应
+type TelegramStatusResponse struct {
+	IsBound        bool   `json:"isBound"`
+	TelegramUsername string `json:"telegramUsername,omitempty"`
 }

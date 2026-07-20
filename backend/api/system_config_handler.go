@@ -8,14 +8,16 @@ import (
 )
 
 type SystemConfigHandler struct {
-	configSvc *service.SystemConfigService
-	mem0Svc   *service.Mem0Service
+	configSvc       *service.SystemConfigService
+	mem0Svc         *service.Mem0Service
+	telegramService *service.TelegramService
 }
 
-func NewSystemConfigHandler(configSvc *service.SystemConfigService, mem0Svc *service.Mem0Service) *SystemConfigHandler {
+func NewSystemConfigHandler(configSvc *service.SystemConfigService, mem0Svc *service.Mem0Service, telegramService *service.TelegramService) *SystemConfigHandler {
 	return &SystemConfigHandler{
-		configSvc: configSvc,
-		mem0Svc:   mem0Svc,
+		configSvc:       configSvc,
+		mem0Svc:         mem0Svc,
+		telegramService: telegramService,
 	}
 }
 
@@ -53,6 +55,13 @@ func (h *SystemConfigHandler) Update(c *gin.Context) {
 	// 当关闭 2FA 时，清除所有用户的 TOTP 密钥，确保重新开启时需要重新绑定
 	if req.Key == "admin_2fa_enabled" && req.Value == "false" {
 		service.DB.Model(&model.User{}).Where("totp_secret IS NOT NULL").Update("totp_secret", nil)
+	}
+
+	// Telegram Bot Token 变更后重启 Bot
+	if req.Key == "telegram_bot_token" {
+		if h.telegramService != nil {
+			go h.telegramService.RestartBot()
+		}
 	}
 
 	SendSuccess(c, nil)

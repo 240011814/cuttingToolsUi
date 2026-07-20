@@ -742,6 +742,7 @@ declare namespace App {
           editNickname: string;
           changePassword: string;
           themeSettings: string;
+          telegramBinding: string;
           userName: string;
           nickname: string;
           role: string;
@@ -763,6 +764,18 @@ declare namespace App {
           passwordMismatch: string;
           updateSuccess: string;
           passwordChangeSuccess: string;
+          telegramBound: string;
+          telegramNotBound: string;
+          telegramUsername: string;
+          telegramBindCode: string;
+          telegramBindCodeHint: string;
+          telegramBindCodeExpire: string;
+          telegramGenerateCode: string;
+          telegramUnbind: string;
+          telegramUnbindConfirm: string;
+          telegramUnbindSuccess: string;
+          telegramGenerateSuccess: string;
+          telegramBotNotConfigured: string;
         };
         cut: {
           name: string;

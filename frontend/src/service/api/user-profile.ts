@@ -11,3 +11,16 @@ export function fetchUpdateProfile(data: Api.Admin.UpdateProfileParams) {
 export function fetchChangePassword(data: Api.Admin.ChangePasswordParams) {
   return request({ url: '/api/user/password', method: 'put', data });
 }
+
+// Telegram Binding APIs
+export function fetchGetTelegramStatus() {
+  return request<Api.Telegram.StatusResponse>({ url: '/api/telegram/status' });
+}
+
+export function fetchGenerateTelegramBindCode() {
+  return request<Api.Telegram.BindCodeResponse>({ url: '/api/telegram/bind-code', method: 'post' });
+}
+
+export function fetchUnbindTelegram() {
+  return request({ url: '/api/telegram/unbind', method: 'post' });
+}

@@ -61,3 +61,9 @@ func (s *SystemConfigService) GetMem0Config() Mem0Config {
 		BaseURL: baseURL,
 	}
 }
+
+// GetTelegramBotToken 获取 Telegram Bot Token
+func (s *SystemConfigService) GetTelegramBotToken() string {
+	token, _ := s.GetValue("telegram_bot_token")
+	return token
+}

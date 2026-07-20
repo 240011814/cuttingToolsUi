@@ -59,7 +59,11 @@ func main() {
 	mem0Service := service.NewMem0Service(mem0Cfg)
 	mem0Handler := api.NewMem0Handler(mem0Service)
 
-	systemConfigHandler := api.NewSystemConfigHandler(systemConfigService, mem0Service)
+	// Telegram Bot
+	telegramService := service.NewTelegramService(systemConfigService)
+	telegramHandler := api.NewTelegramHandler(telegramService)
+
+	systemConfigHandler := api.NewSystemConfigHandler(systemConfigService, mem0Service, telegramService)
 
 	userPrefService := service.NewUserPreferenceService()
 	userPrefHandler := api.NewUserPreferenceHandler(userPrefService)
@@ -110,6 +114,11 @@ func main() {
 		// User Preferences
 		apiGroup.GET("/user/preferences/theme", userPrefHandler.GetThemePreference)
 		apiGroup.PUT("/user/preferences/theme", userPrefHandler.SaveThemePreference)
+
+		// Telegram Binding
+		apiGroup.GET("/telegram/status", telegramHandler.HandleGetTelegramStatus)
+		apiGroup.POST("/telegram/bind-code", telegramHandler.HandleGenerateBindCode)
+		apiGroup.POST("/telegram/unbind", telegramHandler.HandleUnbindTelegram)
 
 		apiGroup.GET("/dashboard/stats", dashboardHandler.GetStats)
 		apiGroup.GET("/ai/models", api.RequirePermission("ai:model:view"), api.HandleListModels(aiService))
@@ -314,6 +323,13 @@ func main() {
 
 	// Public share route (no auth required, under /api for reverse proxy compatibility)
 	r.GET("/api/share/:token", api.HandleGetSharedHistory(historyService))
+
+	// Start Telegram Bot
+	go func() {
+		if err := telegramService.StartBot(); err != nil {
+			log.Printf("Warning: Failed to start Telegram Bot: %v", err)
+		}
+	}()
 
 	r.Run(":8080")
 }

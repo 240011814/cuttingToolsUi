@@ -2,7 +2,7 @@
 import { reactive, ref } from 'vue';
 import { useMessage } from 'naive-ui';
 import type { FormInst, FormRules } from 'naive-ui';
-import { fetchChangePassword, fetchGetUserProfile, fetchUpdateProfile } from '@/service/api';
+import { fetchChangePassword, fetchGetUserProfile, fetchUpdateProfile, fetchGetTelegramStatus, fetchGenerateTelegramBindCode, fetchUnbindTelegram } from '@/service/api';
 import { useAuthStore } from '@/store/modules/auth';
 import { $t } from '@/locales';
 import AppearanceSettings from '@/layouts/modules/theme-drawer/modules/appearance/index.vue';
@@ -18,10 +18,15 @@ const authStore = useAuthStore();
 const loading = ref(false);
 const profile = ref<Api.Admin.UserProfile | null>(null);
 const activeTab = ref('profile');
+const themeTab = ref('appearance');
+
+// Telegram binding state
+const telegramStatus = ref<Api.Telegram.StatusResponse>({ isBound: false });
+const telegramBindCode = ref<Api.Telegram.BindCodeResponse | null>(null);
+const telegramLoading = ref(false);
 
 const profileFormRef = ref<FormInst | null>(null);
 const passwordFormRef = ref<FormInst | null>(null);
-const themeTab = ref('appearance');
 
 const profileForm = reactive({
   nickname: ''
@@ -111,8 +116,42 @@ async function handleChangePassword() {
   }
 }
 
-// Load profile on mount
+// Telegram binding functions
+async function loadTelegramStatus() {
+  const { data, error } = await fetchGetTelegramStatus();
+  if (!error) {
+    telegramStatus.value = data;
+  }
+}
+
+async function handleGenerateBindCode() {
+  telegramLoading.value = true;
+  const { data, error } = await fetchGenerateTelegramBindCode();
+  if (!error) {
+    telegramBindCode.value = data;
+    message.success($t('page.userProfile.telegramGenerateSuccess'));
+  }
+  telegramLoading.value = false;
+}
+
+async function handleUnbindTelegram() {
+  telegramLoading.value = true;
+  const { error } = await fetchUnbindTelegram();
+  if (!error) {
+    telegramStatus.value = { isBound: false };
+    telegramBindCode.value = null;
+    message.success($t('page.userProfile.telegramUnbindSuccess'));
+  }
+  telegramLoading.value = false;
+}
+
+function formatExpireTime(timestamp: number) {
+  return new Date(timestamp * 1000).toLocaleString();
+}
+
+// Load profile and telegram status on mount
 loadProfile();
+loadTelegramStatus();
 </script>
 
 <template>
@@ -254,6 +293,67 @@ loadProfile();
                 </div>
                 <NDivider />
                 <ConfigOperation />
+              </div>
+            </NTabPane>
+
+            <NTabPane name="telegram" :tab="$t('page.userProfile.telegramBinding')">
+              <div class="max-w-600px py-4">
+                <NCard :title="$t('page.userProfile.telegramBinding')">
+                  <NSpin :show="telegramLoading">
+                    <div v-if="telegramStatus.isBound" class="space-y-4">
+                      <NAlert type="success" :title="$t('page.userProfile.telegramBound')">
+                        <template #default>
+                          {{ $t('page.userProfile.telegramUsername') }}: {{ telegramStatus.telegramUsername }}
+                        </template>
+                      </NAlert>
+                      <NPopconfirm @positive-click="handleUnbindTelegram">
+                        <template #trigger>
+                          <NButton type="error">
+                            <template #icon>
+                              <SvgIcon icon="mdi:link-variant-off" />
+                            </template>
+                            {{ $t('page.userProfile.telegramUnbind') }}
+                          </NButton>
+                        </template>
+                        {{ $t('page.userProfile.telegramUnbindConfirm') }}
+                      </NPopconfirm>
+                    </div>
+
+                    <div v-else class="space-y-4">
+                      <NAlert type="warning" :title="$t('page.userProfile.telegramNotBound')">
+                        <template #default>
+                          {{ $t('page.userProfile.telegramBindCodeHint') }}
+                        </template>
+                      </NAlert>
+
+                      <div v-if="telegramBindCode" class="space-y-4">
+                        <NCard embedded>
+                          <div class="text-center">
+                            <div class="text-32px font-bold tracking-wider mb-4 font-mono">
+                              /bind {{ telegramBindCode.bindCode }}
+                            </div>
+                            <NText type="secondary">
+                              {{ $t('page.userProfile.telegramBindCodeExpire') }}:
+                              {{ formatExpireTime(telegramBindCode.expiresAt) }}
+                            </NText>
+                            <div v-if="telegramBindCode.botName" class="mt-2">
+                              <NText type="secondary">
+                                Bot: @{{ telegramBindCode.botName }}
+                              </NText>
+                            </div>
+                          </div>
+                        </NCard>
+                      </div>
+
+                      <NButton type="primary" :loading="telegramLoading" @click="handleGenerateBindCode">
+                        <template #icon>
+                          <SvgIcon icon="mdi:link-variant" />
+                        </template>
+                        {{ $t('page.userProfile.telegramGenerateCode') }}
+                      </NButton>
+                    </div>
+                  </NSpin>
+                </NCard>
               </div>
             </NTabPane>
           </NTabs>

@@ -14,6 +14,8 @@ const mem0Enabled = ref(true);
 const mem0ApiKey = ref("");
 const mem0BaseUrl = ref("");
 const showApiKey = ref(false);
+const telegramBotToken = ref("");
+const showTelegramToken = ref(false);
 
 async function loadConfig() {
   loading.value = true;
@@ -36,6 +38,9 @@ async function loadConfig() {
 
       const baseUrlConfig = data.find((c: any) => c.key === "mem0_base_url");
       mem0BaseUrl.value = baseUrlConfig?.value || "https://api.mem0.ai/v1";
+
+      const telegramTokenConfig = data.find((c: any) => c.key === "telegram_bot_token");
+      telegramBotToken.value = telegramTokenConfig?.value || "";
     }
   } catch (err: any) {
     message.error(`加载配置失败: ${err?.message || "未知错误"}`);
@@ -97,6 +102,18 @@ async function handleSaveMem0() {
     await saveConfig("mem0_api_key", mem0ApiKey.value, "Mem0 API 密钥");
     await saveConfig("mem0_base_url", mem0BaseUrl.value, "Mem0 API 地址");
     message.success("Mem0 配置已保存并生效");
+  } catch (err: any) {
+    message.error(`保存失败: ${err?.message || "未知错误"}`);
+  } finally {
+    saving.value = false;
+  }
+}
+
+async function handleSaveTelegram() {
+  saving.value = true;
+  try {
+    await saveConfig("telegram_bot_token", telegramBotToken.value, "Telegram Bot Token");
+    message.success("Telegram Bot Token 已保存，Bot 将自动重启");
   } catch (err: any) {
     message.error(`保存失败: ${err?.message || "未知错误"}`);
   } finally {
@@ -199,6 +216,38 @@ onMounted(() => {
               <NFormItem>
                 <NButton type="primary" :loading="saving" :disabled="!mem0Enabled" @click="handleSaveMem0">
                   保存 Mem0 配置
+                </NButton>
+              </NFormItem>
+            </NForm>
+          </div>
+
+          <!-- Telegram Bot 配置 -->
+          <div class="p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+            <div class="mb-4">
+              <div class="font-bold text-gray-800 dark:text-gray-200">Telegram Bot</div>
+              <div class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                配置 Telegram Bot Token 以启用学习助手功能。保存后 Bot 将自动重启。
+              </div>
+            </div>
+            <NForm label-placement="left" label-width="100">
+              <NFormItem label="Bot Token">
+                <NInput
+                  v-model:value="telegramBotToken"
+                  :type="showTelegramToken ? 'text' : 'password'"
+                  placeholder="输入 Telegram Bot Token (从 @BotFather 获取)"
+                >
+                  <template #suffix>
+                    <div
+                      class="cursor-pointer text-gray-400 hover:text-gray-600"
+                      :class="showTelegramToken ? 'i-mdi:eye-off' : 'i-mdi:eye'"
+                      @click="showTelegramToken = !showTelegramToken"
+                    />
+                  </template>
+                </NInput>
+              </NFormItem>
+              <NFormItem>
+                <NButton type="primary" :loading="saving" @click="handleSaveTelegram">
+                  保存 Telegram 配置
                 </NButton>
               </NFormItem>
             </NForm>

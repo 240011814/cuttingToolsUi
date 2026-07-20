@@ -429,7 +429,7 @@ onMounted(() => {
           <NInput
             v-model:value="modelForm.config_json"
             type="textarea"
-            placeholder='{"temperature": 0.7}'
+            placeholder="{&quot;temperature&quot;: 0.7}"
           />
         </NFormItem>
         <div class="flex justify-end gap-2">
