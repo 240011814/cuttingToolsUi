@@ -332,7 +332,7 @@ func (s *TelegramService) setBotCommands() {
 		{Command: "train", Description: "选择训练场景"},
 		{Command: "model", Description: "切换 AI 模型"},
 		{Command: "exit", Description: "退出当前训练"},
-		{Command: "bind", Description: "绑定账号 (例: /bind 123456)"},
+		{Command: "bind", Description: "绑定账号"},
 		{Command: "unbind", Description: "解绑账号"},
 		{Command: "status", Description: "查看绑定状态"},
 		{Command: "help", Description: "帮助信息"},
