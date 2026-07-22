@@ -42,6 +42,7 @@ interface ChatMessage {
   suggestions?: VocabSuggestion[];
   expressions?: ExpressionSuggestion[];
   isError?: boolean;
+  timestamp?: number;
 }
 
 const props = withDefaults(
@@ -80,6 +81,18 @@ const { isFullscreen, toggle: toggleFullscreen } = useFullscreen(containerRef);
 
 const renderMarkdown = (content: string) => {
   return md.render(content).trim();
+};
+
+const formatTime = (timestamp?: number) => {
+  if (!timestamp) return "";
+  const date = new Date(timestamp);
+  return date.toLocaleString("zh-CN", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 };
 
 function formatDisplayContent(content: string) {
@@ -136,13 +149,14 @@ const parseExpressionsFromContent = (content: string): ExpressionSuggestion[] | 
   return undefined;
 };
 
-const createChatMessage = (role: ChatMessage["role"], content: string): ChatMessage => {
+const createChatMessage = (role: ChatMessage["role"], content: string, timestamp?: number): ChatMessage => {
   return {
     role,
     content,
     renderedContent: renderMessageContent(content),
     suggestions: parseVocabsFromContent(content),
     expressions: parseExpressionsFromContent(content),
+    timestamp: timestamp || Date.now(),
   };
 };
 
@@ -805,6 +819,13 @@ onBeforeUnmount(() => {
                     </div>
 
                     <div
+                      class="flex items-center gap-0.5 mt-1 justify-end"
+                    >
+                      <span class="text-[11px] text-gray-400 dark:text-gray-500 mr-1">
+                        {{ formatTime(msg.timestamp) }}
+                      </span>
+                    </div>
+                    <div
                       v-if="msg.content"
                       class="flex items-center gap-0.5 mt-1 justify-end opacity-0 group-hover/btn:opacity-100 transition-all duration-200"
                     >
@@ -919,6 +940,11 @@ onBeforeUnmount(() => {
                         <NSpin size="small" />
                       </span>
                     </div>
+                  </div>
+                  <div class="flex items-center gap-0.5 justify-end">
+                    <span class="text-[11px] text-gray-400 dark:text-gray-500 mr-1">
+                      {{ formatTime(msg.timestamp) }}
+                    </span>
                   </div>
                   <div v-if="msg.content" class="flex items-center gap-0.5 justify-end">
                     <ButtonIcon
