@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log"
 	"math/big"
-	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -1169,9 +1168,9 @@ func (s *TelegramService) callAI(messages []model.OpenAIMessage) (string, error)
 	if provider.BaseURL != "" {
 		config.BaseURL = provider.BaseURL
 	}
-	config.HTTPClient = &http.Client{
-		Timeout: 60 * time.Second,
-	}
+	timeoutConfig := s.sysCfgService.GetTimeoutConfig()
+	timeout := time.Duration(timeoutConfig.HTTPTimeout) * time.Second
+	config.HTTPClient = newHTTPClient(timeout, timeoutConfig)
 	client := openai.NewClientWithConfig(config)
 
 	// 构建请求
@@ -1189,7 +1188,7 @@ func (s *TelegramService) callAI(messages []model.OpenAIMessage) (string, error)
 	}
 
 	// 发送请求
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
 	resp, err := client.CreateChatCompletion(ctx, req)

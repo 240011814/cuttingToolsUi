@@ -25,7 +25,9 @@ func main() {
 		log.Fatalf("Failed to initialize Database: %v", err)
 	}
 
-	aiService, err := service.NewAIService(cfg.AI.TimeoutMinutes)
+	systemConfigService := service.NewSystemConfigService()
+
+	aiService, err := service.NewAIService(cfg.AI.TimeoutMinutes, systemConfigService)
 	if err != nil {
 		log.Fatalf("Failed to initialize AI Service: %v", err)
 	}
@@ -51,19 +53,19 @@ func main() {
 	cutService := service.NewCutService()
 	cutHandler := api.NewCutHandler(cutService)
 
-	systemConfigService := service.NewSystemConfigService()
 	promptHandler := api.NewPromptHandler(promptService, systemConfigService)
 
 	// mem0 配置从数据库读取
 	mem0Cfg := systemConfigService.GetMem0Config()
-	mem0Service := service.NewMem0Service(mem0Cfg)
+	timeoutConfig := systemConfigService.GetTimeoutConfig()
+	mem0Service := service.NewMem0Service(mem0Cfg, timeoutConfig)
 	mem0Handler := api.NewMem0Handler(mem0Service)
 
 	// Telegram Bot
 	telegramService := service.NewTelegramService(systemConfigService)
 	telegramHandler := api.NewTelegramHandler(telegramService, systemConfigService)
 
-	systemConfigHandler := api.NewSystemConfigHandler(systemConfigService, mem0Service, telegramService)
+	systemConfigHandler := api.NewSystemConfigHandler(systemConfigService, mem0Service, telegramService, aiService)
 
 	userPrefService := service.NewUserPreferenceService()
 	userPrefHandler := api.NewUserPreferenceHandler(userPrefService)

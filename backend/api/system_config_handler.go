@@ -11,14 +11,19 @@ type SystemConfigHandler struct {
 	configSvc       *service.SystemConfigService
 	mem0Svc         *service.Mem0Service
 	telegramService *service.TelegramService
+	aiService       *service.AIService
 }
 
-func NewSystemConfigHandler(configSvc *service.SystemConfigService, mem0Svc *service.Mem0Service, telegramService *service.TelegramService) *SystemConfigHandler {
-	return &SystemConfigHandler{
+func NewSystemConfigHandler(configSvc *service.SystemConfigService, mem0Svc *service.Mem0Service, telegramService *service.TelegramService, aiService ...*service.AIService) *SystemConfigHandler {
+	h := &SystemConfigHandler{
 		configSvc:       configSvc,
 		mem0Svc:         mem0Svc,
 		telegramService: telegramService,
 	}
+	if len(aiService) > 0 {
+		h.aiService = aiService[0]
+	}
+	return h
 }
 
 func (h *SystemConfigHandler) GetAll(c *gin.Context) {
@@ -61,6 +66,18 @@ func (h *SystemConfigHandler) Update(c *gin.Context) {
 	if req.Key == "telegram_bot_token" || req.Key == "telegram_enabled" || req.Key == "telegram_webhook_url" {
 		if h.telegramService != nil {
 			go h.telegramService.RestartBot()
+		}
+	}
+
+	// 超时配置变更后重新加载配置缓存和 AI 服务
+	timeoutKeys := []string{"ai_timeout_minutes", "ai_tls_handshake_timeout", "ai_response_header_timeout", "http_timeout_seconds"}
+	for _, key := range timeoutKeys {
+		if req.Key == key {
+			h.configSvc.ReloadTimeoutConfig()
+			if h.aiService != nil {
+				go h.aiService.ReloadConfig()
+			}
+			break
 		}
 	}
 

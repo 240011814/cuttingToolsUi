@@ -3,9 +3,11 @@ package service
 import (
 	"backend/model"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"log"
+	"net"
 	"net/http"
 	"sync"
 	"time"
@@ -21,21 +23,70 @@ type AIService struct {
 	enabledModels  []model.AIModel
 	client         *openai.Client
 	timeout        time.Duration
+	timeoutConfig  TimeoutConfig
 }
 
 // NewAIService 初始化 AIService
-func NewAIService(timeoutMinutes int) (*AIService, error) {
+func NewAIService(timeoutMinutes int, sysCfgService *SystemConfigService) (*AIService, error) {
 	if timeoutMinutes <= 0 {
 		timeoutMinutes = 5
 	}
 	s := &AIService{
 		timeout: time.Duration(timeoutMinutes) * time.Minute,
 	}
+	// 从数据库读取超时配置
+	if sysCfgService != nil {
+		s.timeoutConfig = sysCfgService.GetTimeoutConfig()
+		// 如果数据库中有AI请求超时配置，使用数据库值覆盖
+		if s.timeoutConfig.AIRequestTimeout > 0 {
+			s.timeout = time.Duration(s.timeoutConfig.AIRequestTimeout) * time.Minute
+		}
+	}
 	if err := s.ReloadConfig(); err != nil {
 		// 初始加载失败不阻塞启动，但记录日志
 		return s, nil
 	}
 	return s, nil
+}
+
+// newHTTPClient 创建统一配置的 HTTP 客户端
+func newHTTPClient(timeout time.Duration, config ...TimeoutConfig) *http.Client {
+	// 默认值
+	dialTimeout := 30 * time.Second
+	tlsHandshakeTimeout := 15 * time.Second
+	responseHeaderTimeout := 30 * time.Second
+
+	// 如果提供了配置，使用配置值
+	if len(config) > 0 {
+		cfg := config[0]
+		if cfg.HTTPTimeout > 0 {
+			dialTimeout = time.Duration(cfg.HTTPTimeout) * time.Second
+		}
+		if cfg.AITLSHandshakeTimeout > 0 {
+			tlsHandshakeTimeout = time.Duration(cfg.AITLSHandshakeTimeout) * time.Second
+		}
+		if cfg.AIResponseHeaderTimeout > 0 {
+			responseHeaderTimeout = time.Duration(cfg.AIResponseHeaderTimeout) * time.Second
+		}
+	}
+
+	return &http.Client{
+		Timeout: timeout,
+		Transport: &http.Transport{
+			DialContext: (&net.Dialer{
+				Timeout:   dialTimeout,
+				KeepAlive: 30 * time.Second,
+			}).DialContext,
+			TLSHandshakeTimeout:   tlsHandshakeTimeout,
+			ResponseHeaderTimeout: responseHeaderTimeout,
+			IdleConnTimeout:       90 * time.Second,
+			TLSClientConfig: &tls.Config{
+				MinVersion: tls.VersionTLS12,
+			},
+			MaxIdleConns:        100,
+			MaxIdleConnsPerHost: 10,
+		},
+	}
 }
 
 // ReloadConfig 重新从数据库加载配置到缓存
@@ -69,9 +120,7 @@ func (s *AIService) ReloadConfig() error {
 		if s.activeProvider.BaseURL != "" {
 			config.BaseURL = s.activeProvider.BaseURL
 		}
-		config.HTTPClient = &http.Client{
-			Timeout: s.timeout,
-		}
+		config.HTTPClient = newHTTPClient(s.timeout, s.timeoutConfig)
 		s.client = openai.NewClientWithConfig(config)
 	}
 
@@ -115,9 +164,7 @@ func (s *AIService) getClient(provider *model.AIProvider) *openai.Client {
 	if provider.BaseURL != "" {
 		config.BaseURL = provider.BaseURL
 	}
-	config.HTTPClient = &http.Client{
-		Timeout: s.timeout,
-	}
+	config.HTTPClient = newHTTPClient(s.timeout, s.timeoutConfig)
 	return openai.NewClientWithConfig(config)
 }
 
@@ -210,9 +257,7 @@ func (s *AIService) TestConnection(apiKey, baseURL, modelCode string) error {
 	if baseURL != "" {
 		config.BaseURL = baseURL
 	}
-	config.HTTPClient = &http.Client{
-		Timeout: 30 * time.Second,
-	}
+	config.HTTPClient = newHTTPClient(30 * time.Second)
 	client := openai.NewClientWithConfig(config)
 
 	// 使用默认模型或指定模型

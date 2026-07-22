@@ -2,6 +2,8 @@ package service
 
 import (
 	"backend/model"
+	"strconv"
+	"sync"
 )
 
 // Mem0Config mem0 服务配置
@@ -11,7 +13,18 @@ type Mem0Config struct {
 	BaseURL string
 }
 
-type SystemConfigService struct{}
+// TimeoutConfig 超时配置
+type TimeoutConfig struct {
+	AIRequestTimeout        int // AI 请求超时时间（分钟）
+	AITLSHandshakeTimeout   int // AI TLS 握手超时时间（秒）
+	AIResponseHeaderTimeout int // AI 响应头超时时间（秒）
+	HTTPTimeout             int // HTTP 请求超时时间（秒），用于 AI 连接、Mem0、Telegram
+}
+
+type SystemConfigService struct {
+	mu            sync.RWMutex
+	timeoutCache  *TimeoutConfig
+}
 
 func NewSystemConfigService() *SystemConfigService {
 	return &SystemConfigService{}
@@ -78,4 +91,67 @@ func (s *SystemConfigService) IsTelegramEnabled() bool {
 func (s *SystemConfigService) GetTelegramWebhookURL() string {
 	url, _ := s.GetValue("telegram_webhook_url")
 	return url
+}
+
+// GetTimeoutConfig 获取超时配置（优先从缓存读取）
+func (s *SystemConfigService) GetTimeoutConfig() TimeoutConfig {
+	s.mu.RLock()
+	if s.timeoutCache != nil {
+		defer s.mu.RUnlock()
+		return *s.timeoutCache
+	}
+	s.mu.RUnlock()
+
+	// 缓存未命中，从数据库加载
+	config := s.loadTimeoutConfigFromDB()
+
+	s.mu.Lock()
+	s.timeoutCache = &config
+	s.mu.Unlock()
+
+	return config
+}
+
+// ReloadTimeoutConfig 强制刷新超时配置缓存
+func (s *SystemConfigService) ReloadTimeoutConfig() TimeoutConfig {
+	config := s.loadTimeoutConfigFromDB()
+
+	s.mu.Lock()
+	s.timeoutCache = &config
+	s.mu.Unlock()
+
+	return config
+}
+
+// loadTimeoutConfigFromDB 从数据库读取超时配置
+func (s *SystemConfigService) loadTimeoutConfigFromDB() TimeoutConfig {
+	config := TimeoutConfig{
+		AIRequestTimeout:        5,  // 默认5分钟
+		AITLSHandshakeTimeout:   15, // 默认15秒
+		AIResponseHeaderTimeout: 30, // 默认30秒
+		HTTPTimeout:             30, // 默认30秒
+	}
+
+	if val, err := s.GetValue("ai_timeout_minutes"); err == nil {
+		if n, err := strconv.Atoi(val); err == nil && n > 0 {
+			config.AIRequestTimeout = n
+		}
+	}
+	if val, err := s.GetValue("ai_tls_handshake_timeout"); err == nil {
+		if n, err := strconv.Atoi(val); err == nil && n > 0 {
+			config.AITLSHandshakeTimeout = n
+		}
+	}
+	if val, err := s.GetValue("ai_response_header_timeout"); err == nil {
+		if n, err := strconv.Atoi(val); err == nil && n > 0 {
+			config.AIResponseHeaderTimeout = n
+		}
+	}
+	if val, err := s.GetValue("http_timeout_seconds"); err == nil {
+		if n, err := strconv.Atoi(val); err == nil && n > 0 {
+			config.HTTPTimeout = n
+		}
+	}
+
+	return config
 }

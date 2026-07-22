@@ -54,17 +54,20 @@ type Mem0Service struct {
 }
 
 // NewMem0Service creates a new Mem0Service
-func NewMem0Service(cfg Mem0Config) *Mem0Service {
+func NewMem0Service(cfg Mem0Config, timeoutConfig ...TimeoutConfig) *Mem0Service {
 	if cfg.BaseURL == "" {
 		cfg.BaseURL = "https://api.mem0.ai/v1"
+	}
+	// 默认超时时间
+	timeout := 30 * time.Second
+	if len(timeoutConfig) > 0 && timeoutConfig[0].HTTPTimeout > 0 {
+		timeout = time.Duration(timeoutConfig[0].HTTPTimeout) * time.Second
 	}
 	svc := &Mem0Service{
 		enabled: cfg.Enabled,
 		apiKey:  cfg.APIKey,
 		baseURL: cfg.BaseURL,
-		client: &http.Client{
-			Timeout: 30 * time.Second,
-		},
+		client:  newHTTPClient(timeout),
 	}
 	if !cfg.Enabled {
 		log.Println("mem0 service disabled by config")
