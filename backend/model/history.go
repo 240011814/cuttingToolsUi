@@ -3,8 +3,9 @@ package model
 import "time"
 
 type OpenAIMessage struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
+	Role            string `json:"role"`
+	Content         string `json:"content"`
+	ThinkingContent string `json:"thinking_content,omitempty"`
 }
 
 type TrainingHistory struct {
@@ -22,12 +23,13 @@ type TrainingHistory struct {
 }
 
 type TrainingMessage struct {
-	ID        uint      `json:"id" gorm:"primaryKey;autoIncrement"`
-	HistoryID uint      `json:"history_id"`
-	Role      string    `json:"role"`
-	Content   string    `json:"content"`
-	SortOrder int       `json:"sort_order"`
-	CreatedAt time.Time `json:"created_at"`
+	ID              uint      `json:"id" gorm:"primaryKey;autoIncrement"`
+	HistoryID       uint      `json:"history_id"`
+	Role            string    `json:"role"`
+	Content         string    `json:"content"`
+	ThinkingContent string    `json:"thinking_content,omitempty" gorm:"type:text"`
+	SortOrder       int       `json:"sort_order"`
+	CreatedAt       time.Time `json:"created_at"`
 }
 
 func (TrainingMessage) TableName() string {

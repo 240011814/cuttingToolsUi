@@ -5,6 +5,7 @@ export interface TrainingMessage {
   history_id: number;
   role: string;
   content: string;
+  thinking_content?: string;
   sort_order: number;
   created_at: string;
 }

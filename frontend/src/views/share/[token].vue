@@ -37,6 +37,16 @@ const loading = ref(true);
 const error = ref(false);
 const history = ref<TrainingHistory | null>(null);
 
+// 思考过程展开状态管理
+const expandedThinking = ref<Set<number>>(new Set());
+const toggleThinking = (index: number) => {
+  if (expandedThinking.value.has(index)) {
+    expandedThinking.value.delete(index);
+  } else {
+    expandedThinking.value.add(index);
+  }
+};
+
 const typeMap: Record<string, string> = {
   ai_chat: $t("route.ai_chat"),
   ai_decision: $t("route.ai_decision"),
@@ -51,6 +61,12 @@ const loadHistory = async () => {
     const { data } = await fetchSharedHistory(token);
     if (data) {
       history.value = data;
+      // 历史记录中的思考过程默认展开
+      data.messages?.forEach((msg, idx) => {
+        if (msg.thinking_content) {
+          expandedThinking.value.add(idx);
+        }
+      });
     } else {
       error.value = true;
     }
@@ -135,6 +151,22 @@ onMounted(() => {
                     </div>
                   </div>
                   <div class="flex flex-col gap-1">
+                    <!-- 思考过程 -->
+                    <div v-if="msg.thinking_content" class="thinking-wrapper">
+                      <button
+                        class="thinking-toggle"
+                        @click="toggleThinking(index)"
+                      >
+                        <span class="thinking-toggle-icon" :class="{ expanded: expandedThinking.has(index) }">▶</span>
+                        <span>💭 思考过程</span>
+                      </button>
+                      <Transition name="thinking-expand">
+                        <div v-if="expandedThinking.has(index)" class="thinking-body">
+                          <!-- eslint-disable-next-line vue/no-v-html -->
+                          <div class="thinking-content" v-html="renderMarkdown(msg.thinking_content)"></div>
+                        </div>
+                      </Transition>
+                    </div>
                     <div
                       class="p-3 rounded-2xl rounded-tl-none leading-relaxed shadow-sm text-sm bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200"
                     >
@@ -170,6 +202,82 @@ onMounted(() => {
 }
 :deep(.msg-content p + p) {
   margin-top: 1em;
+}
+/* 思考过程折叠区域 */
+.thinking-wrapper {
+  border-left: 3px solid #d1d5db;
+  border-radius: 8px;
+  background: rgba(249, 250, 251, 0.8);
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+}
+.dark .thinking-wrapper {
+  border-left-color: #4b5563;
+  background: rgba(55, 65, 81, 0.5);
+}
+.thinking-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 12px;
+  font-size: 13px;
+  color: #6b7280;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+.thinking-toggle:hover {
+  color: #374151;
+}
+.dark .thinking-toggle {
+  color: #9ca3af;
+}
+.dark .thinking-toggle:hover {
+  color: #d1d5db;
+}
+.thinking-toggle-icon {
+  display: inline-block;
+  font-size: 10px;
+  transition: transform 0.2s ease;
+}
+.thinking-toggle-icon.expanded {
+  transform: rotate(90deg);
+}
+.thinking-body {
+  padding: 0 12px 8px;
+}
+.thinking-content {
+  font-size: 13px;
+  color: #6b7280;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+.dark .thinking-content {
+  color: #9ca3af;
+}
+:deep(.thinking-content p) {
+  margin: 0;
+}
+:deep(.thinking-content p + p) {
+  margin-top: 0.5em;
+}
+/* 展开/收起动画 */
+.thinking-expand-enter-active,
+.thinking-expand-leave-active {
+  transition: all 0.2s ease;
+  overflow: hidden;
+}
+.thinking-expand-enter-from,
+.thinking-expand-leave-to {
+  opacity: 0;
+  max-height: 0;
+}
+.thinking-expand-enter-to,
+.thinking-expand-leave-from {
+  opacity: 1;
+  max-height: 500px;
 }
 .copy-btn {
   opacity: 0;

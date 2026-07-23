@@ -50,6 +50,7 @@ func HandleChatStream(aiService *service.AIService, historyService *service.Hist
 		c.Header("X-Accel-Buffering", "no")
 
 		var fullAssistantReply string
+		var fullThinkingContent string
 		firstTokenLogged := false
 		c.Stream(func(w io.Writer) bool {
 			response, err := stream.Recv()
@@ -65,6 +66,10 @@ func HandleChatStream(aiService *service.AIService, historyService *service.Hist
 				msgs := make([]model.OpenAIMessage, len(allMessages))
 				for i, m := range allMessages {
 					msgs[i] = model.OpenAIMessage{Role: m.Role, Content: m.Content}
+				}
+				// 将思考过程保存到最后一条 assistant 消息
+				if fullThinkingContent != "" && len(msgs) > 0 {
+					msgs[len(msgs)-1].ThinkingContent = fullThinkingContent
 				}
 
 				title := "AI 训练对话"
@@ -119,14 +124,18 @@ func HandleChatStream(aiService *service.AIService, historyService *service.Hist
 			}
 
 			if len(response.Choices) > 0 {
-				content := response.Choices[0].Delta.Content
-				if content != "" {
+				delta := response.Choices[0].Delta
+				if delta.ReasoningContent != "" {
+					fullThinkingContent += delta.ReasoningContent
+					c.SSEvent("message", gin.H{"reasoning_content": delta.ReasoningContent})
+				}
+				if delta.Content != "" {
 					if !firstTokenLogged {
 						firstTokenLogged = true
 						log.Printf("chat first token user=%d model=%s first_token_ms=%d", userID.(uint), req.Model, time.Since(requestStart).Milliseconds())
 					}
-					fullAssistantReply += content
-					c.SSEvent("message", gin.H{"content": content})
+					fullAssistantReply += delta.Content
+					c.SSEvent("message", gin.H{"content": delta.Content})
 				}
 			}
 

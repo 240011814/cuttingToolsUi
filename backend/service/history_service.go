@@ -124,10 +124,11 @@ func (s *HistoryService) SaveHistory(userID uint, historyID uint, trainingType s
 		msgs := make([]model.TrainingMessage, len(messages))
 		for i, m := range messages {
 			msgs[i] = model.TrainingMessage{
-				HistoryID: historyID,
-				Role:      m.Role,
-				Content:   m.Content,
-				SortOrder: i,
+				HistoryID:       historyID,
+				Role:            m.Role,
+				Content:         m.Content,
+				ThinkingContent: m.ThinkingContent,
+				SortOrder:       i,
 			}
 		}
 		if len(msgs) > 0 {
@@ -154,10 +155,11 @@ func (s *HistoryService) SaveHistory(userID uint, historyID uint, trainingType s
 	msgs := make([]model.TrainingMessage, len(messages))
 	for i, m := range messages {
 		msgs[i] = model.TrainingMessage{
-			HistoryID: history.ID,
-			Role:      m.Role,
-			Content:   m.Content,
-			SortOrder: i,
+			HistoryID:       history.ID,
+			Role:            m.Role,
+			Content:         m.Content,
+			ThinkingContent: m.ThinkingContent,
+			SortOrder:       i,
 		}
 	}
 	if len(msgs) > 0 {
