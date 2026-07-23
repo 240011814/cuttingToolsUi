@@ -35,12 +35,19 @@ interface ExpressionSuggestion {
   chinese: string;
 }
 
+interface TokenUsage {
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+}
+
 interface ChatMessage {
   role: "user" | "assistant" | "system";
   content: string;
   renderedContent?: string;
   thinkingContent?: string;
   renderedThinking?: string;
+  usage?: TokenUsage;
   suggestions?: VocabSuggestion[];
   expressions?: ExpressionSuggestion[];
   isError?: boolean;
@@ -424,6 +431,14 @@ const appendAssistantContent = (content: string) => {
   };
 };
 
+const appendUsage = (usage: TokenUsage) => {
+  const lastIdx = messages.value.length - 1;
+  messages.value[lastIdx] = {
+    ...messages.value[lastIdx],
+    usage,
+  };
+};
+
 // 思考过程展开状态管理
 const expandedThinking = ref<Set<number>>(new Set());
 const toggleThinking = (index: number) => {
@@ -563,6 +578,10 @@ const sendMessage = async () => {
             if (dataObj.content) {
               appendAssistantContent(dataObj.content);
               scheduleScrollToBottom();
+            }
+
+            if (dataObj.usage) {
+              appendUsage(dataObj.usage);
             }
           } catch (e) {
             console.warn("Parse error:", e);
@@ -873,9 +892,15 @@ onBeforeUnmount(() => {
                     </div>
 
                     <div
-                      class="flex items-center gap-0.5 mt-1 justify-end"
+                      class="flex items-center gap-2 mt-1 justify-end"
                     >
-                      <span class="text-[11px] text-gray-400 dark:text-gray-500 mr-1">
+                      <span v-if="msg.usage" class="text-[11px] text-gray-400 dark:text-gray-500">
+                        Token: {{ msg.usage.total_tokens }}
+                        <span class="text-gray-300 dark:text-gray-600 mx-0.5">|</span>
+                        输入 {{ msg.usage.prompt_tokens }} / 输出 {{ msg.usage.completion_tokens }}
+                        <span class="text-gray-300 dark:text-gray-600 mx-0.5">|</span>
+                      </span>
+                      <span class="text-[11px] text-gray-400 dark:text-gray-500">
                         {{ formatTime(msg.timestamp) }}
                       </span>
                     </div>
@@ -1011,8 +1036,14 @@ onBeforeUnmount(() => {
                       </span>
                     </div>
                   </div>
-                  <div class="flex items-center gap-0.5 justify-end">
-                    <span class="text-[11px] text-gray-400 dark:text-gray-500 mr-1">
+                  <div class="flex items-center gap-2 justify-end">
+                    <span v-if="msg.usage" class="text-[11px] text-gray-400 dark:text-gray-500">
+                      Token: {{ msg.usage.total_tokens }}
+                      <span class="text-gray-300 dark:text-gray-600 mx-0.5">|</span>
+                      输入 {{ msg.usage.prompt_tokens }} / 输出 {{ msg.usage.completion_tokens }}
+                      <span class="text-gray-300 dark:text-gray-600 mx-0.5">|</span>
+                    </span>
+                    <span class="text-[11px] text-gray-400 dark:text-gray-500">
                       {{ formatTime(msg.timestamp) }}
                     </span>
                   </div>

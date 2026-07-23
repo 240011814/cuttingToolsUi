@@ -192,6 +192,9 @@ func (s *AIService) ChatStream(ctx context.Context, messages []openai.ChatComple
 		Model:    selectedModel,
 		Messages: messages,
 		Stream:   true,
+		StreamOptions: &openai.StreamOptions{
+			IncludeUsage: true,
+		},
 	}
 
 	// 解析配置中的运行参数

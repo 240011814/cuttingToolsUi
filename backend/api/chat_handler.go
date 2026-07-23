@@ -139,6 +139,17 @@ func HandleChatStream(aiService *service.AIService, historyService *service.Hist
 				}
 			}
 
+			// 捕获 token 用量信息（在最后一个 chunk 中）
+			if response.Usage != nil {
+				c.SSEvent("message", gin.H{
+					"usage": gin.H{
+						"prompt_tokens":     response.Usage.PromptTokens,
+						"completion_tokens": response.Usage.CompletionTokens,
+						"total_tokens":      response.Usage.TotalTokens,
+					},
+				})
+			}
+
 			return true
 		})
 	}
