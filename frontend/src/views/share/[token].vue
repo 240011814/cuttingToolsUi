@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { ref, computed, onMounted } from "vue";
 import { useRoute } from "vue-router";
 import { NResult, NTag, NSpin, NButton } from "naive-ui";
 import { fetchSharedHistory } from "@/service/api";
@@ -44,6 +44,29 @@ const toggleThinking = (index: number) => {
     expandedThinking.value.delete(index);
   } else {
     expandedThinking.value.add(index);
+  }
+};
+
+const hasAnyThinkingContent = computed(() => history.value?.messages?.some((msg) => msg.thinking_content) ?? false);
+
+const allThinkingExpanded = computed(() => {
+  if (!history.value?.messages) return false;
+  const thinkingIndices = history.value.messages
+    .map((msg, idx) => (msg.thinking_content ? idx : -1))
+    .filter((idx) => idx !== -1);
+  return thinkingIndices.length > 0 && thinkingIndices.every((idx) => expandedThinking.value.has(idx));
+});
+
+const toggleAllThinking = () => {
+  if (!history.value?.messages) return;
+  if (allThinkingExpanded.value) {
+    expandedThinking.value.clear();
+  } else {
+    history.value.messages.forEach((msg, idx) => {
+      if (msg.thinking_content) {
+        expandedThinking.value.add(idx);
+      }
+    });
   }
 };
 
@@ -101,12 +124,24 @@ onMounted(() => {
         <template v-else-if="history">
           <!-- Header -->
           <div class="mb-6">
-            <h1 class="text-xl font-bold text-gray-800 dark:text-gray-100 mb-2">
-              {{ history.title }}
-            </h1>
-            <NTag type="info" :bordered="false" size="small">
-              {{ typeMap[history.training_type] || history.training_type }}
-            </NTag>
+            <div class="flex items-start justify-between">
+              <div>
+                <h1 class="text-xl font-bold text-gray-800 dark:text-gray-100 mb-2">
+                  {{ history.title }}
+                </h1>
+                <NTag type="info" :bordered="false" size="small">
+                  {{ typeMap[history.training_type] || history.training_type }}
+                </NTag>
+              </div>
+              <NButton
+                v-if="hasAnyThinkingContent"
+                quaternary
+                size="small"
+                @click="toggleAllThinking"
+              >
+                {{ allThinkingExpanded ? "折叠全部" : "展开全部" }}
+              </NButton>
+            </div>
           </div>
 
           <!-- Messages -->

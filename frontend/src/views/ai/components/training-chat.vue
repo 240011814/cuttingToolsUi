@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { nextTick, ref, onBeforeUnmount, onMounted } from "vue";
+import { nextTick, ref, computed, onBeforeUnmount, onMounted } from "vue";
 import { useFullscreen } from "@vueuse/core";
 import { useMessage, NDrawer, NDrawerContent, NModal, NInput } from "naive-ui";
 import { useAppStore } from "@/store/modules/app";
@@ -446,6 +446,27 @@ const toggleThinking = (index: number) => {
     expandedThinking.value.delete(index);
   } else {
     expandedThinking.value.add(index);
+  }
+};
+
+const hasAnyThinkingContent = computed(() => messages.value.some((msg) => msg.thinkingContent));
+
+const allThinkingExpanded = computed(() => {
+  const thinkingIndices = messages.value
+    .map((msg, idx) => (msg.thinkingContent ? idx : -1))
+    .filter((idx) => idx !== -1);
+  return thinkingIndices.length > 0 && thinkingIndices.every((idx) => expandedThinking.value.has(idx));
+});
+
+const toggleAllThinking = () => {
+  if (allThinkingExpanded.value) {
+    expandedThinking.value.clear();
+  } else {
+    messages.value.forEach((msg, idx) => {
+      if (msg.thinkingContent) {
+        expandedThinking.value.add(idx);
+      }
+    });
   }
 };
 
@@ -1130,6 +1151,18 @@ onBeforeUnmount(() => {
           >
             <template #icon>
               <SvgIcon icon="mdi:chevron-up" />
+            </template>
+          </NButton>
+          <NButton
+            v-if="hasAnyThinkingContent"
+            quaternary
+            circle
+            size="small"
+            class="scroll-btn"
+            @click="toggleAllThinking"
+          >
+            <template #icon>
+              <SvgIcon :icon="allThinkingExpanded ? 'mdi:chevron-double-up' : 'mdi:chevron-double-down'" />
             </template>
           </NButton>
           <NButton
