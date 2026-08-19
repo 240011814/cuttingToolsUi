@@ -15,12 +15,9 @@ func NewPromptService(db *gorm.DB) *PromptService {
 	return &PromptService{db: db}
 }
 
-// GetEffectivePrompt returns the currently active custom prompt for a module.
-// If the user has not customized the prompt, the frontend should fall back to
-// the module's built-in default prompt.
-func (s *PromptService) GetEffectivePrompt(userID uint, moduleKey string) (string, string, int, error) {
+func (s *PromptService) GetEffectivePrompt(userID uint, agentID uint) (string, string, int, error) {
 	var userPrompt model.UserPrompt
-	err := s.db.Where("user_id = ? AND module_key = ? AND is_active = ?", userID, moduleKey, true).First(&userPrompt).Error
+	err := s.db.Where("user_id = ? AND agent_id = ? AND is_active = ?", userID, agentID, true).First(&userPrompt).Error
 	if err == nil {
 		topK := userPrompt.MemorySearchTopK
 		if topK <= 0 {
@@ -36,23 +33,23 @@ func (s *PromptService) GetEffectivePrompt(userID uint, moduleKey string) (strin
 	return "", "", 30, err
 }
 
-func (s *PromptService) ListVersions(userID uint, moduleKey string) ([]model.UserPrompt, error) {
+func (s *PromptService) ListVersions(userID uint, agentID uint) ([]model.UserPrompt, error) {
 	var list []model.UserPrompt
-	err := s.db.Where("user_id = ? AND module_key = ?", userID, moduleKey).Order("version DESC").Find(&list).Error
+	err := s.db.Where("user_id = ? AND agent_id = ?", userID, agentID).Order("version DESC").Find(&list).Error
 	return list, err
 }
 
-func (s *PromptService) SaveUserPrompt(userID uint, moduleKey, content, remark, memorySearchQuery string, memorySearchTopK int) error {
+func (s *PromptService) SaveUserPrompt(userID uint, agentID uint, content, remark, memorySearchQuery string, memorySearchTopK int) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Model(&model.UserPrompt{}).
-			Where("user_id = ? AND module_key = ?", userID, moduleKey).
+			Where("user_id = ? AND agent_id = ?", userID, agentID).
 			Update("is_active", false).Error; err != nil {
 			return err
 		}
 
 		var maxVersion int
 		tx.Model(&model.UserPrompt{}).
-			Where("user_id = ? AND module_key = ?", userID, moduleKey).
+			Where("user_id = ? AND agent_id = ?", userID, agentID).
 			Select("COALESCE(MAX(version), 0)").Scan(&maxVersion)
 
 		if memorySearchTopK <= 0 {
@@ -61,7 +58,7 @@ func (s *PromptService) SaveUserPrompt(userID uint, moduleKey, content, remark, 
 
 		newPrompt := model.UserPrompt{
 			UserID:            userID,
-			ModuleKey:         moduleKey,
+			AgentID:           agentID,
 			CustomPrompt:      content,
 			MemorySearchQuery: memorySearchQuery,
 			MemorySearchTopK:  memorySearchTopK,
@@ -74,10 +71,10 @@ func (s *PromptService) SaveUserPrompt(userID uint, moduleKey, content, remark, 
 	})
 }
 
-func (s *PromptService) SwitchVersion(userID uint, moduleKey string, versionID uint) error {
+func (s *PromptService) SwitchVersion(userID uint, agentID uint, versionID uint) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Model(&model.UserPrompt{}).
-			Where("user_id = ? AND module_key = ?", userID, moduleKey).
+			Where("user_id = ? AND agent_id = ?", userID, agentID).
 			Update("is_active", false).Error; err != nil {
 			return err
 		}
@@ -88,11 +85,11 @@ func (s *PromptService) SwitchVersion(userID uint, moduleKey string, versionID u
 	})
 }
 
-func (s *PromptService) ResetUserPrompt(userID uint, moduleKey string) error {
-	return s.db.Where("user_id = ? AND module_key = ?", userID, moduleKey).Delete(&model.UserPrompt{}).Error
+func (s *PromptService) ResetUserPrompt(userID uint, agentID uint) error {
+	return s.db.Where("user_id = ? AND agent_id = ?", userID, agentID).Delete(&model.UserPrompt{}).Error
 }
 
-func (s *PromptService) DeleteVersion(userID uint, moduleKey string, versionID uint) error {
+func (s *PromptService) DeleteVersion(userID uint, agentID uint, versionID uint) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		var prompt model.UserPrompt
 		if err := tx.Where("id = ? AND user_id = ?", versionID, userID).First(&prompt).Error; err != nil {
@@ -105,7 +102,7 @@ func (s *PromptService) DeleteVersion(userID uint, moduleKey string, versionID u
 
 		if prompt.IsActive {
 			var latest model.UserPrompt
-			err := tx.Where("user_id = ? AND module_key = ?", userID, moduleKey).
+			err := tx.Where("user_id = ? AND agent_id = ?", userID, agentID).
 				Order("version DESC").First(&latest).Error
 			if err == nil {
 				return tx.Model(&latest).Update("is_active", true).Error

@@ -2,33 +2,35 @@ package api
 
 import (
 	"backend/service"
-	"github.com/gin-gonic/gin"
 	"strconv"
+
+	"github.com/gin-gonic/gin"
 )
 
 type PromptHandler struct {
-	promptSvc  *service.PromptService
-	configSvc  *service.SystemConfigService
+	promptSvc *service.PromptService
+	configSvc *service.SystemConfigService
 }
 
 func NewPromptHandler(promptSvc *service.PromptService, configSvc *service.SystemConfigService) *PromptHandler {
 	return &PromptHandler{promptSvc: promptSvc, configSvc: configSvc}
 }
 
-// GetUserPrompt 获取用户针对某个模块的当前生效提示词及所有版本
 func (h *PromptHandler) GetUserPrompt(c *gin.Context) {
 	userID := GetUserID(c)
-	moduleKey := c.Param("moduleKey")
+	agentID, err := strconv.ParseUint(c.Param("agentId"), 10, 32)
+	if err != nil {
+		SendError(c, "400", "无效的 agent ID")
+		return
+	}
 
-	// 1. 获取所有版本
-	versions, err := h.promptSvc.ListVersions(userID, moduleKey)
+	versions, err := h.promptSvc.ListVersions(userID, uint(agentID))
 	if err != nil {
 		SendError(c, "500", "获取版本列表失败: "+err.Error())
 		return
 	}
 
-	// 2. 获取生效提示词
-	effectivePrompt, memorySearchQuery, memorySearchTopK, err := h.promptSvc.GetEffectivePrompt(userID, moduleKey)
+	effectivePrompt, memorySearchQuery, memorySearchTopK, err := h.promptSvc.GetEffectivePrompt(userID, uint(agentID))
 	if err != nil {
 		SendError(c, "500", "获取提示词失败: "+err.Error())
 		return
@@ -37,20 +39,23 @@ func (h *PromptHandler) GetUserPrompt(c *gin.Context) {
 	mem0Cfg := h.configSvc.GetMem0Config()
 
 	SendSuccess(c, gin.H{
-		"effective_prompt":       effectivePrompt,
-		"memory_search_query":   memorySearchQuery,
-		"memory_search_top_k":   memorySearchTopK,
-		"mem0_enabled":          mem0Cfg.Enabled,
-		"default_prompt":        "",
-		"versions":              versions,
-		"is_customized":         len(versions) > 0,
+		"effective_prompt":      effectivePrompt,
+		"memory_search_query":  memorySearchQuery,
+		"memory_search_top_k":  memorySearchTopK,
+		"mem0_enabled":         mem0Cfg.Enabled,
+		"default_prompt":       "",
+		"versions":             versions,
+		"is_customized":        len(versions) > 0,
 	})
 }
 
-// SaveUserPrompt 保存用户的自定义提示词（存为新版本）
 func (h *PromptHandler) SaveUserPrompt(c *gin.Context) {
 	userID := GetUserID(c)
-	moduleKey := c.Param("moduleKey")
+	agentID, err := strconv.ParseUint(c.Param("agentId"), 10, 32)
+	if err != nil {
+		SendError(c, "400", "无效的 agent ID")
+		return
+	}
 
 	var req struct {
 		Prompt            string `json:"prompt" binding:"required"`
@@ -63,7 +68,7 @@ func (h *PromptHandler) SaveUserPrompt(c *gin.Context) {
 		return
 	}
 
-	if err := h.promptSvc.SaveUserPrompt(userID, moduleKey, req.Prompt, req.Remark, req.MemorySearchQuery, req.MemorySearchTopK); err != nil {
+	if err := h.promptSvc.SaveUserPrompt(userID, uint(agentID), req.Prompt, req.Remark, req.MemorySearchQuery, req.MemorySearchTopK); err != nil {
 		SendError(c, "500", "保存失败: "+err.Error())
 		return
 	}
@@ -71,10 +76,13 @@ func (h *PromptHandler) SaveUserPrompt(c *gin.Context) {
 	SendSuccess(c, nil)
 }
 
-// SwitchUserPrompt 切换启用的提示词版本
 func (h *PromptHandler) SwitchUserPrompt(c *gin.Context) {
 	userID := GetUserID(c)
-	moduleKey := c.Param("moduleKey")
+	agentID, err := strconv.ParseUint(c.Param("agentId"), 10, 32)
+	if err != nil {
+		SendError(c, "400", "无效的 agent ID")
+		return
+	}
 
 	var req struct {
 		VersionID uint `json:"version_id" binding:"required"`
@@ -84,7 +92,7 @@ func (h *PromptHandler) SwitchUserPrompt(c *gin.Context) {
 		return
 	}
 
-	if err := h.promptSvc.SwitchVersion(userID, moduleKey, req.VersionID); err != nil {
+	if err := h.promptSvc.SwitchVersion(userID, uint(agentID), req.VersionID); err != nil {
 		SendError(c, "500", "切换失败: "+err.Error())
 		return
 	}
@@ -92,10 +100,13 @@ func (h *PromptHandler) SwitchUserPrompt(c *gin.Context) {
 	SendSuccess(c, nil)
 }
 
-// HandleDeleteVersion 删除特定的提示词版本
 func (h *PromptHandler) HandleDeleteVersion(c *gin.Context) {
 	userID := GetUserID(c)
-	moduleKey := c.Param("moduleKey")
+	agentID, err := strconv.ParseUint(c.Param("agentId"), 10, 32)
+	if err != nil {
+		SendError(c, "400", "无效的 agent ID")
+		return
+	}
 
 	versionID, err := strconv.ParseUint(c.Param("versionId"), 10, 32)
 	if err != nil {
@@ -103,7 +114,7 @@ func (h *PromptHandler) HandleDeleteVersion(c *gin.Context) {
 		return
 	}
 
-	if err := h.promptSvc.DeleteVersion(userID, moduleKey, uint(versionID)); err != nil {
+	if err := h.promptSvc.DeleteVersion(userID, uint(agentID), uint(versionID)); err != nil {
 		SendError(c, "500", "删除失败: "+err.Error())
 		return
 	}
@@ -111,12 +122,15 @@ func (h *PromptHandler) HandleDeleteVersion(c *gin.Context) {
 	SendSuccess(c, nil)
 }
 
-// ResetUserPrompt 重置提示词到系统默认
 func (h *PromptHandler) ResetUserPrompt(c *gin.Context) {
 	userID := GetUserID(c)
-	moduleKey := c.Param("moduleKey")
+	agentID, err := strconv.ParseUint(c.Param("agentId"), 10, 32)
+	if err != nil {
+		SendError(c, "400", "无效的 agent ID")
+		return
+	}
 
-	if err := h.promptSvc.ResetUserPrompt(userID, moduleKey); err != nil {
+	if err := h.promptSvc.ResetUserPrompt(userID, uint(agentID)); err != nil {
 		SendError(c, "500", "重置失败: "+err.Error())
 		return
 	}

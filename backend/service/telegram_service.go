@@ -734,7 +734,7 @@ func (s *TelegramService) showTrainingMenu(chatID int64) {
 
 	// 获取用户自定义训练
 	user, _ := s.getUserByChatID(chatID)
-	var customTrainings []model.CustomTraining
+	var customTrainings []model.AIAgent
 	if user != nil {
 		DB.Where("user_id = ?", user.ID).Find(&customTrainings)
 	}
@@ -918,7 +918,12 @@ func (s *TelegramService) startBuiltinTraining(chatID int64, trainingType string
 	}
 
 	// 获取用户自定义提示词（如果有）
-	customPrompt, _, _, _ := s.promptService.GetEffectivePrompt(user.ID, trainingType)
+	var agentID uint
+	var agent model.AIAgent
+	if err := DB.Where("code = ?", trainingType).First(&agent).Error; err == nil {
+		agentID = agent.ID
+	}
+	customPrompt, _, _, _ := s.promptService.GetEffectivePrompt(user.ID, agentID)
 	systemPrompt := training.SystemPrompt
 	if customPrompt != "" {
 		systemPrompt = customPrompt
@@ -966,7 +971,7 @@ func (s *TelegramService) startBuiltinTraining(chatID int64, trainingType string
 
 // startCustomTraining 开始自定义训练
 func (s *TelegramService) startCustomTraining(chatID int64, trainingID uint, modelCode string) {
-	var training model.CustomTraining
+	var training model.AIAgent
 	if err := DB.First(&training, trainingID).Error; err != nil {
 		s.reply(chatID, "训练不存在。")
 		return
@@ -980,8 +985,7 @@ func (s *TelegramService) startCustomTraining(chatID int64, trainingID uint, mod
 	}
 
 	// 获取用户自定义提示词（如果有）
-	moduleKey := fmt.Sprintf("custom_%d", trainingID)
-	customPrompt, _, _, _ := s.promptService.GetEffectivePrompt(user.ID, moduleKey)
+	customPrompt, _, _, _ := s.promptService.GetEffectivePrompt(user.ID, trainingID)
 	systemPrompt := training.SystemPrompt
 	if customPrompt != "" {
 		systemPrompt = customPrompt

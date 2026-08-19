@@ -70,12 +70,7 @@ const toggleAllThinking = () => {
   }
 };
 
-const typeMap: Record<string, string> = {
-  ai_chat: $t("route.ai_chat"),
-  ai_decision: $t("route.ai_decision"),
-  ai_social: $t("route.ai_social"),
-  ai_emergency: $t("route.ai_emergency"),
-};
+const typeMap: Record<string, string> = {};
 
 const loadHistory = async () => {
   loading.value = true;

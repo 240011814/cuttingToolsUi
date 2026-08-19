@@ -6,9 +6,11 @@ defineOptions({
 });
 import { useRoute } from "vue-router";
 import TrainingChat from "../components/training-chat.vue";
-import { fetchCustomTrainingDetail } from "@/service/api";
+import { fetchAIAgentDetail } from "@/service/api";
+import { useTabStore } from "@/store/modules/tab";
 
 const route = useRoute();
+const tabStore = useTabStore();
 const loading = ref(true);
 const training = ref<any>(null);
 const loadedId = ref<number | null>(null);
@@ -19,10 +21,12 @@ const loadTraining = async (id: string | string[]) => {
 
   loading.value = true;
   try {
-    const { data } = await fetchCustomTrainingDetail(numId);
+    const { data } = await fetchAIAgentDetail(numId);
     if (data) {
       training.value = data;
       loadedId.value = numId;
+      route.meta.title = data.title;
+      tabStore.setTabLabel(data.title);
     }
   } catch (err: any) {
     console.error("加载训练失败:", err);
@@ -49,9 +53,10 @@ onActivated(() => {
   </div>
   <TrainingChat
     v-else-if="training"
-    :module-key="'custom_' + training.id"
-    :training-type="training.title"
+    :agent-id="training.id"
+    :training-type="training.code || training.title"
     :custom-training-id="training.id"
+    :enable-vocabulary="training.code === 'chat'"
     :system-prompt="training.system_prompt"
     :initial-message="
       training.initial_message || '你好！我是你的AI训练助手，让我们开始吧。'

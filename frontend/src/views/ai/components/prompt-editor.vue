@@ -25,7 +25,7 @@ import { format } from "date-fns";
 
  
 const props = defineProps<{
-  moduleKey: string;
+  agentId: number;
   defaultPrompt: string;
 }>();
 
@@ -85,7 +85,7 @@ interface DiffOperation {
 async function loadPrompt() {
   loading.value = true;
   try {
-    const { data } = await fetchGetUserPrompt(props.moduleKey);
+    const { data } = await fetchGetUserPrompt(props.agentId);
     if (data) {
       promptData.value = {
         ...data,
@@ -117,7 +117,7 @@ async function handleSave() {
   }
   saving.value = true;
   try {
-    await fetchSaveUserPrompt(props.moduleKey, editingPrompt.value, remark.value, memorySearchQuery.value, memorySearchTopK.value);
+    await fetchSaveUserPrompt(props.agentId, editingPrompt.value, remark.value, memorySearchQuery.value, memorySearchTopK.value);
     message.success("新版本已保存并启用");
     remark.value = "";
     await loadPrompt();
@@ -132,7 +132,7 @@ async function handleSave() {
 async function handleSwitch(versionId: number) {
   loading.value = true;
   try {
-    await fetchSwitchUserPrompt(props.moduleKey, versionId);
+    await fetchSwitchUserPrompt(props.agentId, versionId);
     message.success("已切换版本");
     await loadPrompt();
     emit("updated");
@@ -145,7 +145,7 @@ async function handleSwitch(versionId: number) {
 
 async function handleDelete(versionId: number) {
   try {
-    await fetchDeleteUserPromptVersion(props.moduleKey, versionId);
+    await fetchDeleteUserPromptVersion(props.agentId, versionId);
     message.success("版本已删除");
     await loadPrompt();
     emit("updated");
@@ -157,7 +157,7 @@ async function handleDelete(versionId: number) {
 async function handleReset() {
   saving.value = true;
   try {
-    await fetchResetUserPrompt(props.moduleKey);
+    await fetchResetUserPrompt(props.agentId);
     message.success("已恢复系统默认设置");
     editingPrompt.value = "";
     memorySearchQuery.value = "";

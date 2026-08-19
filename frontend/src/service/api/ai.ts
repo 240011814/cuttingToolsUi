@@ -7,7 +7,7 @@ export function fetchGetAIModels() {
   return request<Api.Admin.AIModel[]>({ url: "/api/ai/models" });
 }
 
-export function fetchGetUserPrompt(moduleKey: string) {
+export function fetchGetUserPrompt(agentId: number) {
   return request<{
     effective_prompt: string;
     memory_search_query: string;
@@ -17,45 +17,45 @@ export function fetchGetUserPrompt(moduleKey: string) {
     versions: any[];
     is_customized: boolean;
   }>({
-    url: `/api/user-prompts/${moduleKey}`,
+    url: `/api/user-prompts/${agentId}`,
   });
 }
 
 export function fetchSaveUserPrompt(
-  moduleKey: string,
+  agentId: number,
   prompt: string,
   remark?: string,
   memorySearchQuery?: string,
   memorySearchTopK?: number,
 ) {
   return request({
-    url: `/api/user-prompts/${moduleKey}`,
+    url: `/api/user-prompts/${agentId}`,
     method: "post",
     data: { prompt, remark, memory_search_query: memorySearchQuery, memory_search_top_k: memorySearchTopK },
   });
 }
 
-export function fetchSwitchUserPrompt(moduleKey: string, versionId: number) {
+export function fetchSwitchUserPrompt(agentId: number, versionId: number) {
   return request({
-    url: `/api/user-prompts/${moduleKey}/switch`,
+    url: `/api/user-prompts/${agentId}/switch`,
     method: "put",
     data: { version_id: versionId },
   });
 }
 
 export function fetchDeleteUserPromptVersion(
-  moduleKey: string,
+  agentId: number,
   versionId: number,
 ) {
   return request({
-    url: `/api/user-prompts/${moduleKey}/versions/${versionId}`,
+    url: `/api/user-prompts/${agentId}/versions/${versionId}`,
     method: "delete",
   });
 }
 
-export function fetchResetUserPrompt(moduleKey: string) {
+export function fetchResetUserPrompt(agentId: number) {
   return request({
-    url: `/api/user-prompts/${moduleKey}`,
+    url: `/api/user-prompts/${agentId}`,
     method: "delete",
   });
 }

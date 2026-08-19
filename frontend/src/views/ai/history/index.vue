@@ -103,22 +103,8 @@ const handleView = async (row: any) => {
   }
 };
 
-const trainingTypeRouteMap: Record<string, string> = {
-  ai_chat: "/ai/chat",
-  ai_decision: "/ai/decision",
-  ai_social: "/ai/social",
-  ai_emergency: "/ai/emergency",
-};
-
 const handleContinue = (row: any) => {
-  const route = trainingTypeRouteMap[row.training_type];
-
-  if (route) {
-    router.push({
-      path: route,
-      query: { history_id: row.id },
-    });
-  } else if (row.custom_training_id) {
+  if (row.custom_training_id) {
     router.push({
       path: `/ai/custom-training/${row.custom_training_id}`,
       query: { history_id: row.id },
@@ -229,13 +215,7 @@ const handleMobileDropdownSelect = (key: string, row: any) => {
 };
 
 const getTrainingTypeLabel = (trainingType: string) => {
-  const typeMap: Record<string, string> = {
-    ai_chat: $t("route.ai_chat"),
-    ai_decision: $t("route.ai_decision"),
-    ai_social: $t("route.ai_social"),
-    ai_emergency: $t("route.ai_emergency"),
-  };
-  return typeMap[trainingType] || trainingType;
+  return trainingType;
 };
 
 const columns = computed<DataTableColumns<any>>(() => {
@@ -245,13 +225,7 @@ const columns = computed<DataTableColumns<any>>(() => {
       key: "training_type",
       width: 120,
       render(row) {
-        const typeMap: Record<string, string> = {
-          ai_chat: $t("route.ai_chat"),
-          ai_decision: $t("route.ai_decision"),
-          ai_social: $t("route.ai_social"),
-          ai_emergency: $t("route.ai_emergency"),
-        };
-        const label = typeMap[row.training_type] || row.training_type;
+        const label = row.training_type;
         return h(
           NTag,
           { type: "info", bordered: false },

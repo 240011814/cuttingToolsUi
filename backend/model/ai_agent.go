@@ -2,11 +2,13 @@ package model
 
 import "time"
 
-type CustomTraining struct {
+type AIAgent struct {
 	ID               uint      `json:"id" gorm:"primaryKey"`
 	UserID           uint      `json:"user_id"`
+	IsPublic         bool      `json:"is_public"`
 	Title            string    `json:"title"`
 	Description      string    `json:"description"`
+	Code             string    `json:"code"`
 	SystemPrompt     string    `json:"system_prompt"`
 	Icon             string    `json:"icon"`
 	Color            string    `json:"color"`
@@ -19,9 +21,10 @@ type CustomTraining struct {
 	UpdatedAt        time.Time `json:"updated_at"`
 }
 
-type CreateCustomTrainingRequest struct {
+type CreateAIAgentRequest struct {
 	Title            string  `json:"title" binding:"required"`
 	Description      string  `json:"description"`
+	Code             string  `json:"code"`
 	SystemPrompt     string  `json:"system_prompt" binding:"required"`
 	Icon             string  `json:"icon"`
 	Color            string  `json:"color"`
@@ -31,7 +34,7 @@ type CreateCustomTrainingRequest struct {
 	SpeechRate       float64 `json:"speech_rate"`
 }
 
-type UpdateCustomTrainingRequest struct {
+type UpdateAIAgentRequest struct {
 	Title            string  `json:"title"`
 	Description      string  `json:"description"`
 	SystemPrompt     string  `json:"system_prompt"`

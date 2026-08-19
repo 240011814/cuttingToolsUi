@@ -1,72 +1,23 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from "vue";
+import { ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { useMessage } from "naive-ui";
 import { useAuth } from "@/hooks/business/auth";
 import {
-  fetchCustomTrainingList,
-  fetchCustomTrainingDetail,
-  fetchCreateCustomTraining,
-  fetchUpdateCustomTraining,
-  fetchDeleteCustomTraining,
+  fetchAIAgentList,
+  fetchAIAgentDetail,
+  fetchCreateAIAgent,
+  fetchUpdateAIAgent,
+  fetchDeleteAIAgent,
 } from "@/service/api";
-import type { CustomTraining } from "@/service/api";
+import type { AIAgent } from "@/service/api";
 import { $t } from "@/locales";
 
 const router = useRouter();
 const message = useMessage();
 const { hasAuth } = useAuth();
 
-interface TrainingModule {
-  key: string;
-  title: string;
-  description: string;
-  icon: string;
-  color: string;
-  route: string;
-  permission: string;
-}
-
-const modules = computed<TrainingModule[]>(() => [
-  {
-    key: "chat",
-    title: $t("route.ai_chat"),
-    description: "通过模拟真实生活场景练习地道英语口语表达",
-    icon: "mdi:translate-variant",
-    color: "#2080f0",
-    route: "/ai/chat",
-    permission: "ai:chat:view",
-  },
-  {
-    key: "decision",
-    title: $t("route.ai_decision"),
-    description: "学习60+决策模型，提升在工作生活中的决策能力",
-    icon: "mdi:scale-balance",
-    color: "#8a6d3b",
-    route: "/ai/decision",
-    permission: "ai:decision:view",
-  },
-  {
-    key: "social",
-    title: $t("route.ai_social"),
-    description: "练习聊天破冰、安慰、拒绝等40+沟通场景",
-    icon: "mdi:account-group-outline",
-    color: "#7c3aed",
-    route: "/ai/social",
-    permission: "ai:social:view",
-  },
-  {
-    key: "emergency",
-    title: $t("route.ai_emergency"),
-    description: "突发应变与反应力训练，掌握应变策略",
-    icon: "mdi:incognito",
-    color: "#d9534f",
-    route: "/ai/emergency",
-    permission: "ai:emergency:view",
-  },
-]);
-
-const customTrainings = ref<CustomTraining[]>([]);
+const agents = ref<AIAgent[]>([]);
 const loading = ref(false);
 
 const showModal = ref(false);
@@ -77,6 +28,7 @@ const submitting = ref(false);
 const form = ref({
   title: "",
   description: "",
+  code: "",
   system_prompt: "",
   icon: "mdi:robot-outline",
   color: "#2080f0",
@@ -86,34 +38,35 @@ const form = ref({
   speech_rate: 0.95,
 });
 
-const iconOptions = computed(() => [
-  { label: $t("page.ai.training.icons.robot"), value: "mdi:robot-outline" },
-  { label: $t("page.ai.training.icons.chat"), value: "mdi:chat-outline" },
-  { label: $t("page.ai.training.icons.brain"), value: "mdi:brain" },
-  { label: $t("page.ai.training.icons.lightbulb"), value: "mdi:lightbulb-outline" },
-  { label: $t("page.ai.training.icons.book"), value: "mdi:book-open-outline" },
-  { label: $t("page.ai.training.icons.pencil"), value: "mdi:pencil-outline" },
-  { label: $t("page.ai.training.icons.star"), value: "mdi:star-outline" },
-  { label: $t("page.ai.training.icons.heart"), value: "mdi:heart-outline" },
-  { label: $t("page.ai.training.icons.rocket"), value: "mdi:rocket-launch-outline" },
-  { label: $t("page.ai.training.icons.cog"), value: "mdi:cog-outline" },
-]);
+const iconOptions = [
+  { label: "机器人", value: "mdi:robot-outline" },
+  { label: "对话", value: "mdi:chat-outline" },
+  { label: "大脑", value: "mdi:brain" },
+  { label: "灯泡", value: "mdi:lightbulb-outline" },
+  { label: "书本", value: "mdi:book-open-outline" },
+  { label: "铅笔", value: "mdi:pencil-outline" },
+  { label: "星星", value: "mdi:star-outline" },
+  { label: "爱心", value: "mdi:heart-outline" },
+  { label: "火箭", value: "mdi:rocket-launch-outline" },
+  { label: "齿轮", value: "mdi:cog-outline" },
+];
 
-const colorOptions = computed(() => [
-  { label: $t("page.ai.training.colors.blue"), value: "#2080f0" },
-  { label: $t("page.ai.training.colors.green"), value: "#18a058" },
-  { label: $t("page.ai.training.colors.red"), value: "#d9534f" },
-  { label: $t("page.ai.training.colors.orange"), value: "#f0a020" },
-  { label: $t("page.ai.training.colors.purple"), value: "#7c3aed" },
-  { label: $t("page.ai.training.colors.brown"), value: "#8a6d3b" },
-  { label: $t("page.ai.training.colors.gray"), value: "#666666" },
-  { label: $t("page.ai.training.colors.cyan"), value: "#20c997" },
-]);
+const colorOptions = [
+  { label: "蓝色", value: "#2080f0" },
+  { label: "绿色", value: "#18a058" },
+  { label: "红色", value: "#d9534f" },
+  { label: "橙色", value: "#f0a020" },
+  { label: "紫色", value: "#7c3aed" },
+  { label: "棕色", value: "#8a6d3b" },
+  { label: "灰色", value: "#666666" },
+  { label: "青色", value: "#20c997" },
+];
 
 const resetForm = () => {
   form.value = {
     title: "",
     description: "",
+    code: "",
     system_prompt: "",
     icon: "mdi:robot-outline",
     color: "#2080f0",
@@ -124,25 +77,21 @@ const resetForm = () => {
   };
 };
 
-const loadCustomTrainings = async () => {
+const loadAgents = async () => {
   loading.value = true;
   try {
-    const { data } = await fetchCustomTrainingList();
+    const { data } = await fetchAIAgentList();
     if (data) {
-      customTrainings.value = data;
+      agents.value = data;
     }
   } catch (err: any) {
-    console.error("loadCustomTrainings error:", err);
+    console.error("loadAgents error:", err);
   } finally {
     loading.value = false;
   }
 };
 
-function goToModule(route: string) {
-  router.push(route);
-}
-
-function goToCustomTraining(id: number) {
+function goToAgent(id: number) {
   router.push(`/ai/custom-training/${id}`);
 }
 
@@ -157,11 +106,12 @@ async function handleEdit(id: number) {
   isEdit.value = true;
   editId.value = id;
   try {
-    const { data } = await fetchCustomTrainingDetail(id);
+    const { data } = await fetchAIAgentDetail(id);
     if (data) {
       form.value = {
         title: data.title,
         description: data.description,
+        code: data.code || "",
         system_prompt: data.system_prompt,
         icon: data.icon || "mdi:robot-outline",
         color: data.color || "#2080f0",
@@ -193,14 +143,14 @@ async function handleSubmit() {
   submitting.value = true;
   try {
     if (isEdit.value) {
-      await fetchUpdateCustomTraining(editId.value, form.value);
+      await fetchUpdateAIAgent(editId.value, form.value);
       message.success($t("page.ai.training.updateSuccess"));
     } else {
-      await fetchCreateCustomTraining(form.value);
+      await fetchCreateAIAgent(form.value);
       message.success($t("page.ai.training.createSuccess"));
     }
     showModal.value = false;
-    loadCustomTrainings();
+    loadAgents();
   } catch (err: any) {
     message.error(
       `${$t("page.ai.training.operationFailed")}: ${err?.message || $t("common.error")}`
@@ -210,11 +160,11 @@ async function handleSubmit() {
   }
 }
 
-async function handleDeleteCustomTraining(id: number) {
+async function handleDeleteAgent(id: number) {
   try {
-    await fetchDeleteCustomTraining(id);
+    await fetchDeleteAIAgent(id);
     message.success($t("page.ai.training.deleteSuccess"));
-    loadCustomTrainings();
+    loadAgents();
   } catch (err: any) {
     message.error(
       `${$t("page.ai.training.deleteFailed")}: ${err?.message || $t("common.error")}`
@@ -223,9 +173,7 @@ async function handleDeleteCustomTraining(id: number) {
 }
 
 onMounted(() => {
-  if (hasAuth('ai:custom-training:view')) {
-    loadCustomTrainings();
-  }
+  loadAgents();
 });
 </script>
 
@@ -241,134 +189,107 @@ onMounted(() => {
         </p>
       </div>
 
-      <!-- 内置训练模块 -->
-      <div class="grid grid-cols-1 gap-6 md:grid-cols-2 mb-8">
-        <template v-for="item in modules" :key="item.key">
-          <div
-            v-if="hasAuth(item.permission)"
-            class="group cursor-pointer rounded-xl border border-gray-200 bg-white p-6 shadow-sm transition-all hover:shadow-md dark:border-gray-700 dark:bg-gray-800"
-            @click="goToModule(item.route)"
-          >
-            <div class="flex items-start gap-4">
-              <div
-                class="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg"
-                :style="{ backgroundColor: item.color + '15', color: item.color }"
-              >
-                <SvgIcon :icon="item.icon" class="text-2xl" />
-              </div>
-              <div class="flex-1">
-                <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200">
-                  {{ item.title }}
-                </h3>
-                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                  {{ item.description }}
-                </p>
-              </div>
-              <SvgIcon
-                icon="mdi:chevron-right"
-                class="text-xl text-gray-400 transition-transform group-hover:translate-x-1"
-              />
-            </div>
-          </div>
-        </template>
+      <div class="mb-6 flex items-center justify-between">
+        <h2 class="text-xl font-bold text-gray-800 dark:text-gray-200">
+          {{ $t("page.ai.training.customTraining") }}
+        </h2>
+        <NButton
+          v-if="hasAuth('ai:custom-training:create')"
+          type="primary"
+          @click="handleCreate"
+        >
+          <template #icon>
+            <SvgIcon icon="mdi:plus" />
+          </template>
+          {{ $t("page.ai.training.addTraining") }}
+        </NButton>
       </div>
 
-      <!-- 自定义训练 -->
-      <div v-if="hasAuth('ai:custom-training:view')">
-        <div class="mb-6 flex items-center justify-between">
-          <h2 class="text-xl font-bold text-gray-800 dark:text-gray-200">
-            {{ $t("page.ai.training.customTraining") }}
-          </h2>
-          <NButton
-            v-if="hasAuth('ai:custom-training:create')"
-            type="primary"
-            @click="handleCreate"
-          >
-            <template #icon>
-              <SvgIcon icon="mdi:plus" />
-            </template>
-            {{ $t("page.ai.training.addTraining") }}
-          </NButton>
-        </div>
+      <div v-if="loading" class="flex justify-center py-8">
+        <NSpin size="large" />
+      </div>
 
-        <div v-if="loading" class="flex justify-center py-8">
-          <NSpin size="large" />
-        </div>
+      <div
+        v-else-if="agents.length === 0"
+        class="rounded-xl border border-dashed border-gray-300 p-8 text-center dark:border-gray-600"
+      >
+        <SvgIcon icon="mdi:robot-outline" class="text-4xl text-gray-400 mb-2" />
+        <p class="text-gray-500 dark:text-gray-400">
+          {{ $t("page.ai.training.noCustomTraining") }}
+        </p>
+        <p class="text-sm text-gray-400 dark:text-gray-500 mt-1">
+          {{ $t("page.ai.training.noCustomTrainingTip") }}
+        </p>
+      </div>
 
+      <div v-else class="grid grid-cols-1 gap-6 md:grid-cols-2">
         <div
-          v-else-if="customTrainings.length === 0"
-          class="rounded-xl border border-dashed border-gray-300 p-8 text-center dark:border-gray-600"
+          v-for="item in agents"
+          :key="item.id"
+          class="group relative cursor-pointer rounded-xl border border-gray-200 bg-white p-6 shadow-sm transition-all hover:shadow-md dark:border-gray-700 dark:bg-gray-800"
+          @click="goToAgent(item.id)"
         >
-          <SvgIcon icon="mdi:robot-outline" class="text-4xl text-gray-400 mb-2" />
-          <p class="text-gray-500 dark:text-gray-400">
-            {{ $t("page.ai.training.noCustomTraining") }}
-          </p>
-          <p class="text-sm text-gray-400 dark:text-gray-500 mt-1">
-            {{ $t("page.ai.training.noCustomTrainingTip") }}
-          </p>
-        </div>
-
-        <div v-else class="grid grid-cols-1 gap-6 md:grid-cols-2">
-          <div
-            v-for="item in customTrainings"
-            :key="item.id"
-            class="group relative cursor-pointer rounded-xl border border-gray-200 bg-white p-6 shadow-sm transition-all hover:shadow-md dark:border-gray-700 dark:bg-gray-800"
-            @click="goToCustomTraining(item.id)"
-          >
-            <div class="flex items-start gap-4">
-              <div
-                class="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg"
-                :style="{
-                  backgroundColor: (item.color || '#2080f0') + '15',
-                  color: item.color || '#2080f0',
-                }"
-              >
-                <SvgIcon :icon="item.icon || 'mdi:robot-outline'" class="text-2xl" />
-              </div>
-              <div class="flex-1">
+          <div class="flex items-start gap-4">
+            <div
+              class="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg"
+              :style="{
+                backgroundColor: (item.color || '#2080f0') + '15',
+                color: item.color || '#2080f0',
+              }"
+            >
+              <SvgIcon :icon="item.icon || 'mdi:robot-outline'" class="text-2xl" />
+            </div>
+            <div class="flex-1">
+              <div class="flex items-center gap-2">
                 <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200">
                   {{ item.title }}
                 </h3>
-                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400 line-clamp-2">
-                  {{ item.description || $t("page.ai.training.noDescription") }}
-                </p>
+                <NTag
+                  v-if="item.is_public"
+                  size="small"
+                  type="success"
+                  :bordered="false"
+                >
+                  公共
+                </NTag>
               </div>
-              <SvgIcon
-                icon="mdi:chevron-right"
-                class="text-xl text-gray-400 transition-transform group-hover:translate-x-1"
-              />
+              <p class="mt-1 text-sm text-gray-500 dark:text-gray-400 line-clamp-2">
+                {{ item.description || $t("page.ai.training.noDescription") }}
+              </p>
             </div>
-            <div
-              v-if="
-                hasAuth('ai:custom-training:edit') || hasAuth('ai:custom-training:delete')
-              "
-              class="absolute bottom-3 right-3 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100"
-              @click.stop
+            <SvgIcon
+              icon="mdi:chevron-right"
+              class="text-xl text-gray-400 transition-transform group-hover:translate-x-1"
+            />
+          </div>
+          <div
+            v-if="!item.is_public && (hasAuth('ai:custom-training:edit') || hasAuth('ai:custom-training:delete'))"
+            class="absolute bottom-3 right-3 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100"
+            @click.stop
+          >
+            <NButton
+              v-if="hasAuth('ai:custom-training:edit')"
+              size="small"
+              quaternary
+              @click="handleEdit(item.id)"
             >
-              <NButton
-                v-if="hasAuth('ai:custom-training:edit')"
-                size="small"
-                quaternary
-                @click="handleEdit(item.id)"
-              >
-                <template #icon>
-                  <SvgIcon icon="mdi:pencil-outline" />
-                </template>
-              </NButton>
-              <NPopconfirm
-                v-if="hasAuth('ai:custom-training:delete')"
-                @positive-click="handleDeleteCustomTraining(item.id)"
-              >
-                <template #trigger>
-                  <NButton size="small" quaternary type="error">
-                    <template #icon>
-                      <SvgIcon icon="mdi:delete-outline" />
-                    </template>
-                  </NButton>
-                </template>
-                {{ $t("page.ai.training.deleteConfirm") }}
-              </NPopconfirm>
-            </div>
+              <template #icon>
+                <SvgIcon icon="mdi:pencil-outline" />
+              </template>
+            </NButton>
+            <NPopconfirm
+              v-if="hasAuth('ai:custom-training:delete')"
+              @positive-click="handleDeleteAgent(item.id)"
+            >
+              <template #trigger>
+                <NButton size="small" quaternary type="error">
+                  <template #icon>
+                    <SvgIcon icon="mdi:delete-outline" />
+                  </template>
+                </NButton>
+              </template>
+              {{ $t("page.ai.training.deleteConfirm") }}
+            </NPopconfirm>
           </div>
         </div>
       </div>
@@ -405,6 +326,14 @@ onMounted(() => {
             show-count
           />
         </NFormItem>
+        <NFormItem label="标识码" path="code">
+          <NInput
+            v-model:value="form.code"
+            placeholder="唯一标识，如 english_chat（创建后不可修改）"
+            :disabled="isEdit"
+            maxlength="50"
+          />
+        </NFormItem>
         <NFormItem :label="$t('page.ai.training.promptLabel')" path="system_prompt">
           <NInput
             v-model:value="form.system_prompt"
@@ -434,9 +363,9 @@ onMounted(() => {
             <NSelect
               v-model:value="form.speech_lang"
               :options="[
-                { label: $t('page.ai.training.chinese'), value: 'zh-CN' },
-                { label: $t('page.ai.training.english'), value: 'en-US' },
-                { label: $t('page.ai.training.japanese'), value: 'ja-JP' },
+                { label: '中文', value: 'zh-CN' },
+                { label: 'English', value: 'en-US' },
+                { label: '日本語', value: 'ja-JP' },
               ]"
             />
           </NFormItem>

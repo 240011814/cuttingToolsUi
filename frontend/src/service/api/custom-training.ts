@@ -1,10 +1,12 @@
 import { request } from '../request';
 
-export interface CustomTraining {
+export interface AIAgent {
   id: number;
   user_id: number;
+  is_public: boolean;
   title: string;
   description: string;
+  code: string;
   system_prompt: string;
   icon: string;
   color: string;
@@ -17,9 +19,10 @@ export interface CustomTraining {
   updated_at: string;
 }
 
-export interface CreateCustomTrainingParams {
+export interface CreateAIAgentParams {
   title: string;
   description?: string;
+  code?: string;
   system_prompt: string;
   icon?: string;
   color?: string;
@@ -29,7 +32,7 @@ export interface CreateCustomTrainingParams {
   speech_rate?: number;
 }
 
-export interface UpdateCustomTrainingParams {
+export interface UpdateAIAgentParams {
   title?: string;
   description?: string;
   system_prompt?: string;
@@ -41,39 +44,39 @@ export interface UpdateCustomTrainingParams {
   speech_rate?: number;
 }
 
-export function fetchCustomTrainingList() {
-  return request<CustomTraining[]>({
-    url: '/api/custom-trainings',
+export function fetchAIAgentList() {
+  return request<AIAgent[]>({
+    url: '/api/ai-agents',
     method: 'get'
   });
 }
 
-export function fetchCustomTrainingDetail(id: number) {
-  return request<CustomTraining>({
-    url: `/api/custom-trainings/${id}`,
+export function fetchAIAgentDetail(id: number) {
+  return request<AIAgent>({
+    url: `/api/ai-agents/${id}`,
     method: 'get'
   });
 }
 
-export function fetchCreateCustomTraining(data: CreateCustomTrainingParams) {
-  return request<CustomTraining>({
-    url: '/api/custom-trainings',
+export function fetchCreateAIAgent(data: CreateAIAgentParams) {
+  return request<AIAgent>({
+    url: '/api/ai-agents',
     method: 'post',
     data
   });
 }
 
-export function fetchUpdateCustomTraining(id: number, data: UpdateCustomTrainingParams) {
+export function fetchUpdateAIAgent(id: number, data: UpdateAIAgentParams) {
   return request({
-    url: `/api/custom-trainings/${id}`,
+    url: `/api/ai-agents/${id}`,
     method: 'put',
     data
   });
 }
 
-export function fetchDeleteCustomTraining(id: number) {
+export function fetchDeleteAIAgent(id: number) {
   return request({
-    url: `/api/custom-trainings/${id}`,
+    url: `/api/ai-agents/${id}`,
     method: 'delete'
   });
 }

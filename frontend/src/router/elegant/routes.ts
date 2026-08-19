@@ -51,18 +51,6 @@ export const generatedRoutes: GeneratedRoute[] = [
     },
     children: [
       {
-        name: 'ai_chat',
-        path: '/ai/chat',
-        component: 'view.ai_chat',
-        meta: {
-          title: 'ai_chat',
-          i18nKey: 'route.ai_chat',
-          permissions: ['ai:chat:view'],
-          keepAlive: true,
-          hideInMenu: true
-        }
-      },
-      {
         name: 'ai_course',
         path: '/ai/course',
         component: 'view.ai_course',
@@ -95,30 +83,6 @@ export const generatedRoutes: GeneratedRoute[] = [
           permissions: ['ai:custom-training:view'],
           hideInMenu: true,
           keepAlive: true
-        }
-      },
-      {
-        name: 'ai_decision',
-        path: '/ai/decision',
-        component: 'view.ai_decision',
-        meta: {
-          title: 'ai_decision',
-          i18nKey: 'route.ai_decision',
-          permissions: ['ai:decision:view'],
-          keepAlive: true,
-          hideInMenu: true
-        }
-      },
-      {
-        name: 'ai_emergency',
-        path: '/ai/emergency',
-        component: 'view.ai_emergency',
-        meta: {
-          title: 'ai_emergency',
-          i18nKey: 'route.ai_emergency',
-          permissions: ['ai:emergency:view'],
-          keepAlive: true,
-          hideInMenu: true
         }
       },
       {
@@ -178,18 +142,6 @@ export const generatedRoutes: GeneratedRoute[] = [
           icon: 'mdi:notebook-outline',
           permissions: ['ai:note:view'],
           order: 7
-        }
-      },
-      {
-        name: 'ai_social',
-        path: '/ai/social',
-        component: 'view.ai_social',
-        meta: {
-          title: 'ai_social',
-          i18nKey: 'route.ai_social',
-          permissions: ['ai:social:view'],
-          keepAlive: true,
-          hideInMenu: true
         }
       },
       {

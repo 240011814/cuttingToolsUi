@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { nextTick, ref, computed, onBeforeUnmount, onMounted } from "vue";
+import { nextTick, ref, computed, onBeforeUnmount, onMounted, onActivated } from "vue";
 import { useFullscreen } from "@vueuse/core";
 import { useMessage, NDrawer, NDrawerContent, NModal, NInput } from "naive-ui";
 import { useAppStore } from "@/store/modules/app";
@@ -58,7 +58,7 @@ const props = withDefaults(
   defineProps<{
     systemPrompt: string;
     initialMessage: string;
-    moduleKey: string;
+    agentId: number;
     trainingType?: string;
     customTrainingId?: number | null;
     inputPlaceholder?: string;
@@ -188,7 +188,7 @@ const memorySearchTopK = ref(30);
 const mem0Enabled = ref(true);
 
 async function refreshPrompt() {
-  const { data } = await fetchGetUserPrompt(props.moduleKey);
+  const { data } = await fetchGetUserPrompt(props.agentId);
   if (data) {
     systemMessage.value.content = data.effective_prompt || props.systemPrompt;
     if (data.memory_search_query) {
@@ -275,10 +275,6 @@ const courseItemForm = ref({
 
 const route = useRoute();
 const routeTitleMap: Record<string, string> = {
-  ai_chat: "英语训练",
-  ai_decision: "决策训练",
-  ai_social: "社交训练",
-  ai_emergency: "应急训练",
   ai_exercise: "练习",
 };
 
@@ -530,7 +526,7 @@ const sendMessage = async () => {
     const history = messages.value
       .slice(0, -1)
       .filter((item) => item.content.trim() && !item.isError);
-    const routeName = props.trainingType || (route.name as string) || "ai_chat";
+    const routeName = props.trainingType || (route.name as string) || "ai_agent";
 
     const response = await fetchChatStream({
       history_id: historyId.value,
@@ -664,6 +660,7 @@ const loadHistory = async (id: number) => {
     const { data } = await fetchHistoryDetail(id);
     if (data) {
       historyId.value = data.id;
+      lastLoadedHistoryId.value = data.id;
       historyTitle.value = data.title;
       messages.value = (data.messages || [])
         .filter((msg: any) => msg.role !== "system")
@@ -764,6 +761,16 @@ onMounted(() => {
 
   if (scrollbarRef.value) {
     scrollbarRef.value.scrollTo({ top: 999999 });
+  }
+});
+
+const lastLoadedHistoryId = ref<number>(0);
+
+onActivated(() => {
+  const queryHistoryId = Number(route.query.history_id) || 0;
+  if (queryHistoryId && queryHistoryId !== lastLoadedHistoryId.value) {
+    messages.value = [];
+    loadHistory(queryHistoryId);
   }
 });
 
@@ -1503,7 +1510,7 @@ onBeforeUnmount(() => {
         body-content-style="padding: 0; display: flex; flex-direction: column; height: 100%;"
       >
         <PromptEditor
-          :module-key="moduleKey"
+          :agent-id="props.agentId"
           :module-name="routeTitleMap[route.name as string]"
           :default-prompt="props.systemPrompt"
           @updated="refreshPrompt"

@@ -21,18 +21,14 @@ declare module "@elegant-router/types" {
     "404": "/404";
     "500": "/500";
     "ai": "/ai";
-    "ai_chat": "/ai/chat";
     "ai_course": "/ai/course";
     "ai_course-detail": "/ai/course-detail/:id";
     "ai_custom-training": "/ai/custom-training/:id";
-    "ai_decision": "/ai/decision";
-    "ai_emergency": "/ai/emergency";
     "ai_error-book": "/ai/error-book";
     "ai_exercise": "/ai/exercise";
     "ai_history": "/ai/history";
     "ai_memory": "/ai/memory";
     "ai_note": "/ai/note";
-    "ai_social": "/ai/social";
     "ai_training": "/ai/training";
     "ai_vocabulary": "/ai/vocabulary";
     "cut": "/cut";
@@ -119,18 +115,14 @@ declare module "@elegant-router/types" {
     | "500"
     | "iframe-page"
     | "login"
-    | "ai_chat"
     | "ai_course-detail"
     | "ai_course"
     | "ai_custom-training"
-    | "ai_decision"
-    | "ai_emergency"
     | "ai_error-book"
     | "ai_exercise"
     | "ai_history"
     | "ai_memory"
     | "ai_note"
-    | "ai_social"
     | "ai_training"
     | "ai_vocabulary"
     | "cut_bar-detail"

@@ -5,8 +5,8 @@ import "time"
 // UserPrompt 用户自定义提示词模型
 type UserPrompt struct {
 	ID                uint      `gorm:"primaryKey" json:"id"`
-	UserID            uint      `gorm:"not null;index:idx_user_module" json:"user_id"`
-	ModuleKey         string    `gorm:"size:50;not null;index:idx_user_module" json:"module_key"`
+	UserID            uint      `gorm:"not null;index:idx_user_agent" json:"user_id"`
+	AgentID           uint      `gorm:"not null;index:idx_user_agent" json:"agent_id"`
 	CustomPrompt      string    `gorm:"type:text;not null" json:"custom_prompt"`
 	MemorySearchQuery string    `gorm:"size:500;default:''" json:"memory_search_query"`
 	MemorySearchTopK  int       `gorm:"default:30" json:"memory_search_top_k"`

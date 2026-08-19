@@ -1,0 +1,130 @@
+package api
+
+import (
+	"backend/model"
+	"backend/service"
+	"strconv"
+
+	"github.com/gin-gonic/gin"
+)
+
+type AIAgentHandler struct {
+	aiAgentService *service.AIAgentService
+}
+
+func NewAIAgentHandler(aiAgentService *service.AIAgentService) *AIAgentHandler {
+	return &AIAgentHandler{
+		aiAgentService: aiAgentService,
+	}
+}
+
+func (h *AIAgentHandler) ListAvailableAgents(c *gin.Context) {
+	userID, exists := c.Get("userId")
+	if !exists {
+		SendError(c, "401", "Unauthorized")
+		return
+	}
+
+	agents, err := h.aiAgentService.ListAvailableAgents(userID.(uint))
+	if err != nil {
+		SendError(c, "500", "Failed to fetch agents")
+		return
+	}
+
+	SendSuccess(c, agents)
+}
+
+func (h *AIAgentHandler) GetAIAgent(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		SendError(c, "400", "Invalid agent ID")
+		return
+	}
+
+	userID, exists := c.Get("userId")
+	if !exists {
+		SendError(c, "401", "Unauthorized")
+		return
+	}
+
+	agent, err := h.aiAgentService.GetAIAgentByID(userID.(uint), uint(id))
+	if err != nil {
+		SendError(c, "404", "Agent not found")
+		return
+	}
+
+	SendSuccess(c, agent)
+}
+
+func (h *AIAgentHandler) CreateAIAgent(c *gin.Context) {
+	var req model.CreateAIAgentRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		SendError(c, "400", "Invalid request body: "+err.Error())
+		return
+	}
+
+	userID, exists := c.Get("userId")
+	if !exists {
+		SendError(c, "401", "Unauthorized")
+		return
+	}
+
+	agent, err := h.aiAgentService.CreateAIAgent(userID.(uint), req)
+	if err != nil {
+		SendError(c, "500", "Failed to create agent")
+		return
+	}
+
+	SendSuccess(c, agent)
+}
+
+func (h *AIAgentHandler) UpdateAIAgent(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		SendError(c, "400", "Invalid agent ID")
+		return
+	}
+
+	var req model.UpdateAIAgentRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		SendError(c, "400", "Invalid request body: "+err.Error())
+		return
+	}
+
+	userID, exists := c.Get("userId")
+	if !exists {
+		SendError(c, "401", "Unauthorized")
+		return
+	}
+
+	if err := h.aiAgentService.UpdateAIAgent(userID.(uint), uint(id), req); err != nil {
+		SendError(c, "500", "Failed to update agent")
+		return
+	}
+
+	SendSuccess(c, nil)
+}
+
+func (h *AIAgentHandler) DeleteAIAgent(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		SendError(c, "400", "Invalid agent ID")
+		return
+	}
+
+	userID, exists := c.Get("userId")
+	if !exists {
+		SendError(c, "401", "Unauthorized")
+		return
+	}
+
+	if err := h.aiAgentService.DeleteAIAgent(userID.(uint), uint(id)); err != nil {
+		SendError(c, "500", "Failed to delete agent")
+		return
+	}
+
+	SendSuccess(c, nil)
+}

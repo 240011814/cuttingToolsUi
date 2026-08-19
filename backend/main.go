@@ -44,8 +44,8 @@ func main() {
 
 	promptService := service.NewPromptService(service.DB)
 
-	customTrainingService := service.NewCustomTrainingService()
-	customTrainingHandler := api.NewCustomTrainingHandler(customTrainingService)
+	aiAgentService := service.NewAIAgentService()
+	aiAgentHandler := api.NewAIAgentHandler(aiAgentService)
 
 	dashboardService := service.NewDashboardService()
 	dashboardHandler := api.NewDashboardHandler(dashboardService)
@@ -133,11 +133,11 @@ func main() {
 		// User specific AI prompt management
 		promptGroup := apiGroup.Group("/user-prompts")
 		{
-			promptGroup.GET("/:moduleKey", api.RequirePermission("ai:prompt:view"), promptHandler.GetUserPrompt)
-			promptGroup.POST("/:moduleKey", api.RequirePermission("ai:prompt:save"), promptHandler.SaveUserPrompt)
-			promptGroup.PUT("/:moduleKey/switch", api.RequirePermission("ai:prompt:switch"), promptHandler.SwitchUserPrompt)
-			promptGroup.DELETE("/:moduleKey/versions/:versionId", api.RequirePermission("ai:prompt:delete"), promptHandler.HandleDeleteVersion)
-			promptGroup.DELETE("/:moduleKey", api.RequirePermission("ai:prompt:reset"), promptHandler.ResetUserPrompt)
+			promptGroup.GET("/:agentId", api.RequirePermission("ai:prompt:view"), promptHandler.GetUserPrompt)
+			promptGroup.POST("/:agentId", api.RequirePermission("ai:prompt:save"), promptHandler.SaveUserPrompt)
+			promptGroup.PUT("/:agentId/switch", api.RequirePermission("ai:prompt:switch"), promptHandler.SwitchUserPrompt)
+			promptGroup.DELETE("/:agentId/versions/:versionId", api.RequirePermission("ai:prompt:delete"), promptHandler.HandleDeleteVersion)
+			promptGroup.DELETE("/:agentId", api.RequirePermission("ai:prompt:reset"), promptHandler.ResetUserPrompt)
 		}
 
 		vocabGroup := apiGroup.Group("/vocabulary")
@@ -171,14 +171,13 @@ func main() {
 		historyGroup.DELETE("/:id/share", api.RequirePermission("ai:history:edit"), historyHandler.RevokeShare)
 		}
 
-		customTrainingGroup := apiGroup.Group("/custom-trainings")
-		customTrainingGroup.Use(api.RequirePermission("ai:custom-training:view"))
+		aiAgentGroup := apiGroup.Group("/ai-agents")
 		{
-			customTrainingGroup.GET("", customTrainingHandler.ListCustomTrainings)
-			customTrainingGroup.GET("/:id", customTrainingHandler.GetCustomTraining)
-			customTrainingGroup.POST("", api.RequirePermission("ai:custom-training:create"), customTrainingHandler.CreateCustomTraining)
-			customTrainingGroup.PUT("/:id", api.RequirePermission("ai:custom-training:edit"), customTrainingHandler.UpdateCustomTraining)
-			customTrainingGroup.DELETE("/:id", api.RequirePermission("ai:custom-training:delete"), customTrainingHandler.DeleteCustomTraining)
+			aiAgentGroup.GET("", aiAgentHandler.ListAvailableAgents)
+			aiAgentGroup.GET("/:id", aiAgentHandler.GetAIAgent)
+			aiAgentGroup.POST("", api.RequirePermission("ai:custom-training:create"), aiAgentHandler.CreateAIAgent)
+			aiAgentGroup.PUT("/:id", api.RequirePermission("ai:custom-training:edit"), aiAgentHandler.UpdateAIAgent)
+			aiAgentGroup.DELETE("/:id", api.RequirePermission("ai:custom-training:delete"), aiAgentHandler.DeleteAIAgent)
 		}
 
 		// Memory APIs (mem0)
