@@ -68,8 +68,9 @@ export async function fetchChatStream(data: {
   history_id: number;
   training_type: string;
   custom_training_id?: number;
+  agent_id: number;
   model: string;
-  messages: any[];
+  messages: { role: string; content: string }[];
 }): Promise<Response> {
   const isHttpProxy =
     import.meta.env.DEV && import.meta.env.VITE_HTTP_PROXY === "Y";

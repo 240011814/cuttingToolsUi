@@ -250,7 +250,7 @@ func NewTelegramService(sysCfgService *SystemConfigService) *TelegramService {
 	s := &TelegramService{
 		sysCfgService:  sysCfgService,
 		historyService: NewHistoryService(),
-		promptService:  NewPromptService(DB),
+		promptService:  NewPromptService(DB, nil),
 		stopCh:         make(chan struct{}),
 		sessions:       make(map[int64]*TelegramSession),
 	}

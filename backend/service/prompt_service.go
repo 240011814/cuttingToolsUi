@@ -8,11 +8,12 @@ import (
 )
 
 type PromptService struct {
-	db *gorm.DB
+	db           *gorm.DB
+	agentService *AIAgentService
 }
 
-func NewPromptService(db *gorm.DB) *PromptService {
-	return &PromptService{db: db}
+func NewPromptService(db *gorm.DB, agentService *AIAgentService) *PromptService {
+	return &PromptService{db: db, agentService: agentService}
 }
 
 func (s *PromptService) GetEffectivePrompt(userID uint, agentID uint) (string, string, int, error) {
@@ -40,7 +41,7 @@ func (s *PromptService) ListVersions(userID uint, agentID uint) ([]model.UserPro
 }
 
 func (s *PromptService) SaveUserPrompt(userID uint, agentID uint, content, remark, memorySearchQuery string, memorySearchTopK int) error {
-	return s.db.Transaction(func(tx *gorm.DB) error {
+	err := s.db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Model(&model.UserPrompt{}).
 			Where("user_id = ? AND agent_id = ?", userID, agentID).
 			Update("is_active", false).Error; err != nil {
@@ -69,10 +70,14 @@ func (s *PromptService) SaveUserPrompt(userID uint, agentID uint, content, remar
 
 		return tx.Create(&newPrompt).Error
 	})
+	if err == nil {
+		s.clearCache(userID, agentID)
+	}
+	return err
 }
 
 func (s *PromptService) SwitchVersion(userID uint, agentID uint, versionID uint) error {
-	return s.db.Transaction(func(tx *gorm.DB) error {
+	err := s.db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Model(&model.UserPrompt{}).
 			Where("user_id = ? AND agent_id = ?", userID, agentID).
 			Update("is_active", false).Error; err != nil {
@@ -83,14 +88,28 @@ func (s *PromptService) SwitchVersion(userID uint, agentID uint, versionID uint)
 			Where("id = ? AND user_id = ?", versionID, userID).
 			Update("is_active", true).Error
 	})
+	if err == nil {
+		s.clearCache(userID, agentID)
+	}
+	return err
 }
 
 func (s *PromptService) ResetUserPrompt(userID uint, agentID uint) error {
-	return s.db.Where("user_id = ? AND agent_id = ?", userID, agentID).Delete(&model.UserPrompt{}).Error
+	err := s.db.Where("user_id = ? AND agent_id = ?", userID, agentID).Delete(&model.UserPrompt{}).Error
+	if err == nil {
+		s.clearCache(userID, agentID)
+	}
+	return err
+}
+
+func (s *PromptService) clearCache(userID uint, agentID uint) {
+	if s.agentService != nil {
+		s.agentService.clearRunnerCache(userID, agentID)
+	}
 }
 
 func (s *PromptService) DeleteVersion(userID uint, agentID uint, versionID uint) error {
-	return s.db.Transaction(func(tx *gorm.DB) error {
+	err := s.db.Transaction(func(tx *gorm.DB) error {
 		var prompt model.UserPrompt
 		if err := tx.Where("id = ? AND user_id = ?", versionID, userID).First(&prompt).Error; err != nil {
 			return err
@@ -111,4 +130,8 @@ func (s *PromptService) DeleteVersion(userID uint, agentID uint, versionID uint)
 
 		return nil
 	})
+	if err == nil {
+		s.clearCache(userID, agentID)
+	}
+	return err
 }

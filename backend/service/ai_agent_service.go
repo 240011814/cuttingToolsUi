@@ -4,14 +4,20 @@ import (
 	"backend/model"
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"log"
 	"time"
 
 	"github.com/cloudwego/eino-ext/components/model/ark"
 	"github.com/cloudwego/eino/adk"
+	"github.com/cloudwego/eino/callbacks"
+	einomodel "github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/components/tool"
 	"github.com/cloudwego/eino/compose"
+	"github.com/cloudwego/eino/schema"
 	"github.com/sashabaranov/go-openai"
+	"gorm.io/gorm"
 )
 
 type AIAgentService struct{
@@ -22,6 +28,7 @@ type AIAgentService struct{
 	client         *openai.Client
 	timeout        time.Duration
 	timeoutConfig  TimeoutConfig
+	runnerCache    map[string]*adk.Runner
 }
 
 func NewAIAgentService(timeoutMinutes int, sysCfgService *SystemConfigService) (*AIAgentService, error) {
@@ -29,7 +36,9 @@ func NewAIAgentService(timeoutMinutes int, sysCfgService *SystemConfigService) (
 		timeoutMinutes = 5
 	}
 	s := &AIAgentService{
-		timeout: time.Duration(timeoutMinutes) * time.Minute,
+		ctx:         context.Background(),
+		timeout:     time.Duration(timeoutMinutes) * time.Minute,
+		runnerCache: make(map[string]*adk.Runner),
 	}
 	// 从数据库读取超时配置
 	if sysCfgService != nil {
@@ -133,12 +142,24 @@ func (s *AIAgentService) UpdateAIAgent(userID uint, agentID uint, req model.Upda
 		updates["speech_rate"] = req.SpeechRate
 	}
 
-	return DB.Model(&model.AIAgent{}).Where("id = ? AND user_id = ?", agentID, userID).Updates(updates).Error
+	err := DB.Model(&model.AIAgent{}).Where("id = ? AND user_id = ?", agentID, userID).Updates(updates).Error
+	if err == nil {
+		s.clearRunnerCache(userID, agentID)
+	}
+	return err
 }
 
 func (s *AIAgentService) DeleteAIAgent(userID uint, agentID uint) error {
-	return DB.Where("id = ? AND user_id = ? AND is_public = ?", agentID, userID, false).
+	err := DB.Where("id = ? AND user_id = ? AND is_public = ?", agentID, userID, false).
 		Delete(&model.AIAgent{}).Error
+	if err == nil {
+		s.clearRunnerCache(userID, agentID)
+	}
+	return err
+}
+
+func (s *AIAgentService) clearRunnerCache(userID uint, agentID uint) {
+	delete(s.runnerCache, fmt.Sprintf("%d_%d", userID, agentID))
 }
 
 
@@ -190,8 +211,13 @@ func (s *AIAgentService) ReloadConfig() error {
 	return nil
 }
 
-func (s *AIAgentService)GetRunerByCode(userID uint, agentID uint) (*adk.Runner, error) {
-	model, err := s.getModel()
+func (s *AIAgentService)GetRunerByAgentID(userID uint, agentID uint, modelOverride string) (*adk.Runner, error) {
+	cacheKey := fmt.Sprintf("%d_%d_%s", userID, agentID, modelOverride)
+	if runner, ok := s.runnerCache[cacheKey]; ok {
+		return runner, nil
+	}
+	
+	chatModel, err := s.getModel(modelOverride)
 	if err != nil {
 		log.Printf("Failed to get model: %v", err)
 		return nil, err
@@ -201,11 +227,20 @@ func (s *AIAgentService)GetRunerByCode(userID uint, agentID uint) (*adk.Runner, 
 		log.Printf("Failed to get AI agent: %v", err)
 		return nil, err
 	}
+	var userPrompt model.UserPrompt
+	systemPrompt := userAgent.SystemPrompt
+	err = DB.Where("user_id = ? AND agent_id = ? AND is_active = ?", userID, agentID, true).First(&userPrompt).Error
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
+	}
+	if err == nil {
+		systemPrompt = userPrompt.CustomPrompt
+	}
   agent, err := adk.NewChatModelAgent(s.ctx, &adk.ChatModelAgentConfig{
         Name:        userAgent.Code,
         Description: userAgent.Description,
-        Instruction: "你是一个有帮助的助手。请根据可用工具回答用户问题。",
-        Model:       model,
+        Instruction: systemPrompt,
+        Model:       chatModel,
         ToolsConfig: adk.ToolsConfig{
             ToolsNodeConfig: compose.ToolsNodeConfig{
                 Tools: []tool.BaseTool{
@@ -219,17 +254,21 @@ func (s *AIAgentService)GetRunerByCode(userID uint, agentID uint) (*adk.Runner, 
         log.Fatal(err)
     }
 
-    // 3. 通过 Runner 执行 Agent
     runner := adk.NewRunner(s.ctx, adk.RunnerConfig{
         Agent:           agent,
         EnableStreaming: true,
     })
+    s.runnerCache[cacheKey] = runner
 		return runner, nil
 }
 
-func (s *AIAgentService) getModel() (*ark.ChatModel, error) {
+func (s *AIAgentService) getModel(modelOverride string) (*ark.ChatModel, error) {
+	modelCode := s.activeModel.ModelCode
+	if modelOverride != "" {
+		modelCode = modelOverride
+	}
 	chatConfig :=&ark.ChatModelConfig{
-		Model:  s.activeModel.ModelCode,
+		Model:  modelCode,
 		APIKey: s.activeProvider.APIKey,
 		BaseURL: s.activeProvider.BaseURL, 
 	}
@@ -259,4 +298,48 @@ func (s *AIAgentService) getModel() (*ark.ChatModel, error) {
 			log.Printf("AI model config_json parse failed model=%s config_json=%s err=%v", s.activeModel.ModelCode, s.activeModel.ConfigJSON, err)
 		}
 	return ark.NewChatModel(s.ctx, chatConfig)
+}
+
+
+
+func (s *AIAgentService) ChatStream(userID uint, agentID uint, messages []*schema.Message, modelOverride string) (*adk.AsyncIterator[*adk.TypedAgentEvent[*schema.Message]], error) {
+	runner, err := s.GetRunerByAgentID(userID, agentID, modelOverride)
+	if err != nil {
+		return nil, err
+	}
+	logHandler := callbacks.NewHandlerBuilder().
+		OnStartFn(func(ctx context.Context, info *callbacks.RunInfo, input callbacks.CallbackInput) context.Context {
+			if mi := einomodel.ConvCallbackInput(input); mi != nil {
+				log.Printf("[eino] %s start: %d messages", info.Name, len(mi.Messages))
+				for _, m := range mi.Messages {
+					log.Printf("[eino]   [%s] %s", m.Role, m.Content)
+				}
+			} else {
+				log.Printf("[eino] %s start", info.Name)
+			}
+			return ctx
+		}).
+		OnEndFn(func(ctx context.Context, info *callbacks.RunInfo, output callbacks.CallbackOutput) context.Context {
+			if mo := einomodel.ConvCallbackOutput(output); mo != nil && mo.Message != nil {
+				if mo.Message.ResponseMeta != nil && mo.Message.ResponseMeta.Usage.TotalTokens > 0 {
+					log.Printf("[eino] %s end: prompt_tokens=%d completion_tokens=%d total_tokens=%d",
+						info.Name,
+						mo.Message.ResponseMeta.Usage.PromptTokens,
+						mo.Message.ResponseMeta.Usage.CompletionTokens,
+						mo.Message.ResponseMeta.Usage.TotalTokens)
+				}
+				if mo.Message.Content != "" {
+					log.Printf("[eino] %s end: reply=%s", info.Name, mo.Message.Content)
+				}
+			} else {
+				log.Printf("[eino] %s end", info.Name)
+			}
+			return ctx
+		}).
+		OnErrorFn(func(ctx context.Context, info *callbacks.RunInfo, err error) context.Context {
+			log.Printf("[eino] %s error: %v", info.Name, err)
+			return ctx
+		}).
+		Build()
+	return runner.Run(s.ctx, messages, adk.WithCallbacks(logHandler)), nil
 }

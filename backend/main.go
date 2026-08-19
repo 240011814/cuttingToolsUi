@@ -42,12 +42,13 @@ func main() {
 	noteService := service.NewNoteService()
 	noteHandler := api.NewNoteHandler(noteService)
 
-	promptService := service.NewPromptService(service.DB)
+	promptService := service.NewPromptService(service.DB, nil)
 
 	aiAgentService, err := service.NewAIAgentService(cfg.AI.TimeoutMinutes, systemConfigService)
 	if err != nil {
 		log.Fatalf("Failed to initialize AI Agent Service: %v", err)
 	}
+	promptService = service.NewPromptService(service.DB, aiAgentService)
 	aiAgentHandler := api.NewAIAgentHandler(aiAgentService)
 
 	dashboardService := service.NewDashboardService()
@@ -131,7 +132,7 @@ func main() {
 
 		apiGroup.GET("/dashboard/stats", dashboardHandler.GetStats)
 		apiGroup.GET("/ai/models", api.RequirePermission("ai:model:view"), api.HandleListModels(aiService))
-		apiGroup.POST("/chat", api.RequirePermission("ai:chat:send"), api.HandleChatStream(aiService, historyService, mem0Service))
+		apiGroup.POST("/chat", api.RequirePermission("ai:chat:send"), api.HandleChatStream(aiAgentService, historyService, mem0Service))
 
 		// User specific AI prompt management
 		promptGroup := apiGroup.Group("/user-prompts")

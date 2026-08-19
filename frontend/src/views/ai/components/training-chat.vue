@@ -169,10 +169,6 @@ const createChatMessage = (role: ChatMessage["role"], content: string, timestamp
   };
 };
 
-const toApiMessages = (items: ChatMessage[]) => {
-  return items.map(({ role, content }) => ({ role, content }));
-};
-
 const systemMessage = ref<ChatMessage>({
   role: "system",
   content: props.systemPrompt,
@@ -523,17 +519,19 @@ const sendMessage = async () => {
   isGenerating.value = true;
 
   try {
+    const routeName = props.trainingType || (route.name as string) || "ai_agent";
     const history = messages.value
       .slice(0, -1)
       .filter((item) => item.content.trim() && !item.isError);
-    const routeName = props.trainingType || (route.name as string) || "ai_agent";
+    const apiMessages = history.map(({ role, content }) => ({ role, content }));
 
     const response = await fetchChatStream({
       history_id: historyId.value,
       training_type: routeName,
       custom_training_id: props.customTrainingId || undefined,
+      agent_id: props.agentId,
       model: selectedModel.value,
-      messages: toApiMessages([systemMessage.value, ...history]),
+      messages: apiMessages,
     });
 
     if (!response.ok) {

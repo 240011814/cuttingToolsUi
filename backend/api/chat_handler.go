@@ -9,19 +9,25 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/cloudwego/eino/schema"
 	"github.com/gin-gonic/gin"
-	"github.com/sashabaranov/go-openai"
 )
 
-type ChatRequest struct {
-	HistoryID        uint                           `json:"history_id"`
-	TrainingType     string                         `json:"training_type"`
-	CustomTrainingID *uint                          `json:"custom_training_id"`
-	Model            string                         `json:"model"`
-	Messages         []openai.ChatCompletionMessage `json:"messages" binding:"required"`
+type ChatMessage struct {
+	Role    string `json:"role" binding:"required"`
+	Content string `json:"content" binding:"required"`
 }
 
-func HandleChatStream(aiService *service.AIService, historyService *service.HistoryService, mem0Service *service.Mem0Service) gin.HandlerFunc {
+type ChatRequest struct {
+	HistoryID        uint          `json:"history_id"`
+	TrainingType     string        `json:"training_type"`
+	CustomTrainingID *uint         `json:"custom_training_id"`
+	AgentID          uint          `json:"agent_id" binding:"required"`
+	Model            string        `json:"model"`
+	Messages         []ChatMessage `json:"messages" binding:"required"`
+}
+
+func HandleChatStream(agentService *service.AIAgentService, historyService *service.HistoryService, mem0Service *service.Mem0Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		requestStart := time.Now()
 		var req ChatRequest
@@ -36,13 +42,23 @@ func HandleChatStream(aiService *service.AIService, historyService *service.Hist
 			return
 		}
 
-		stream, err := aiService.ChatStream(c.Request.Context(), req.Messages, req.Model)
+		inputMessages := make([]*schema.Message, len(req.Messages))
+		for i, m := range req.Messages {
+			inputMessages[i] = &schema.Message{
+				Role:    schema.RoleType(m.Role),
+				Content: m.Content,
+			}
+		}
+
+		iter, err := agentService.ChatStream(userID.(uint), req.AgentID, inputMessages, req.Model)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to call AI: " + err.Error()})
 			return
 		}
-		defer stream.Close()
-		log.Printf("chat stream established user=%d model=%s messages=%d init_ms=%d", userID.(uint), req.Model, len(req.Messages), time.Since(requestStart).Milliseconds())
+		log.Printf("[chat] user=%d agent=%d model=%s messages=%d init_ms=%d", userID.(uint), req.AgentID, req.Model, len(inputMessages), time.Since(requestStart).Milliseconds())
+		for _, m := range inputMessages {
+			log.Printf("[chat]   [%s] %s", m.Role, m.Content)
+		}
 
 		c.Header("Content-Type", "text/event-stream")
 		c.Header("Cache-Control", "no-cache")
@@ -53,30 +69,34 @@ func HandleChatStream(aiService *service.AIService, historyService *service.Hist
 		var fullThinkingContent string
 		firstTokenLogged := false
 		c.Stream(func(w io.Writer) bool {
-			response, err := stream.Recv()
-			if errors.Is(err, io.EOF) {
-				log.Printf("chat stream completed user=%d model=%s reply_chars=%d total_ms=%d", userID.(uint), req.Model, len(fullAssistantReply), time.Since(requestStart).Milliseconds())
+			event, ok := iter.Next()
+			if !ok {
+				log.Printf("chat stream completed user=%d reply_chars=%d total_ms=%d", userID.(uint), len(fullAssistantReply), time.Since(requestStart).Milliseconds())
 				c.SSEvent("message", "[DONE]")
 
-				allMessages := append(req.Messages, openai.ChatCompletionMessage{
-					Role:    openai.ChatMessageRoleAssistant,
-					Content: fullAssistantReply,
-				})
+				allMessages := make([]*schema.Message, 0, len(inputMessages)+1)
+				allMessages = append(allMessages, inputMessages...)
+				if fullAssistantReply != "" {
+					assistantMsg := &schema.Message{Role: schema.Assistant, Content: fullAssistantReply}
+					allMessages = append(allMessages, assistantMsg)
+				}
 
 				msgs := make([]model.OpenAIMessage, len(allMessages))
 				for i, m := range allMessages {
-					msgs[i] = model.OpenAIMessage{Role: m.Role, Content: m.Content}
+					msgs[i] = model.OpenAIMessage{Role: string(m.Role), Content: m.Content}
 				}
-				// 将思考过程保存到最后一条 assistant 消息
 				if fullThinkingContent != "" && len(msgs) > 0 {
 					msgs[len(msgs)-1].ThinkingContent = fullThinkingContent
 				}
 
 				title := "AI 训练对话"
-				if len(allMessages) > 1 && allMessages[1].Role == openai.ChatMessageRoleUser {
-					title = allMessages[1].Content
-					if len(title) > 20 {
-						title = title[:20] + "..."
+				for _, m := range inputMessages {
+					if m.Role == schema.User && m.Content != "" {
+						title = m.Content
+						if len(title) > 20 {
+							title = title[:20] + "..."
+						}
+						break
 					}
 				}
 
@@ -87,16 +107,15 @@ func HandleChatStream(aiService *service.AIService, historyService *service.Hist
 					}
 				}
 
-				// Save conversation to mem0 as memory
 				saveMemoryFunc := func() {
 					if mem0Service != nil && mem0Service.IsConfigured() {
 						memMessages := make([]service.Mem0Message, 0, len(allMessages))
 						for _, m := range allMessages {
-							if m.Role == openai.ChatMessageRoleSystem {
+							if m.Role == schema.System {
 								continue
 							}
 							memMessages = append(memMessages, service.Mem0Message{
-								Role:    m.Role,
+								Role:    string(m.Role),
 								Content: m.Content,
 							})
 						}
@@ -118,36 +137,47 @@ func HandleChatStream(aiService *service.AIService, historyService *service.Hist
 				return false
 			}
 
-			if err != nil {
-				c.SSEvent("error", gin.H{"error": err.Error()})
+			if event.Err != nil {
+				c.SSEvent("error", gin.H{"error": event.Err.Error()})
 				return false
 			}
 
-			if len(response.Choices) > 0 {
-				delta := response.Choices[0].Delta
-				if delta.ReasoningContent != "" {
-					fullThinkingContent += delta.ReasoningContent
-					c.SSEvent("message", gin.H{"reasoning_content": delta.ReasoningContent})
-				}
-				if delta.Content != "" {
-					if !firstTokenLogged {
-						firstTokenLogged = true
-						log.Printf("chat first token user=%d model=%s first_token_ms=%d", userID.(uint), req.Model, time.Since(requestStart).Milliseconds())
+			if event.Output != nil && event.Output.MessageOutput != nil {
+				mv := event.Output.MessageOutput
+				if mv.IsStreaming && mv.MessageStream != nil {
+					for {
+						msg, err := mv.MessageStream.Recv()
+						if errors.Is(err, io.EOF) {
+							break
+						}
+						if err != nil {
+							log.Printf("stream recv error: %v", err)
+							break
+						}
+						if !firstTokenLogged {
+							firstTokenLogged = true
+							log.Printf("chat first token user=%d first_token_ms=%d", userID.(uint), time.Since(requestStart).Milliseconds())
+						}
+						if msg.ReasoningContent != "" {
+							fullThinkingContent += msg.ReasoningContent
+							c.SSEvent("message", gin.H{"reasoning_content": msg.ReasoningContent})
+						}
+						if msg.Content != "" {
+							fullAssistantReply += msg.Content
+							c.SSEvent("message", gin.H{"content": msg.Content})
+						}
 					}
-					fullAssistantReply += delta.Content
-					c.SSEvent("message", gin.H{"content": delta.Content})
+				} else if mv.Message != nil {
+					msg := mv.Message
+					if msg.ReasoningContent != "" {
+						fullThinkingContent += msg.ReasoningContent
+						c.SSEvent("message", gin.H{"reasoning_content": msg.ReasoningContent})
+					}
+					if msg.Content != "" {
+						fullAssistantReply += msg.Content
+						c.SSEvent("message", gin.H{"content": msg.Content})
+					}
 				}
-			}
-
-			// 捕获 token 用量信息（在最后一个 chunk 中）
-			if response.Usage != nil {
-				c.SSEvent("message", gin.H{
-					"usage": gin.H{
-						"prompt_tokens":     response.Usage.PromptTokens,
-						"completion_tokens": response.Usage.CompletionTokens,
-						"total_tokens":      response.Usage.TotalTokens,
-					},
-				})
 			}
 
 			return true
