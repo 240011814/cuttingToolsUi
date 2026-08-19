@@ -190,15 +190,20 @@ func (s *AIAgentService) ReloadConfig() error {
 	return nil
 }
 
-func (s *AIAgentService)GetRunerByCode(agentCode string) (*adk.Runner, error) {
+func (s *AIAgentService)GetRunerByCode(userID uint, agentID uint) (*adk.Runner, error) {
 	model, err := s.getModel()
 	if err != nil {
 		log.Printf("Failed to get model: %v", err)
 		return nil, err
 	}
+	userAgent, err := s.GetAIAgentByID(userID, agentID)
+	if err != nil {
+		log.Printf("Failed to get AI agent: %v", err)
+		return nil, err
+	}
   agent, err := adk.NewChatModelAgent(s.ctx, &adk.ChatModelAgentConfig{
-        Name:        "my-assistant",
-        Description: "一个可以使用工具回答问题的助手。",
+        Name:        userAgent.Code,
+        Description: userAgent.Description,
         Instruction: "你是一个有帮助的助手。请根据可用工具回答用户问题。",
         Model:       model,
         ToolsConfig: adk.ToolsConfig{
