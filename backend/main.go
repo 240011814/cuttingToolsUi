@@ -44,7 +44,10 @@ func main() {
 
 	promptService := service.NewPromptService(service.DB)
 
-	aiAgentService := service.NewAIAgentService()
+	aiAgentService, err := service.NewAIAgentService(cfg.AI.TimeoutMinutes, systemConfigService)
+	if err != nil {
+		log.Fatalf("Failed to initialize AI Agent Service: %v", err)
+	}
 	aiAgentHandler := api.NewAIAgentHandler(aiAgentService)
 
 	dashboardService := service.NewDashboardService()
