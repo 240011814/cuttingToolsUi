@@ -11,17 +11,17 @@ type SystemConfigHandler struct {
 	configSvc       *service.SystemConfigService
 	mem0Svc         *service.Mem0Service
 	telegramService *service.TelegramService
-	aiService       *service.AIService
+	aiAgentSvc      *service.AIAgentService
 }
 
-func NewSystemConfigHandler(configSvc *service.SystemConfigService, mem0Svc *service.Mem0Service, telegramService *service.TelegramService, aiService ...*service.AIService) *SystemConfigHandler {
+func NewSystemConfigHandler(configSvc *service.SystemConfigService, mem0Svc *service.Mem0Service, telegramService *service.TelegramService, aiAgentSvc ...*service.AIAgentService) *SystemConfigHandler {
 	h := &SystemConfigHandler{
 		configSvc:       configSvc,
 		mem0Svc:         mem0Svc,
 		telegramService: telegramService,
 	}
-	if len(aiService) > 0 {
-		h.aiService = aiService[0]
+	if len(aiAgentSvc) > 0 {
+		h.aiAgentSvc = aiAgentSvc[0]
 	}
 	return h
 }
@@ -74,8 +74,8 @@ func (h *SystemConfigHandler) Update(c *gin.Context) {
 	for _, key := range timeoutKeys {
 		if req.Key == key {
 			h.configSvc.ReloadTimeoutConfig()
-			if h.aiService != nil {
-				go h.aiService.ReloadConfig()
+		if h.aiAgentSvc != nil {
+			go h.aiAgentSvc.ReloadConfig()
 			}
 			break
 		}

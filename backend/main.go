@@ -27,14 +27,8 @@ func main() {
 
 	systemConfigService := service.NewSystemConfigService()
 
-	aiService, err := service.NewAIService(cfg.AI.TimeoutMinutes, systemConfigService)
-	if err != nil {
-		log.Fatalf("Failed to initialize AI Service: %v", err)
-	}
-
 	authService := service.NewAuthService(cfg)
 	adminService := service.NewAdminService()
-	adminHandler := api.NewAdminHandler(adminService, aiService, authService)
 
 	vocabService := service.NewVocabularyService()
 	vocabHandler := api.NewVocabularyHandler(vocabService)
@@ -50,6 +44,8 @@ func main() {
 	}
 	promptService = service.NewPromptService(service.DB, aiAgentService)
 	aiAgentHandler := api.NewAIAgentHandler(aiAgentService)
+
+	adminHandler := api.NewAdminHandler(adminService, aiAgentService, authService)
 
 	dashboardService := service.NewDashboardService()
 	dashboardHandler := api.NewDashboardHandler(dashboardService)
@@ -69,7 +65,7 @@ func main() {
 	telegramService := service.NewTelegramService(systemConfigService)
 	telegramHandler := api.NewTelegramHandler(telegramService, systemConfigService)
 
-	systemConfigHandler := api.NewSystemConfigHandler(systemConfigService, mem0Service, telegramService, aiService)
+	systemConfigHandler := api.NewSystemConfigHandler(systemConfigService, mem0Service, telegramService, aiAgentService)
 
 	userPrefService := service.NewUserPreferenceService()
 	userPrefHandler := api.NewUserPreferenceHandler(userPrefService)
@@ -131,7 +127,7 @@ func main() {
 		apiGroup.POST("/telegram/unbind", telegramHandler.HandleUnbindTelegram)
 
 		apiGroup.GET("/dashboard/stats", dashboardHandler.GetStats)
-		apiGroup.GET("/ai/models", api.RequirePermission("ai:model:view"), api.HandleListModels(aiService))
+		apiGroup.GET("/ai/models", api.RequirePermission("ai:model:view"), api.HandleListModels(aiAgentService))
 		apiGroup.POST("/chat", api.RequirePermission("ai:chat:send"), api.HandleChatStream(aiAgentService, historyService, mem0Service))
 
 		// User specific AI prompt management

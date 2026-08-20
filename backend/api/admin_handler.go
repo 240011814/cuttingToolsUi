@@ -9,13 +9,13 @@ import (
 )
 
 type AdminHandler struct {
-	svc     *service.AdminService
-	aiSvc   *service.AIService
-	authSvc *service.AuthService
+	svc        *service.AdminService
+	aiAgentSvc *service.AIAgentService
+	authSvc    *service.AuthService
 }
 
-func NewAdminHandler(svc *service.AdminService, aiSvc *service.AIService, authSvc *service.AuthService) *AdminHandler {
-	return &AdminHandler{svc: svc, aiSvc: aiSvc, authSvc: authSvc}
+func NewAdminHandler(svc *service.AdminService, aiAgentSvc *service.AIAgentService, authSvc *service.AuthService) *AdminHandler {
+	return &AdminHandler{svc: svc, aiAgentSvc: aiAgentSvc, authSvc: authSvc}
 }
 
 func (h *AdminHandler) HandleListUsers(c *gin.Context) {
@@ -214,7 +214,7 @@ func (h *AdminHandler) HandleCreateAIProvider(c *gin.Context) {
 		SendError(c, "500", "创建 AI 提供商失败: "+err.Error())
 		return
 	}
-	h.aiSvc.ReloadConfig()
+	h.aiAgentSvc.ReloadConfig()
 	SendSuccess(c, nil)
 }
 
@@ -229,7 +229,7 @@ func (h *AdminHandler) HandleUpdateAIProvider(c *gin.Context) {
 		SendError(c, "500", "更新 AI 提供商失败: "+err.Error())
 		return
 	}
-	h.aiSvc.ReloadConfig()
+	h.aiAgentSvc.ReloadConfig()
 	SendSuccess(c, nil)
 }
 
@@ -239,7 +239,7 @@ func (h *AdminHandler) HandleDeleteAIProvider(c *gin.Context) {
 		SendError(c, "500", "删除 AI 提供商失败: "+err.Error())
 		return
 	}
-	h.aiSvc.ReloadConfig()
+	h.aiAgentSvc.ReloadConfig()
 	SendSuccess(c, nil)
 }
 
@@ -262,7 +262,7 @@ func (h *AdminHandler) HandleCreateAIModel(c *gin.Context) {
 		SendError(c, "500", "创建 AI 模型失败: "+err.Error())
 		return
 	}
-	h.aiSvc.ReloadConfig()
+	h.aiAgentSvc.ReloadConfig()
 	SendSuccess(c, nil)
 }
 
@@ -277,7 +277,7 @@ func (h *AdminHandler) HandleUpdateAIModel(c *gin.Context) {
 		SendError(c, "500", "更新 AI 模型失败: "+err.Error())
 		return
 	}
-	h.aiSvc.ReloadConfig()
+	h.aiAgentSvc.ReloadConfig()
 	SendSuccess(c, nil)
 }
 
@@ -287,7 +287,7 @@ func (h *AdminHandler) HandleDeleteAIModel(c *gin.Context) {
 		SendError(c, "500", "删除 AI 模型失败: "+err.Error())
 		return
 	}
-	h.aiSvc.ReloadConfig()
+	h.aiAgentSvc.ReloadConfig()
 	SendSuccess(c, nil)
 }
 
@@ -301,7 +301,7 @@ func (h *AdminHandler) HandleTestAIConnection(c *gin.Context) {
 		SendError(c, "400", "请求参数错误: "+err.Error())
 		return
 	}
-	if err := h.aiSvc.TestConnection(req.APIKey, req.BaseURL, req.ModelCode); err != nil {
+	if err := h.aiAgentSvc.TestConnection(req.APIKey, req.BaseURL, req.ModelCode); err != nil {
 		SendError(c, "500", "连接测试失败: "+err.Error())
 		return
 	}

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/cloudwego/eino-ext/components/model/ark"
@@ -16,7 +17,6 @@ import (
 	"github.com/cloudwego/eino/components/tool"
 	"github.com/cloudwego/eino/compose"
 	"github.com/cloudwego/eino/schema"
-	"github.com/sashabaranov/go-openai"
 	"gorm.io/gorm"
 )
 
@@ -25,7 +25,6 @@ type AIAgentService struct{
 	activeProvider *model.AIProvider
 	activeModel    *model.AIModel
 	enabledModels  []model.AIModel
-	client         *openai.Client
 	timeout        time.Duration
 	timeoutConfig  TimeoutConfig
 	runnerCache    map[string]*adk.Runner
@@ -159,7 +158,12 @@ func (s *AIAgentService) DeleteAIAgent(userID uint, agentID uint) error {
 }
 
 func (s *AIAgentService) clearRunnerCache(userID uint, agentID uint) {
-	delete(s.runnerCache, fmt.Sprintf("%d_%d", userID, agentID))
+	prefix := fmt.Sprintf("%d_%d", userID, agentID)
+	for key := range s.runnerCache {
+		if strings.HasPrefix(key, prefix) {
+			delete(s.runnerCache, key)
+		}
+	}
 }
 
 
@@ -185,16 +189,6 @@ func (s *AIAgentService) ReloadConfig() error {
 		s.activeModel = &m
 	}
 
-	// 更新客户端缓存
-	if s.activeProvider != nil {
-		config := openai.DefaultConfig(s.activeProvider.APIKey)
-		if s.activeProvider.BaseURL != "" {
-			config.BaseURL = s.activeProvider.BaseURL
-		}
-		config.HTTPClient = newHTTPClient(s.timeout, s.timeoutConfig)
-		s.client = openai.NewClientWithConfig(config)
-	}
-
 	// 加载所有启用 Provider 的模型列表
 	var providers []model.AIProvider
 	if err := DB.Where("is_active = ?", true).Find(&providers).Error; err == nil {
@@ -208,6 +202,69 @@ func (s *AIAgentService) ReloadConfig() error {
 		}
 	}
 
+	s.runnerCache = make(map[string]*adk.Runner)
+	return nil
+}
+
+func (s *AIAgentService) ListEnabledModels() ([]model.AIModel, error) {
+	var providers []model.AIProvider
+	if err := DB.Where("is_active = ?", true).Find(&providers).Error; err != nil {
+		return nil, err
+	}
+	if len(providers) == 0 {
+		return []model.AIModel{}, nil
+	}
+	providerIDs := make([]int, 0, len(providers))
+	for _, p := range providers {
+		providerIDs = append(providerIDs, p.ID)
+	}
+	var models []model.AIModel
+	if err := DB.Where("provider_id IN ?", providerIDs).Order("is_default DESC, id ASC").Find(&models).Error; err != nil {
+		return nil, err
+	}
+	return models, nil
+}
+
+func (s *AIAgentService) TestConnection(apiKey, baseURL, modelCode string) error {
+	if apiKey == "" {
+		return errors.New("API Key 不能为空")
+	}
+	testModel := modelCode
+	if testModel == "" {
+		testModel = "gpt-3.5-turbo"
+	}
+	chatModel, err := ark.NewChatModel(s.ctx, &ark.ChatModelConfig{
+		Model:   testModel,
+		APIKey:  apiKey,
+		BaseURL: baseURL,
+	})
+	if err != nil {
+		return err
+	}
+	testAgent, err := adk.NewChatModelAgent(s.ctx, &adk.ChatModelAgentConfig{
+		Name:        "test-connection",
+		Description: "test connection agent",
+		Instruction: "You are a test bot. Reply OK.",
+		Model:       chatModel,
+	})
+	if err != nil {
+		return err
+	}
+	runner := adk.NewRunner(s.ctx, adk.RunnerConfig{
+		Agent:           testAgent,
+		EnableStreaming: false,
+	})
+	ctx, cancel := context.WithTimeout(s.ctx, 30*time.Second)
+	defer cancel()
+	iter := runner.Run(ctx, []*schema.Message{
+		{Role: schema.User, Content: "Hello"},
+	})
+	for {
+		_, ok := iter.Next()
+		if !ok {
+			break
+		}
+	}
 	return nil
 }
 
