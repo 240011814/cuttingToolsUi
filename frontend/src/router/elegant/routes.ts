@@ -320,7 +320,7 @@ export const generatedRoutes: GeneratedRoute[] = [
         meta: {
           title: 'system_ai-config',
           i18nKey: 'route.system_ai-config',
-          permissions: ['system:ai-provider:view', 'system:ai-model:view'],
+          permissions: ['system:ai-provider:view', 'system:ai-model:view', 'system:ai-tool:view'],
           icon: 'mdi:robot-confused-outline'
         }
       },

@@ -81,5 +81,16 @@ declare namespace Api {
       created_at: string;
       updated_at: string;
     }
+
+    interface AITool {
+      id: number;
+      name: string;
+      display_name: string;
+      description: string;
+      enabled: boolean;
+      config_json: string;
+      created_at: string;
+      updated_at: string;
+    }
   }
 }

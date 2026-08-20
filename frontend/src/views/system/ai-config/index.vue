@@ -24,12 +24,28 @@ import {
   fetchUpdateAIModel,
   fetchUpdateAIProvider,
   fetchTestAIConnection,
+  fetchGetAITools,
+  fetchCreateAITool,
+  fetchUpdateAITool,
+  fetchDeleteAITool,
 } from "@/service/api/admin";
 import { $t } from "@/locales";
 
 const message = useMessage();
 const loading = ref(false);
 const providers = ref<Api.Admin.AIProvider[]>([]);
+const tools = ref<Api.Admin.AITool[]>([]);
+
+// Tool Modal
+const showToolModal = ref(false);
+const toolModalTitle = ref("");
+const toolForm = ref<Partial<Api.Admin.AITool>>({
+  name: "",
+  display_name: "",
+  description: "",
+  enabled: false,
+  config_json: "{}",
+});
 
 // Provider Modal
 const showProviderModal = ref(false);
@@ -133,6 +149,105 @@ async function getProviders() {
   }
   loading.value = false;
 }
+
+async function getTools() {
+  const { data } = await fetchGetAITools();
+  if (data) {
+    tools.value = data;
+  }
+}
+
+function handleAddTool() {
+  toolModalTitle.value = "添加工具";
+  toolForm.value = {
+    name: "",
+    display_name: "",
+    description: "",
+    enabled: true,
+    config_json: "{}",
+  };
+  showToolModal.value = true;
+}
+
+function handleEditTool(row: Api.Admin.AITool) {
+  toolModalTitle.value = "编辑工具";
+  toolForm.value = { ...row };
+  showToolModal.value = true;
+}
+
+async function handleSaveTool() {
+  if (toolForm.value.id) {
+    await fetchUpdateAITool(toolForm.value.id, toolForm.value);
+    message.success("更新成功");
+  } else {
+    await fetchCreateAITool(toolForm.value);
+    message.success("创建成功");
+  }
+  showToolModal.value = false;
+  getTools();
+}
+
+async function handleDeleteTool(id: number) {
+  await fetchDeleteAITool(id);
+  message.success("删除成功");
+  getTools();
+}
+
+async function handleToggleToolStatus(row: Api.Admin.AITool, val: boolean) {
+  await fetchUpdateAITool(row.id, { ...row, enabled: val });
+  message.success(val ? "已启用" : "已禁用");
+  getTools();
+}
+
+const toolColumns = computed<DataTableColumns<Api.Admin.AITool>>(() => [
+  { title: "工具标识", key: "name", width: 120 },
+  { title: "显示名称", key: "display_name", width: 120 },
+  { title: "描述", key: "description", ellipsis: { tooltip: true } },
+  {
+    title: "状态",
+    key: "enabled",
+    width: 80,
+    render(row) {
+      return h(NSwitch, {
+        value: row.enabled,
+        onUpdateValue: (val: boolean) => handleToggleToolStatus(row, val),
+      });
+    },
+  },
+  {
+    title: "操作",
+    key: "actions",
+    width: 150,
+    render(row) {
+      return h(
+        NSpace,
+        {},
+        {
+          default: () => [
+            h(
+              NButton,
+              { size: "small", onClick: () => handleEditTool(row) },
+              { default: () => "编辑" }
+            ),
+            h(
+              NPopconfirm,
+              { onPositiveClick: () => handleDeleteTool(row.id) },
+              {
+                default: () => "确认删除?",
+                trigger: () =>
+                  h(
+                    NButton,
+                    { size: "small", type: "error", ghost: true },
+                    { default: () => "删除" }
+                  ),
+              }
+            ),
+          ],
+        }
+      );
+    },
+  },
+]);
 
 function handleAddProvider() {
   providerModalTitle.value = $t("page.system.aiConfig.addProvider");
@@ -330,6 +445,7 @@ async function handleTestSingleModel(row: Api.Admin.AIModel) {
 
 onMounted(() => {
   getProviders();
+  getTools();
 });
 </script>
 
@@ -436,6 +552,68 @@ onMounted(() => {
           <NButton @click="closeModelForm">{{ $t("common.cancel") }}</NButton>
           <NButton type="primary" @click="handleSaveModel">
             {{ $t("common.confirm") }}
+          </NButton>
+        </div>
+      </NForm>
+    </NModal>
+
+    <!-- Tools Card -->
+    <NCard
+      title="AI 工具管理"
+      :bordered="false"
+      class="mt-4 rounded-16px shadow-sm"
+    >
+      <template #header-extra>
+        <NButton type="primary" @click="handleAddTool">
+          添加工具
+        </NButton>
+      </template>
+      <NDataTable
+        :columns="toolColumns"
+        :data="tools"
+        :pagination="false"
+      />
+    </NCard>
+
+    <!-- Tool Modal -->
+    <NModal
+      v-model:show="showToolModal"
+      :title="toolModalTitle"
+      preset="card"
+      class="w-500px"
+    >
+      <NForm :model="toolForm" label-placement="left" :label-width="100">
+        <NFormItem label="工具标识" path="name">
+          <NInput
+            v-model:value="toolForm.name"
+            placeholder="如: web_search"
+            :disabled="!!toolForm.id"
+          />
+        </NFormItem>
+        <NFormItem label="显示名称" path="display_name">
+          <NInput v-model:value="toolForm.display_name" placeholder="如: 联网搜索" />
+        </NFormItem>
+        <NFormItem label="描述" path="description">
+          <NInput
+            v-model:value="toolForm.description"
+            type="textarea"
+            placeholder="工具功能描述"
+          />
+        </NFormItem>
+        <NFormItem label="配置 JSON" path="config_json">
+          <NInput
+            v-model:value="toolForm.config_json"
+            type="textarea"
+            placeholder='{"api_key": "your-key"}'
+          />
+        </NFormItem>
+        <NFormItem label="启用" path="enabled">
+          <NSwitch v-model:value="toolForm.enabled" />
+        </NFormItem>
+        <div class="flex justify-end gap-2">
+          <NButton @click="showToolModal = false">取消</NButton>
+          <NButton type="primary" @click="handleSaveTool">
+            确认
           </NButton>
         </div>
       </NForm>

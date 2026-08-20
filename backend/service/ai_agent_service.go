@@ -165,6 +165,10 @@ func (s *AIAgentService) clearRunnerCache(userID uint, agentID uint) {
 	delete(s.promptCache, fmt.Sprintf("%d_%d", userID, agentID))
 }
 
+func (s *AIAgentService) ClearRunnerCache() {
+	s.runnerCache = make(map[string]*adk.Runner)
+}
+
 
 func (s *AIAgentService) ReloadConfig() error {
 
@@ -270,18 +274,19 @@ func (s *AIAgentService) TestConnection(apiKey, baseURL, modelCode string) error
 func (s *AIAgentService) buildTools() []tool.BaseTool {
 	var toolsList []tool.BaseTool
 
-	if s.sysCfgService != nil {
-		cfg := s.sysCfgService.GetWebSearchConfig()
-		if cfg.APIKey != "" {
-			webSearchTool, err := tools.NewWebSearchTool(tools.WebSearchConfig{
-				APIKey: cfg.APIKey,
-			})
-			if err != nil {
-				log.Printf("Failed to create web search tool: %v", err)
-			} else {
-				toolsList = append(toolsList, webSearchTool)
-			}
+	var dbTools []model.AITool
+	if err := DB.Where("enabled = ?", true).Find(&dbTools).Error; err != nil {
+		log.Printf("Failed to load tools from database: %v", err)
+		return toolsList
+	}
+
+	for _, dbTool := range dbTools {
+		t, err := tools.CreateTool(dbTool.Name, dbTool.ConfigJSON)
+		if err != nil {
+			log.Printf("Failed to create tool %s: %v", dbTool.Name, err)
+			continue
 		}
+		toolsList = append(toolsList, t)
 	}
 
 	return toolsList

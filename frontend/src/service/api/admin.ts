@@ -91,3 +91,23 @@ export function fetchDeleteAIModel(id: number) {
 export function fetchTestAIConnection(data: { api_key: string; base_url?: string; model_code?: string }) {
   return request<string>({ url: '/api/admin/ai-test', method: 'post', data });
 }
+
+export function fetchGetAITools() {
+  return request<Api.Admin.AITool[]>({ url: '/api/admin/ai-tools' });
+}
+
+export function fetchGetAITool(id: number) {
+  return request<Api.Admin.AITool>({ url: `/api/admin/ai-tools/${id}` });
+}
+
+export function fetchCreateAITool(data: Partial<Api.Admin.AITool>) {
+  return request({ url: '/api/admin/ai-tools', method: 'post', data });
+}
+
+export function fetchUpdateAITool(id: number, data: Partial<Api.Admin.AITool>) {
+  return request({ url: `/api/admin/ai-tools/${id}`, method: 'put', data });
+}
+
+export function fetchDeleteAITool(id: number) {
+  return request({ url: `/api/admin/ai-tools/${id}`, method: 'delete' });
+}

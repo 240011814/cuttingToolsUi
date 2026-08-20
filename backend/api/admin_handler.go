@@ -307,3 +307,74 @@ func (h *AdminHandler) HandleTestAIConnection(c *gin.Context) {
 	}
 	SendSuccess(c, "连接测试成功")
 }
+
+// AI Tool Handlers
+
+func (h *AdminHandler) HandleListAITools(c *gin.Context) {
+	var tools []model.AITool
+	if err := service.DB.Find(&tools).Error; err != nil {
+		SendError(c, "500", "获取工具列表失败: "+err.Error())
+		return
+	}
+	SendSuccess(c, tools)
+}
+
+func (h *AdminHandler) HandleGetAITool(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		SendError(c, "400", "工具 ID 不合法")
+		return
+	}
+	var tool model.AITool
+	if err := service.DB.First(&tool, id).Error; err != nil {
+		SendError(c, "404", "工具不存在")
+		return
+	}
+	SendSuccess(c, tool)
+}
+
+func (h *AdminHandler) HandleCreateAITool(c *gin.Context) {
+	var tool model.AITool
+	if err := c.ShouldBindJSON(&tool); err != nil {
+		SendError(c, "400", "请求参数错误: "+err.Error())
+		return
+	}
+	if err := service.DB.Create(&tool).Error; err != nil {
+		SendError(c, "500", "创建工具失败: "+err.Error())
+		return
+	}
+	SendSuccess(c, tool)
+}
+
+func (h *AdminHandler) HandleUpdateAITool(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		SendError(c, "400", "工具 ID 不合法")
+		return
+	}
+	var req model.AITool
+	if err := c.ShouldBindJSON(&req); err != nil {
+		SendError(c, "400", "请求参数错误: "+err.Error())
+		return
+	}
+	if err := service.DB.Model(&model.AITool{}).Where("id = ?", id).Updates(req).Error; err != nil {
+		SendError(c, "500", "更新工具失败: "+err.Error())
+		return
+	}
+	h.aiAgentSvc.ClearRunnerCache()
+	SendSuccess(c, nil)
+}
+
+func (h *AdminHandler) HandleDeleteAITool(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		SendError(c, "400", "工具 ID 不合法")
+		return
+	}
+	if err := service.DB.Delete(&model.AITool{}, id).Error; err != nil {
+		SendError(c, "500", "删除工具失败: "+err.Error())
+		return
+	}
+	h.aiAgentSvc.ClearRunnerCache()
+	SendSuccess(c, nil)
+}

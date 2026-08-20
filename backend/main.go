@@ -304,6 +304,12 @@ func main() {
 			adminGroup.DELETE("/ai-models/:id", api.RequirePermission("system:ai-model:delete"), adminHandler.HandleDeleteAIModel)
 			adminGroup.POST("/ai-test", api.RequirePermission("system:ai-provider:view"), adminHandler.HandleTestAIConnection)
 
+			adminGroup.GET("/ai-tools", api.RequirePermission("system:ai-tool:view"), adminHandler.HandleListAITools)
+			adminGroup.GET("/ai-tools/:id", api.RequirePermission("system:ai-tool:view"), adminHandler.HandleGetAITool)
+			adminGroup.POST("/ai-tools", api.RequirePermission("system:ai-tool:create"), adminHandler.HandleCreateAITool)
+			adminGroup.PUT("/ai-tools/:id", api.RequirePermission("system:ai-tool:update"), adminHandler.HandleUpdateAITool)
+			adminGroup.DELETE("/ai-tools/:id", api.RequirePermission("system:ai-tool:delete"), adminHandler.HandleDeleteAITool)
+
 			// System Config (R_SUPER only)
 			configGroup := adminGroup.Group("/system-config")
 			configGroup.Use(api.RequireRole("R_SUPER"))

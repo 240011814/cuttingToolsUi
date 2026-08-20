@@ -14,7 +14,7 @@ import (
 )
 
 type WebSearchConfig struct {
-	APIKey string
+	APIKey string `json:"api_key" description:"Tavily API Key" required:"true"`
 }
 
 type webSearchTool struct {
@@ -61,6 +61,13 @@ func NewWebSearchTool(config WebSearchConfig) (tool.InvokableTool, error) {
 		client: &http.Client{Timeout: 30 * time.Second},
 	}
 	return t, nil
+}
+
+func init() {
+	Register("web_search", "联网搜索", "联网搜索工具，用于获取互联网上的实时信息。当需要查找最新新闻、实时数据、或本地知识库中没有的信息时使用此工具。", WebSearchConfig{}, func(config map[string]any) (tool.BaseTool, error) {
+		apiKey, _ := config["api_key"].(string)
+		return NewWebSearchTool(WebSearchConfig{APIKey: apiKey})
+	})
 }
 
 func (t *webSearchTool) Info(_ context.Context) (*schema.ToolInfo, error) {
