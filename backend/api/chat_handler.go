@@ -144,6 +144,9 @@ func HandleChatStream(agentService *service.AIAgentService, historyService *serv
 
 			if event.Output != nil && event.Output.MessageOutput != nil {
 				mv := event.Output.MessageOutput
+				if mv.Role == schema.Tool {
+					return true
+				}
 				if mv.IsStreaming && mv.MessageStream != nil {
 					for {
 						msg, err := mv.MessageStream.Recv()

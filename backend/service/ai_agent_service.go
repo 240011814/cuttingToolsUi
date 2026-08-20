@@ -2,6 +2,7 @@ package service
 
 import (
 	"backend/model"
+	"backend/service/tools"
 	"context"
 	"encoding/json"
 	"errors"
@@ -28,6 +29,7 @@ type AIAgentService struct{
 	timeout        time.Duration
 	timeoutConfig  TimeoutConfig
 	runnerCache    map[string]*adk.Runner
+	sysCfgService  *SystemConfigService
 }
 
 func NewAIAgentService(timeoutMinutes int, sysCfgService *SystemConfigService) (*AIAgentService, error) {
@@ -35,9 +37,10 @@ func NewAIAgentService(timeoutMinutes int, sysCfgService *SystemConfigService) (
 		timeoutMinutes = 5
 	}
 	s := &AIAgentService{
-		ctx:         context.Background(),
-		timeout:     time.Duration(timeoutMinutes) * time.Minute,
-		runnerCache: make(map[string]*adk.Runner),
+		ctx:          context.Background(),
+		timeout:      time.Duration(timeoutMinutes) * time.Minute,
+		runnerCache:  make(map[string]*adk.Runner),
+		sysCfgService: sysCfgService,
 	}
 	// 从数据库读取超时配置
 	if sysCfgService != nil {
@@ -268,6 +271,26 @@ func (s *AIAgentService) TestConnection(apiKey, baseURL, modelCode string) error
 	return nil
 }
 
+func (s *AIAgentService) buildTools() []tool.BaseTool {
+	var toolsList []tool.BaseTool
+
+	if s.sysCfgService != nil {
+		cfg := s.sysCfgService.GetWebSearchConfig()
+		if cfg.APIKey != "" {
+			webSearchTool, err := tools.NewWebSearchTool(tools.WebSearchConfig{
+				APIKey: cfg.APIKey,
+			})
+			if err != nil {
+				log.Printf("Failed to create web search tool: %v", err)
+			} else {
+				toolsList = append(toolsList, webSearchTool)
+			}
+		}
+	}
+
+	return toolsList
+}
+
 func (s *AIAgentService)GetRunerByAgentID(userID uint, agentID uint, modelOverride string) (*adk.Runner, error) {
 	cacheKey := fmt.Sprintf("%d_%d_%s", userID, agentID, modelOverride)
 	if runner, ok := s.runnerCache[cacheKey]; ok {
@@ -300,9 +323,7 @@ func (s *AIAgentService)GetRunerByAgentID(userID uint, agentID uint, modelOverri
         Model:       chatModel,
         ToolsConfig: adk.ToolsConfig{
             ToolsNodeConfig: compose.ToolsNodeConfig{
-                Tools: []tool.BaseTool{
-                    // 注册你的工具，例如 webSearchTool
-                },
+                Tools: s.buildTools(),
             },
         },
         // Handlers: []adk.ChatModelAgentMiddleware{...}, // 注册 Middleware
