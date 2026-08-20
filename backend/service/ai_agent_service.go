@@ -319,7 +319,7 @@ func (s *AIAgentService)GetRunerByAgentID(userID uint, agentID uint, modelOverri
   agent, err := adk.NewChatModelAgent(s.ctx, &adk.ChatModelAgentConfig{
         Name:        userAgent.Code,
         Description: userAgent.Description,
-        Instruction: systemPrompt,
+        Instruction: systemPrompt + "\n\n当前时间: {current_time}",
         Model:       chatModel,
         ToolsConfig: adk.ToolsConfig{
             ToolsNodeConfig: compose.ToolsNodeConfig{
@@ -419,5 +419,7 @@ func (s *AIAgentService) ChatStream(userID uint, agentID uint, messages []*schem
 			return ctx
 		}).
 		Build()
-	return runner.Run(s.ctx, messages, adk.WithCallbacks(logHandler)), nil
+	return runner.Run(s.ctx, messages, adk.WithCallbacks(logHandler), adk.WithSessionValues(map[string]any{
+		"current_time": time.Now().Format("2006-01-02 15:04:05"),
+	})), nil
 }
