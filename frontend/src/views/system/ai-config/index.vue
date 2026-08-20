@@ -261,7 +261,7 @@ async function handleToggleToolStatus(row: Api.Admin.AITool, val: boolean) {
   getTools();
 }
 
-function getToolConfigPlaceholder(meta: Api.Admin.AIToolMeta): string {
+function _getToolConfigPlaceholder(meta: Api.Admin.AIToolMeta): string {
   if (!meta.params?.length) return "{}";
   const obj: Record<string, string> = {};
   meta.params.forEach((p) => {

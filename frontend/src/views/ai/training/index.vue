@@ -304,8 +304,8 @@ onMounted(() => {
           ? $t('page.ai.training.editTraining')
           : $t('page.ai.training.createTraining')
       "
-      style="width: 600px; max-height: 80vh"
-      :segmented="{ content: 'soft', footer: 'soft' }"
+      style="width: 600px"
+      :segmented="{ content: true, footer: true }"
     >
       <NForm :model="form" label-placement="left" label-width="80">
         <NFormItem :label="$t('page.ai.training.titleLabel')" path="title">

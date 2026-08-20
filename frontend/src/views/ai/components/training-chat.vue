@@ -670,6 +670,8 @@ const handlePlay = (text: string) => {
   window.speechSynthesis.speak(utterance);
 };
 
+const lastLoadedHistoryId = ref<number>(0);
+
 const loadHistory = async (id: number) => {
   try {
     const { data } = await fetchHistoryDetail(id);
@@ -778,8 +780,6 @@ onMounted(() => {
     scrollbarRef.value.scrollTo({ top: 999999 });
   }
 });
-
-const lastLoadedHistoryId = ref<number>(0);
 
 onActivated(() => {
   const queryHistoryId = Number(route.query.history_id) || 0;
