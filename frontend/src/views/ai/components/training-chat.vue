@@ -484,6 +484,18 @@ const setAssistantError = (content: string) => {
   };
 };
 
+const setAssistantThinking = (thinking: string) => {
+  const lastIdx = messages.value.length - 1;
+  const lastMsg = messages.value[lastIdx];
+  const existingThinking = lastMsg.thinkingContent || "";
+  messages.value[lastIdx] = {
+    ...lastMsg,
+    thinkingContent: existingThinking + thinking,
+    renderedThinking: renderMarkdown(existingThinking + thinking),
+  };
+  expandedThinking.value.add(lastIdx);
+};
+
 const copyToClipboard = async (content: string) => {
   try {
     await navigator.clipboard.writeText(content);
@@ -587,6 +599,11 @@ const sendMessage = async () => {
 
             if (dataObj.reasoning_content) {
               appendThinkingContent(dataObj.reasoning_content);
+              scheduleScrollToBottom();
+            }
+
+            if (dataObj.thinking) {
+              setAssistantThinking(dataObj.thinking);
               scheduleScrollToBottom();
             }
 
@@ -915,6 +932,20 @@ onBeforeUnmount(() => {
                       >
                         <NSpin size="small" />
                       </span>
+                      <span
+                        v-else-if="
+                          isGenerating &&
+                            index === messages.length - 1 &&
+                            msg.content !== ''
+                        "
+                        class="inline-flex items-center gap-1.5 ml-1 align-bottom"
+                      >
+                        <span class="thinking-dot" style="animation-delay: 0s"></span>
+                        <span class="thinking-dot" style="animation-delay: 0.15s"></span>
+                        <span class="thinking-dot" style="animation-delay: 0.3s"></span>
+                        <span class="thinking-dot" style="animation-delay: 0.45s"></span>
+                        <span class="thinking-dot" style="animation-delay: 0.6s"></span>
+                      </span>
                     </div>
 
                     <div
@@ -1059,6 +1090,20 @@ onBeforeUnmount(() => {
                         class="inline-block mt-1"
                       >
                         <NSpin size="small" />
+                      </span>
+                      <span
+                        v-else-if="
+                          isGenerating &&
+                            index === messages.length - 1 &&
+                            msg.content !== ''
+                        "
+                        class="inline-flex items-center gap-1.5 ml-1 align-bottom"
+                      >
+                        <span class="thinking-dot" style="animation-delay: 0s"></span>
+                        <span class="thinking-dot" style="animation-delay: 0.15s"></span>
+                        <span class="thinking-dot" style="animation-delay: 0.3s"></span>
+                        <span class="thinking-dot" style="animation-delay: 0.45s"></span>
+                        <span class="thinking-dot" style="animation-delay: 0.6s"></span>
                       </span>
                     </div>
                   </div>
@@ -1837,5 +1882,31 @@ onBeforeUnmount(() => {
   background: rgba(30, 30, 46, 1) !important;
   color: #818cf8;
   border-color: #818cf8 !important;
+}
+
+.thinking-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #60a5fa;
+  animation: thinking-bounce 1.4s infinite ease-in-out both;
+}
+
+.dark .thinking-dot {
+  background-color: #93c5fd;
+}
+
+@keyframes thinking-bounce {
+  0%,
+  80%,
+  100% {
+    transform: scale(0);
+    opacity: 0.5;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 </style>

@@ -145,6 +145,7 @@ func HandleChatStream(agentService *service.AIAgentService, historyService *serv
 			if event.Output != nil && event.Output.MessageOutput != nil {
 				mv := event.Output.MessageOutput
 				if mv.Role == schema.Tool {
+					c.SSEvent("message", gin.H{"thinking": "正在调用工具..."})
 					return true
 				}
 				if mv.IsStreaming && mv.MessageStream != nil {
