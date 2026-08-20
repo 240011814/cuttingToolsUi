@@ -307,7 +307,7 @@ func (s *AIAgentService) getOrCreateRunner(modelOverride string) (*adk.Runner, e
   agent, err := adk.NewChatModelAgent(s.ctx, &adk.ChatModelAgentConfig{
         Name:        "default",
         Description: "AI Assistant",
-        Instruction: "{custom_prompt}\n\n当前时间: {current_time}",
+        Instruction: "{custom_prompt}\n\n当前时间: {current_time}\n当前用户ID: {user_id}",
         Model:       chatModel,
         ToolsConfig: adk.ToolsConfig{
             ToolsNodeConfig: compose.ToolsNodeConfig{
@@ -435,5 +435,6 @@ func (s *AIAgentService) ChatStream(userID uint, agentID uint, messages []*schem
 	return runner.Run(s.ctx, messages, adk.WithCallbacks(logHandler), adk.WithSessionValues(map[string]any{
 		"custom_prompt": customPrompt,
 		"current_time":  time.Now().Format("2006-01-02 15:04:05"),
+		"user_id":       userID,
 	})), nil
 }
