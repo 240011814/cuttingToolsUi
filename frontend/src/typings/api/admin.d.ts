@@ -92,5 +92,20 @@ declare namespace Api {
       created_at: string;
       updated_at: string;
     }
+
+    interface AIToolParam {
+      name: string;
+      type: string;
+      description: string;
+      required: boolean;
+      default?: string;
+    }
+
+    interface AIToolMeta {
+      name: string;
+      display_name: string;
+      description: string;
+      params: AIToolParam[];
+    }
   }
 }

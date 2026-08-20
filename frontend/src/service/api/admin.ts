@@ -111,3 +111,7 @@ export function fetchUpdateAITool(id: number, data: Partial<Api.Admin.AITool>) {
 export function fetchDeleteAITool(id: number) {
   return request({ url: `/api/admin/ai-tools/${id}`, method: 'delete' });
 }
+
+export function fetchGetAIToolMetas() {
+  return request<Api.Admin.AIToolMeta[]>({ url: '/api/admin/ai-tools/meta' });
+}

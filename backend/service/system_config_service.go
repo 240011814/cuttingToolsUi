@@ -21,11 +21,6 @@ type TimeoutConfig struct {
 	HTTPTimeout             int // HTTP 请求超时时间（秒），用于 AI 连接、Mem0、Telegram
 }
 
-// WebSearchConfig 联网搜索配置
-type WebSearchConfig struct {
-	APIKey string
-}
-
 type SystemConfigService struct {
 	mu            sync.RWMutex
 	timeoutCache  *TimeoutConfig
@@ -126,14 +121,6 @@ func (s *SystemConfigService) ReloadTimeoutConfig() TimeoutConfig {
 	s.mu.Unlock()
 
 	return config
-}
-
-// GetWebSearchConfig 获取联网搜索配置
-func (s *SystemConfigService) GetWebSearchConfig() WebSearchConfig {
-	apiKey, _ := s.GetValue("web_search_api_key")
-	return WebSearchConfig{
-		APIKey: apiKey,
-	}
 }
 
 // loadTimeoutConfigFromDB 从数据库读取超时配置

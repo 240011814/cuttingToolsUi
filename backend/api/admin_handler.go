@@ -5,6 +5,7 @@ import (
 
 	"backend/model"
 	"backend/service"
+	"backend/service/tools"
 	"github.com/gin-gonic/gin"
 )
 
@@ -343,6 +344,7 @@ func (h *AdminHandler) HandleCreateAITool(c *gin.Context) {
 		SendError(c, "500", "创建工具失败: "+err.Error())
 		return
 	}
+	h.aiAgentSvc.ClearRunnerCache()
 	SendSuccess(c, tool)
 }
 
@@ -357,7 +359,9 @@ func (h *AdminHandler) HandleUpdateAITool(c *gin.Context) {
 		SendError(c, "400", "请求参数错误: "+err.Error())
 		return
 	}
-	if err := service.DB.Model(&model.AITool{}).Where("id = ?", id).Updates(req).Error; err != nil {
+	if err := service.DB.Model(&model.AITool{}).Where("id = ?", id).
+		Select("display_name", "description", "enabled", "config_json").
+		Updates(req).Error; err != nil {
 		SendError(c, "500", "更新工具失败: "+err.Error())
 		return
 	}
@@ -377,4 +381,10 @@ func (h *AdminHandler) HandleDeleteAITool(c *gin.Context) {
 	}
 	h.aiAgentSvc.ClearRunnerCache()
 	SendSuccess(c, nil)
+}
+
+// HandleListAIToolMetas 返回所有已注册的工具元信息（通过反射获取）
+func (h *AdminHandler) HandleListAIToolMetas(c *gin.Context) {
+	metas := tools.GetAllToolMeta()
+	SendSuccess(c, metas)
 }

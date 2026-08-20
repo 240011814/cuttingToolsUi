@@ -12,9 +12,6 @@ const saving2fa = ref(false);
 const savingMem0 = ref(false);
 const savingTelegram = ref(false);
 const savingTimeout = ref(false);
-const savingWebSearch = ref(false);
-const webSearchApiKey = ref("");
-const showWebSearchKey = ref(false);
 const registerEnabled = ref(false);
 const admin2faEnabled = ref(false);
 const mem0Enabled = ref(true);
@@ -72,9 +69,6 @@ async function loadConfig() {
 
       const httpTimeoutConfig = data.find((c: any) => c.key === "http_timeout_seconds");
       httpTimeoutSeconds.value = httpTimeoutConfig ? Number(httpTimeoutConfig.value) : 30;
-
-      const webSearchApiKeyConfig = data.find((c: any) => c.key === "web_search_api_key");
-      webSearchApiKey.value = webSearchApiKeyConfig?.value || "";
     }
   } catch (err: any) {
     message.error(`加载配置失败: ${err?.message || "未知错误"}`);
@@ -181,18 +175,6 @@ async function handleSaveTimeout() {
     message.error(`保存失败: ${err?.message || "未知错误"}`);
   } finally {
     savingTimeout.value = false;
-  }
-}
-
-async function handleSaveWebSearch() {
-  savingWebSearch.value = true;
-  try {
-    await saveConfig("web_search_api_key", webSearchApiKey.value, "Tavily 联网搜索 API Key");
-    message.success("联网搜索配置已保存");
-  } catch (err: any) {
-    message.error(`保存失败: ${err?.message || "未知错误"}`);
-  } finally {
-    savingWebSearch.value = false;
   }
 }
 
@@ -404,40 +386,6 @@ onMounted(() => {
               <NFormItem class="mt-4">
                 <NButton type="primary" :loading="savingTimeout" @click="handleSaveTimeout">
                   保存超时配置
-                </NButton>
-              </NFormItem>
-            </NForm>
-          </div>
-
-          <!-- 联网搜索配置 -->
-          <div class="p-4 rounded-lg border border-gray-200 dark:border-gray-700">
-            <div class="flex items-center justify-between mb-4">
-              <div>
-                <div class="font-bold text-gray-800 dark:text-gray-200">联网搜索 (Tavily)</div>
-                <div class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                  配置 Tavily API Key 后，AI Agent 可在对话中调用联网搜索工具获取实时信息。
-                </div>
-              </div>
-            </div>
-            <NForm label-placement="left" label-width="100">
-              <NFormItem label="API Key">
-                <NInput
-                  v-model:value="webSearchApiKey"
-                  :type="showWebSearchKey ? 'text' : 'password'"
-                  placeholder="输入 Tavily API Key (tvly-dev-...)"
-                >
-                  <template #suffix>
-                    <div
-                      class="cursor-pointer text-gray-400 hover:text-gray-600"
-                      :class="showWebSearchKey ? 'i-mdi:eye-off' : 'i-mdi:eye'"
-                      @click="showWebSearchKey = !showWebSearchKey"
-                    />
-                  </template>
-                </NInput>
-              </NFormItem>
-              <NFormItem>
-                <NButton type="primary" :loading="savingWebSearch" @click="handleSaveWebSearch">
-                  保存联网搜索配置
                 </NButton>
               </NFormItem>
             </NForm>

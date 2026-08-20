@@ -11,6 +11,8 @@ import {
   NPopconfirm,
   NSpace,
   NSwitch,
+  NTabPane,
+  NTabs,
   NTag,
   useMessage,
 } from "naive-ui";
@@ -28,17 +30,23 @@ import {
   fetchCreateAITool,
   fetchUpdateAITool,
   fetchDeleteAITool,
+  fetchGetAIToolMetas,
 } from "@/service/api/admin";
 import { $t } from "@/locales";
 
 const message = useMessage();
 const loading = ref(false);
+const activeTab = ref("providers");
 const providers = ref<Api.Admin.AIProvider[]>([]);
 const tools = ref<Api.Admin.AITool[]>([]);
+const toolMetas = ref<Api.Admin.AIToolMeta[]>([]);
 
 // Tool Modal
 const showToolModal = ref(false);
 const toolModalTitle = ref("");
+const toolModalMode = ref<"select" | "config">("select");
+const selectedToolMeta = ref<Api.Admin.AIToolMeta | null>(null);
+const toolConfigValues = ref<Record<string, string>>({});
 const toolForm = ref<Partial<Api.Admin.AITool>>({
   name: "",
   display_name: "",
@@ -157,8 +165,17 @@ async function getTools() {
   }
 }
 
+async function getToolMetas() {
+  const { data } = await fetchGetAIToolMetas();
+  if (data) {
+    toolMetas.value = data;
+  }
+}
+
 function handleAddTool() {
   toolModalTitle.value = "添加工具";
+  toolModalMode.value = "select";
+  selectedToolMeta.value = null;
   toolForm.value = {
     name: "",
     display_name: "",
@@ -169,13 +186,52 @@ function handleAddTool() {
   showToolModal.value = true;
 }
 
+function handleSelectTool(meta: Api.Admin.AIToolMeta) {
+  selectedToolMeta.value = meta;
+  const values: Record<string, string> = {};
+  meta.params?.forEach((p) => {
+    values[p.name] = p.default || "";
+  });
+  toolConfigValues.value = values;
+  toolForm.value = {
+    name: meta.name,
+    display_name: meta.display_name,
+    description: meta.description,
+    enabled: true,
+    config_json: JSON.stringify(values, null, 2),
+  };
+  toolModalMode.value = "config";
+}
+
+function handleBackToSelect() {
+  toolModalMode.value = "select";
+  selectedToolMeta.value = null;
+}
+
 function handleEditTool(row: Api.Admin.AITool) {
   toolModalTitle.value = "编辑工具";
+  toolModalMode.value = "config";
+  const meta = toolMetas.value.find((m) => m.name === row.name);
+  selectedToolMeta.value = meta || null;
+  const values: Record<string, string> = {};
+  try {
+    const parsed = JSON.parse(row.config_json || "{}");
+    Object.keys(parsed).forEach((k) => {
+      values[k] = String(parsed[k]);
+    });
+  } catch {}
+  if (meta) {
+    meta.params?.forEach((p) => {
+      if (!(p.name in values)) values[p.name] = p.default || "";
+    });
+  }
+  toolConfigValues.value = values;
   toolForm.value = { ...row };
   showToolModal.value = true;
 }
 
 async function handleSaveTool() {
+  toolForm.value.config_json = JSON.stringify(toolConfigValues.value);
   if (toolForm.value.id) {
     await fetchUpdateAITool(toolForm.value.id, toolForm.value);
     message.success("更新成功");
@@ -194,10 +250,30 @@ async function handleDeleteTool(id: number) {
 }
 
 async function handleToggleToolStatus(row: Api.Admin.AITool, val: boolean) {
-  await fetchUpdateAITool(row.id, { ...row, enabled: val });
+  await fetchUpdateAITool(row.id, {
+    name: row.name,
+    display_name: row.display_name,
+    description: row.description,
+    config_json: row.config_json,
+    enabled: val,
+  });
   message.success(val ? "已启用" : "已禁用");
   getTools();
 }
+
+function getToolConfigPlaceholder(meta: Api.Admin.AIToolMeta): string {
+  if (!meta.params?.length) return "{}";
+  const obj: Record<string, string> = {};
+  meta.params.forEach((p) => {
+    obj[p.name] = p.default || "";
+  });
+  return JSON.stringify(obj, null, 2);
+}
+
+const availableToolMetas = computed(() => {
+  const savedNames = new Set(tools.value.map((t) => t.name));
+  return toolMetas.value.filter((m) => !savedNames.has(m.name));
+});
 
 const toolColumns = computed<DataTableColumns<Api.Admin.AITool>>(() => [
   { title: "工具标识", key: "name", width: 120 },
@@ -446,27 +522,48 @@ async function handleTestSingleModel(row: Api.Admin.AIModel) {
 onMounted(() => {
   getProviders();
   getTools();
+  getToolMetas();
 });
 </script>
 
 <template>
   <div class="h-full p-4">
     <NCard
-      :title="$t('page.system.aiConfig.title')"
       :bordered="false"
       class="h-full rounded-16px shadow-sm"
     >
-      <template #header-extra>
-        <NButton type="primary" @click="handleAddProvider">
-          {{ $t("page.system.aiConfig.addProvider") }}
-        </NButton>
-      </template>
-      <NDataTable
-        :columns="columns"
-        :data="providers"
-        :loading="loading"
-        :pagination="false"
-      />
+      <NTabs v-model:value="activeTab" type="line" animated>
+        <NTabPane name="providers" tab="AI 配置管理">
+          <div class="mt-4">
+            <div class="flex justify-end mb-4">
+              <NButton type="primary" @click="handleAddProvider">
+                {{ $t("page.system.aiConfig.addProvider") }}
+              </NButton>
+            </div>
+            <NDataTable
+              :columns="columns"
+              :data="providers"
+              :loading="loading"
+              :pagination="false"
+            />
+          </div>
+        </NTabPane>
+
+        <NTabPane name="tools" tab="AI 工具管理">
+          <div class="mt-4">
+            <div class="flex justify-end mb-4">
+              <NButton type="primary" @click="handleAddTool">
+                添加工具
+              </NButton>
+            </div>
+            <NDataTable
+              :columns="toolColumns"
+              :data="tools"
+              :pagination="false"
+            />
+          </div>
+        </NTabPane>
+      </NTabs>
     </NCard>
 
     <!-- Provider Modal -->
@@ -557,66 +654,82 @@ onMounted(() => {
       </NForm>
     </NModal>
 
-    <!-- Tools Card -->
-    <NCard
-      title="AI 工具管理"
-      :bordered="false"
-      class="mt-4 rounded-16px shadow-sm"
-    >
-      <template #header-extra>
-        <NButton type="primary" @click="handleAddTool">
-          添加工具
-        </NButton>
-      </template>
-      <NDataTable
-        :columns="toolColumns"
-        :data="tools"
-        :pagination="false"
-      />
-    </NCard>
-
     <!-- Tool Modal -->
     <NModal
       v-model:show="showToolModal"
       :title="toolModalTitle"
       preset="card"
-      class="w-500px"
+      :class="toolModalMode === 'select' ? 'w-700px' : 'w-500px'"
     >
-      <NForm :model="toolForm" label-placement="left" :label-width="100">
-        <NFormItem label="工具标识" path="name">
-          <NInput
-            v-model:value="toolForm.name"
-            placeholder="如: web_search"
-            :disabled="!!toolForm.id"
-          />
-        </NFormItem>
-        <NFormItem label="显示名称" path="display_name">
-          <NInput v-model:value="toolForm.display_name" placeholder="如: 联网搜索" />
-        </NFormItem>
-        <NFormItem label="描述" path="description">
-          <NInput
-            v-model:value="toolForm.description"
-            type="textarea"
-            placeholder="工具功能描述"
-          />
-        </NFormItem>
-        <NFormItem label="配置 JSON" path="config_json">
-          <NInput
-            v-model:value="toolForm.config_json"
-            type="textarea"
-            placeholder='{"api_key": "your-key"}'
-          />
-        </NFormItem>
-        <NFormItem label="启用" path="enabled">
-          <NSwitch v-model:value="toolForm.enabled" />
-        </NFormItem>
-        <div class="flex justify-end gap-2">
-          <NButton @click="showToolModal = false">取消</NButton>
-          <NButton type="primary" @click="handleSaveTool">
-            确认
-          </NButton>
+      <!-- Step 1: Select Tool -->
+      <div v-if="toolModalMode === 'select'">
+        <div class="mb-4 text-gray-500 text-sm">选择要添加的工具类型：</div>
+        <div class="grid grid-cols-2 gap-3">
+          <div
+            v-for="meta in availableToolMetas"
+            :key="meta.name"
+            class="p-3 border border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:border-primary hover:shadow-sm transition-all"
+            @click="handleSelectTool(meta)"
+          >
+            <div class="font-bold text-gray-800 dark:text-gray-200">{{ meta.display_name }}</div>
+            <div class="text-xs text-gray-500 mt-1">{{ meta.description }}</div>
+            <div class="flex flex-wrap gap-1 mt-2">
+              <NTag v-for="param in meta.params" :key="param.name" size="tiny" type="info">
+                {{ param.name }}
+              </NTag>
+            </div>
+          </div>
         </div>
-      </NForm>
+        <div v-if="availableToolMetas.length === 0" class="text-center text-gray-400 py-8">
+          {{ toolMetas.length === 0 ? '暂无可用工具' : '所有工具已添加' }}
+        </div>
+      </div>
+
+      <!-- Step 2: Configure Tool -->
+      <div v-else>
+        <div class="mb-4 flex items-center gap-2">
+          <NButton text @click="handleBackToSelect">
+            ← 返回选择
+          </NButton>
+          <span class="text-gray-500 text-sm">配置：{{ selectedToolMeta?.display_name }}</span>
+        </div>
+        <NForm :model="toolForm" label-placement="left" :label-width="100">
+          <NFormItem label="工具标识" path="name">
+            <NInput v-model:value="toolForm.name" disabled />
+          </NFormItem>
+          <NFormItem label="显示名称" path="display_name">
+            <NInput v-model:value="toolForm.display_name" />
+          </NFormItem>
+          <NFormItem label="描述" path="description">
+            <NInput v-model:value="toolForm.description" type="textarea" />
+          </NFormItem>
+
+          <div v-if="selectedToolMeta?.params?.length" class="mb-4">
+            <div class="text-sm font-bold text-gray-700 dark:text-gray-300 mb-2 ml-24">工具参数</div>
+            <NFormItem
+              v-for="param in selectedToolMeta.params"
+              :key="param.name"
+              :label="param.description || param.name"
+              :required="param.required"
+            >
+              <NInput
+                v-model:value="toolConfigValues[param.name]"
+                :type="param.name.includes('key') || param.name.includes('secret') ? 'password' : 'text'"
+                :show-password-on="param.name.includes('key') || param.name.includes('secret') ? 'click' : undefined"
+                :placeholder="param.type + (param.default ? ` (默认: ${param.default})` : '')"
+              />
+            </NFormItem>
+          </div>
+
+          <NFormItem label="启用" path="enabled">
+            <NSwitch v-model:value="toolForm.enabled" />
+          </NFormItem>
+          <div class="flex justify-end gap-2">
+            <NButton @click="showToolModal = false">取消</NButton>
+            <NButton type="primary" @click="handleSaveTool">确认</NButton>
+          </div>
+        </NForm>
+      </div>
     </NModal>
   </div>
 </template>
