@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"strings"
 	"time"
 
 	"github.com/cloudwego/eino-ext/components/model/ark"
@@ -18,7 +17,6 @@ import (
 	"github.com/cloudwego/eino/components/tool"
 	"github.com/cloudwego/eino/compose"
 	"github.com/cloudwego/eino/schema"
-	"gorm.io/gorm"
 )
 
 type AIAgentService struct{
@@ -29,6 +27,7 @@ type AIAgentService struct{
 	timeout        time.Duration
 	timeoutConfig  TimeoutConfig
 	runnerCache    map[string]*adk.Runner
+	promptCache    map[string]string
 	sysCfgService  *SystemConfigService
 }
 
@@ -40,6 +39,7 @@ func NewAIAgentService(timeoutMinutes int, sysCfgService *SystemConfigService) (
 		ctx:          context.Background(),
 		timeout:      time.Duration(timeoutMinutes) * time.Minute,
 		runnerCache:  make(map[string]*adk.Runner),
+		promptCache:  make(map[string]string),
 		sysCfgService: sysCfgService,
 	}
 	// 从数据库读取超时配置
@@ -161,12 +161,8 @@ func (s *AIAgentService) DeleteAIAgent(userID uint, agentID uint) error {
 }
 
 func (s *AIAgentService) clearRunnerCache(userID uint, agentID uint) {
-	prefix := fmt.Sprintf("%d_%d", userID, agentID)
-	for key := range s.runnerCache {
-		if strings.HasPrefix(key, prefix) {
-			delete(s.runnerCache, key)
-		}
-	}
+	s.runnerCache = make(map[string]*adk.Runner)
+	delete(s.promptCache, fmt.Sprintf("%d_%d", userID, agentID))
 }
 
 
@@ -291,8 +287,8 @@ func (s *AIAgentService) buildTools() []tool.BaseTool {
 	return toolsList
 }
 
-func (s *AIAgentService)GetRunerByAgentID(userID uint, agentID uint, modelOverride string) (*adk.Runner, error) {
-	cacheKey := fmt.Sprintf("%d_%d_%s", userID, agentID, modelOverride)
+func (s *AIAgentService) getOrCreateRunner(modelOverride string) (*adk.Runner, error) {
+	cacheKey := modelOverride
 	if runner, ok := s.runnerCache[cacheKey]; ok {
 		return runner, nil
 	}
@@ -302,31 +298,17 @@ func (s *AIAgentService)GetRunerByAgentID(userID uint, agentID uint, modelOverri
 		log.Printf("Failed to get model: %v", err)
 		return nil, err
 	}
-	userAgent, err := s.GetAIAgentByID(userID, agentID)
-	if err != nil {
-		log.Printf("Failed to get AI agent: %v", err)
-		return nil, err
-	}
-	var userPrompt model.UserPrompt
-	systemPrompt := userAgent.SystemPrompt
-	err = DB.Where("user_id = ? AND agent_id = ? AND is_active = ?", userID, agentID, true).First(&userPrompt).Error
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, err
-	}
-	if err == nil {
-		systemPrompt = userPrompt.CustomPrompt
-	}
+
   agent, err := adk.NewChatModelAgent(s.ctx, &adk.ChatModelAgentConfig{
-        Name:        userAgent.Code,
-        Description: userAgent.Description,
-        Instruction: systemPrompt + "\n\n当前时间: {current_time}",
+        Name:        "default",
+        Description: "AI Assistant",
+        Instruction: "{custom_prompt}\n\n当前时间: {current_time}",
         Model:       chatModel,
         ToolsConfig: adk.ToolsConfig{
             ToolsNodeConfig: compose.ToolsNodeConfig{
                 Tools: s.buildTools(),
             },
         },
-        // Handlers: []adk.ChatModelAgentMiddleware{...}, // 注册 Middleware
     })
     if err != nil {
         log.Fatal(err)
@@ -338,6 +320,29 @@ func (s *AIAgentService)GetRunerByAgentID(userID uint, agentID uint, modelOverri
     })
     s.runnerCache[cacheKey] = runner
 		return runner, nil
+}
+
+func (s *AIAgentService) getCustomPrompt(userID uint, agentID uint) string {
+	cacheKey := fmt.Sprintf("%d_%d", userID, agentID)
+	if prompt, ok := s.promptCache[cacheKey]; ok {
+		return prompt
+	}
+
+	userAgent, err := s.GetAIAgentByID(userID, agentID)
+	if err != nil {
+		return ""
+	}
+	var userPrompt model.UserPrompt
+	var prompt string
+	err = DB.Where("user_id = ? AND agent_id = ? AND is_active = ?", userID, agentID, true).First(&userPrompt).Error
+	if err == nil {
+		prompt = userPrompt.CustomPrompt
+	} else {
+		prompt = userAgent.SystemPrompt
+	}
+
+	s.promptCache[cacheKey] = prompt
+	return prompt
 }
 
 func (s *AIAgentService) getModel(modelOverride string) (*ark.ChatModel, error) {
@@ -381,10 +386,13 @@ func (s *AIAgentService) getModel(modelOverride string) (*ark.ChatModel, error) 
 
 
 func (s *AIAgentService) ChatStream(userID uint, agentID uint, messages []*schema.Message, modelOverride string) (*adk.AsyncIterator[*adk.TypedAgentEvent[*schema.Message]], error) {
-	runner, err := s.GetRunerByAgentID(userID, agentID, modelOverride)
+	runner, err := s.getOrCreateRunner(modelOverride)
 	if err != nil {
 		return nil, err
 	}
+
+	customPrompt := s.getCustomPrompt(userID, agentID)
+
 	logHandler := callbacks.NewHandlerBuilder().
 		OnStartFn(func(ctx context.Context, info *callbacks.RunInfo, input callbacks.CallbackInput) context.Context {
 			if mi := einomodel.ConvCallbackInput(input); mi != nil {
@@ -420,6 +428,7 @@ func (s *AIAgentService) ChatStream(userID uint, agentID uint, messages []*schem
 		}).
 		Build()
 	return runner.Run(s.ctx, messages, adk.WithCallbacks(logHandler), adk.WithSessionValues(map[string]any{
-		"current_time": time.Now().Format("2006-01-02 15:04:05"),
+		"custom_prompt": customPrompt,
+		"current_time":  time.Now().Format("2006-01-02 15:04:05"),
 	})), nil
 }
