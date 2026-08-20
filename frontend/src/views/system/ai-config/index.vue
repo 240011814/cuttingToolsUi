@@ -533,13 +533,16 @@ onMounted(() => {
       class="h-full rounded-16px shadow-sm"
     >
       <NTabs v-model:value="activeTab" type="line" animated>
+        <template #suffix>
+          <NButton v-if="activeTab === 'providers'" type="primary" size="small" @click="handleAddProvider">
+            {{ $t("page.system.aiConfig.addProvider") }}
+          </NButton>
+          <NButton v-else type="primary" size="small" @click="handleAddTool">
+            添加工具
+          </NButton>
+        </template>
         <NTabPane name="providers" tab="AI 配置管理">
           <div class="mt-4">
-            <div class="flex justify-end mb-4">
-              <NButton type="primary" @click="handleAddProvider">
-                {{ $t("page.system.aiConfig.addProvider") }}
-              </NButton>
-            </div>
             <NDataTable
               :columns="columns"
               :data="providers"
@@ -551,11 +554,6 @@ onMounted(() => {
 
         <NTabPane name="tools" tab="AI 工具管理">
           <div class="mt-4">
-            <div class="flex justify-end mb-4">
-              <NButton type="primary" @click="handleAddTool">
-                添加工具
-              </NButton>
-            </div>
             <NDataTable
               :columns="toolColumns"
               :data="tools"
