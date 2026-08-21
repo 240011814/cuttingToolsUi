@@ -360,11 +360,12 @@ func (h *AdminHandler) HandleUpdateAITool(c *gin.Context) {
 		return
 	}
 	if err := service.DB.Model(&model.AITool{}).Where("id = ?", id).
-		Select("display_name", "description", "enabled", "config_json").
+		Select("display_name", "description", "enabled", "confirm_required", "config_json").
 		Updates(req).Error; err != nil {
 		SendError(c, "500", "更新工具失败: "+err.Error())
 		return
 	}
+	service.InvalidateConfirmRequiredCache(req.Name)
 	h.aiAgentSvc.ClearRunnerCache()
 	SendSuccess(c, nil)
 }
@@ -375,10 +376,14 @@ func (h *AdminHandler) HandleDeleteAITool(c *gin.Context) {
 		SendError(c, "400", "工具 ID 不合法")
 		return
 	}
+	// Get tool name before delete for cache invalidation
+	var tool model.AITool
+	service.DB.First(&tool, id)
 	if err := service.DB.Delete(&model.AITool{}, id).Error; err != nil {
 		SendError(c, "500", "删除工具失败: "+err.Error())
 		return
 	}
+	service.InvalidateConfirmRequiredCache(tool.Name)
 	h.aiAgentSvc.ClearRunnerCache()
 	SendSuccess(c, nil)
 }

@@ -88,6 +88,7 @@ declare namespace Api {
       display_name: string;
       description: string;
       enabled: boolean;
+      confirm_required: boolean;
       config_json: string;
       created_at: string;
       updated_at: string;

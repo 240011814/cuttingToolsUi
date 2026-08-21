@@ -52,6 +52,7 @@ const toolForm = ref<Partial<Api.Admin.AITool>>({
   display_name: "",
   description: "",
   enabled: false,
+  confirm_required: false,
   config_json: "{}",
 });
 
@@ -261,6 +262,7 @@ async function handleToggleToolStatus(row: Api.Admin.AITool, val: boolean) {
   getTools();
 }
 
+
 function _getToolConfigPlaceholder(meta: Api.Admin.AIToolMeta): string {
   if (!meta.params?.length) return "{}";
   const obj: Record<string, string> = {};
@@ -288,6 +290,14 @@ const toolColumns = computed<DataTableColumns<Api.Admin.AITool>>(() => [
         value: row.enabled,
         onUpdateValue: (val: boolean) => handleToggleToolStatus(row, val),
       });
+    },
+  },
+  {
+    title: "需要审批",
+    key: "confirm_required",
+    width: 80,
+    render(row) {
+      return row.confirm_required ? "是" : "否";
     },
   },
   {
@@ -721,6 +731,9 @@ onMounted(() => {
 
           <NFormItem label="启用" path="enabled">
             <NSwitch v-model:value="toolForm.enabled" />
+          </NFormItem>
+          <NFormItem label="需要审批" path="confirm_required">
+            <NSwitch v-model:value="toolForm.confirm_required" />
           </NFormItem>
           <div class="flex justify-end gap-2">
             <NButton @click="showToolModal = false">取消</NButton>

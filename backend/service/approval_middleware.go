@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/gob"
 	"fmt"
+	"sync"
 
 	"backend/model"
 
@@ -26,6 +27,44 @@ type ToolApprovalInfo struct {
 type ToolApprovalResult struct {
 	Approved bool   `json:"approved"`
 	Reason   string `json:"reason,omitempty"`
+}
+
+// confirmRequiredCache caches tool confirm_required status
+var (
+	confirmRequiredCache = make(map[string]bool)
+	confirmRequiredMu    sync.RWMutex
+)
+
+// InvalidateConfirmRequiredCache clears the cache for a specific tool or all tools
+func InvalidateConfirmRequiredCache(toolName string) {
+	confirmRequiredMu.Lock()
+	defer confirmRequiredMu.Unlock()
+	if toolName == "" {
+		confirmRequiredCache = make(map[string]bool)
+	} else {
+		delete(confirmRequiredCache, toolName)
+	}
+}
+
+// IsConfirmRequired checks if a tool requires confirmation, with caching
+func isConfirmRequired(toolName string) bool {
+	confirmRequiredMu.RLock()
+	if cached, ok := confirmRequiredCache[toolName]; ok {
+		confirmRequiredMu.RUnlock()
+		return cached
+	}
+	confirmRequiredMu.RUnlock()
+
+	var dbTool model.AITool
+	if err := DB.Where("name = ? AND enabled = ?", toolName, true).First(&dbTool).Error; err != nil {
+		return false
+	}
+
+	confirmRequiredMu.Lock()
+	confirmRequiredCache[toolName] = dbTool.ConfirmRequired
+	confirmRequiredMu.Unlock()
+
+	return dbTool.ConfirmRequired
 }
 
 type ApprovalMiddleware struct {
@@ -110,12 +149,4 @@ func (m *ApprovalMiddleware) WrapStreamableToolCall(
 			CallID:    tCtx.CallID,
 		}, storedArgs)
 	}, nil
-}
-
-func isConfirmRequired(toolName string) bool {
-	var dbTool model.AITool
-	if err := DB.Where("name = ? AND enabled = ?", toolName, true).First(&dbTool).Error; err != nil {
-		return false
-	}
-	return dbTool.ConfirmRequired
 }
