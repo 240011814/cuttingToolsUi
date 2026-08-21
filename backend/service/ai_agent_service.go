@@ -19,8 +19,8 @@ import (
 	"github.com/cloudwego/eino/schema"
 )
 
-type AIAgentService struct{
-		ctx 					context.Context
+type AIAgentService struct {
+	ctx            context.Context
 	activeProvider *model.AIProvider
 	activeModel    *model.AIModel
 	enabledModels  []model.AIModel
@@ -29,18 +29,20 @@ type AIAgentService struct{
 	runnerCache    map[string]*adk.Runner
 	promptCache    map[string]string
 	sysCfgService  *SystemConfigService
+	checkpointStore adk.CheckPointStore
 }
 
 func NewAIAgentService(timeoutMinutes int, sysCfgService *SystemConfigService) (*AIAgentService, error) {
-		if timeoutMinutes <= 0 {
+	if timeoutMinutes <= 0 {
 		timeoutMinutes = 5
 	}
 	s := &AIAgentService{
-		ctx:          context.Background(),
-		timeout:      time.Duration(timeoutMinutes) * time.Minute,
-		runnerCache:  make(map[string]*adk.Runner),
-		promptCache:  make(map[string]string),
-		sysCfgService: sysCfgService,
+		ctx:            context.Background(),
+		timeout:        time.Duration(timeoutMinutes) * time.Minute,
+		runnerCache:    make(map[string]*adk.Runner),
+		promptCache:    make(map[string]string),
+		sysCfgService:  sysCfgService,
+		checkpointStore: NewInMemoryCheckPointStore(),
 	}
 	// 从数据库读取超时配置
 	if sysCfgService != nil {
@@ -297,34 +299,38 @@ func (s *AIAgentService) getOrCreateRunner(modelOverride string) (*adk.Runner, e
 	if runner, ok := s.runnerCache[cacheKey]; ok {
 		return runner, nil
 	}
-	
+
 	chatModel, err := s.getModel(modelOverride)
 	if err != nil {
 		log.Printf("Failed to get model: %v", err)
 		return nil, err
 	}
 
-  agent, err := adk.NewChatModelAgent(s.ctx, &adk.ChatModelAgentConfig{
-        Name:        "default",
-        Description: "AI Assistant",
-        Instruction: "{custom_prompt}\n\n当前时间: {current_time}\n当前用户ID: {user_id}",
-        Model:       chatModel,
-        ToolsConfig: adk.ToolsConfig{
-            ToolsNodeConfig: compose.ToolsNodeConfig{
-                Tools: s.buildTools(),
-            },
-        },
-    })
-    if err != nil {
-        log.Fatal(err)
-    }
+	agent, err := adk.NewChatModelAgent(s.ctx, &adk.ChatModelAgentConfig{
+		Name:        "default",
+		Description: "AI Assistant",
+		Instruction: "{custom_prompt}\n\n当前时间: {current_time}\n当前用户ID: {user_id}",
+		Model:       chatModel,
+		ToolsConfig: adk.ToolsConfig{
+			ToolsNodeConfig: compose.ToolsNodeConfig{
+				Tools: s.buildTools(),
+			},
+		},
+		Handlers: []adk.ChatModelAgentMiddleware{
+			&ApprovalMiddleware{},
+		},
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
 
-    runner := adk.NewRunner(s.ctx, adk.RunnerConfig{
-        Agent:           agent,
-        EnableStreaming: true,
-    })
-    s.runnerCache[cacheKey] = runner
-		return runner, nil
+	runner := adk.NewRunner(s.ctx, adk.RunnerConfig{
+		Agent:           agent,
+		EnableStreaming:  true,
+		CheckPointStore:  s.checkpointStore,
+	})
+	s.runnerCache[cacheKey] = runner
+	return runner, nil
 }
 
 func (s *AIAgentService) getCustomPrompt(userID uint, agentID uint) string {
@@ -390,7 +396,7 @@ func (s *AIAgentService) getModel(modelOverride string) (*ark.ChatModel, error) 
 
 
 
-func (s *AIAgentService) ChatStream(userID uint, agentID uint, messages []*schema.Message, modelOverride string) (*adk.AsyncIterator[*adk.TypedAgentEvent[*schema.Message]], error) {
+func (s *AIAgentService) ChatStream(userID uint, agentID uint, historyID uint, messages []*schema.Message, modelOverride string) (*adk.AsyncIterator[*adk.TypedAgentEvent[*schema.Message]], error) {
 	runner, err := s.getOrCreateRunner(modelOverride)
 	if err != nil {
 		return nil, err
@@ -432,9 +438,29 @@ func (s *AIAgentService) ChatStream(userID uint, agentID uint, messages []*schem
 			return ctx
 		}).
 		Build()
-	return runner.Run(s.ctx, messages, adk.WithCallbacks(logHandler), adk.WithSessionValues(map[string]any{
+
+	checkPointID := fmt.Sprintf("%d_%d", userID, historyID)
+	return runner.Run(s.ctx, messages, adk.WithCallbacks(logHandler), adk.WithCheckPointID(checkPointID), adk.WithSessionValues(map[string]any{
 		"custom_prompt": customPrompt,
 		"current_time":  time.Now().Format("2006-01-02 15:04:05"),
 		"user_id":       userID,
 	})), nil
+}
+
+func (s *AIAgentService) ResumeToolApproval(checkPointID string, interruptID string, approved bool, reason string) (*adk.AsyncIterator[*adk.TypedAgentEvent[*schema.Message]], error) {
+	runner, err := s.getOrCreateRunner("")
+	if err != nil {
+		return nil, err
+	}
+
+	result := &ToolApprovalResult{
+		Approved: approved,
+		Reason:   reason,
+	}
+
+	return runner.ResumeWithParams(s.ctx, checkPointID, &adk.ResumeParams{
+		Targets: map[string]any{
+			interruptID: result,
+		},
+	})
 }

@@ -11,7 +11,7 @@ import {
   fetchUpdateHistoryTitle,
   fetchGenerateShareToken,
 } from "@/service/api";
-import { fetchGetAIModels, fetchGetUserPrompt, fetchChatStream } from "@/service/api/ai";
+import { fetchGetAIModels, fetchGetUserPrompt, fetchChatStream, fetchToolApproval } from "@/service/api/ai";
 import { fetchSearchMemories } from "@/service/api/memory";
 import { fetchCourseList, fetchCreateCourseItem, type Course } from "@/service/api/course";
 import { useAuth } from "@/hooks/business/auth";
@@ -268,6 +268,14 @@ const courseItemForm = ref({
   english_sentence: "",
   chinese_translation: "",
 });
+
+const showToolApprovalModal = ref(false);
+const toolApprovalInfo = ref<{
+  toolName: string;
+  arguments: string;
+  checkpointId: string;
+  interruptId: string;
+} | null>(null);
 
 const route = useRoute();
 const routeTitleMap: Record<string, string> = {
@@ -592,6 +600,17 @@ const sendMessage = async () => {
               }
             }
 
+            if (eventType === "tool_approval") {
+              toolApprovalInfo.value = {
+                toolName: dataObj.tool_name,
+                arguments: dataObj.arguments,
+                checkpointId: dataObj.checkpoint_id,
+                interruptId: dataObj.interrupt_id,
+              };
+              showToolApprovalModal.value = true;
+              return;
+            }
+
             if (dataObj.error) {
               setAssistantError(`AI 服务错误: ${dataObj.error}`);
               return;
@@ -623,6 +642,7 @@ const sendMessage = async () => {
     }
   } catch (err: any) {
     setAssistantError(`连接 AI 服务失败: ${err?.message || "未知错误"}。`);
+    isGenerating.value = false;
   } finally {
     isGenerating.value = false;
     await scrollToBottom();
@@ -668,6 +688,115 @@ const handlePlay = (text: string) => {
   utterance.lang = props.speechLang;
   utterance.rate = props.speechRate;
   window.speechSynthesis.speak(utterance);
+};
+
+const handleToolApproval = async (approved: boolean, reason?: string) => {
+  if (!toolApprovalInfo.value) return;
+
+  const { checkpointId, interruptId } = toolApprovalInfo.value;
+  showToolApprovalModal.value = false;
+  isGenerating.value = true;
+
+  const routeName = props.trainingType || (route.name as string) || "ai_agent";
+  const history = messages.value
+    .slice(0, -1)
+    .filter((item) => item.content.trim() && !item.isError);
+  const apiMessages = history.map(({ role, content }) => ({ role, content }));
+
+  try {
+    const response = await fetchToolApproval({
+      checkpoint_id: checkpointId,
+      interrupt_id: interruptId,
+      approved,
+      reason,
+      history_id: historyId.value,
+      training_type: routeName,
+      custom_training_id: props.customTrainingId || undefined,
+      agent_id: props.agentId,
+      messages: apiMessages,
+    });
+
+    if (!response.ok) {
+      let errorMessage = `请求失败 (HTTP ${response.status})`;
+      try {
+        const errorData = await response.json();
+        if (errorData.error) errorMessage = errorData.error;
+      } catch {}
+      throw new Error(errorMessage);
+    }
+
+    const reader = response.body?.getReader();
+    const decoder = new TextDecoder("utf-8");
+    if (!reader) throw new Error("无法获取响应流");
+
+    let buffer = "";
+    let eventType = "message";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split(/\r?\n/);
+      buffer = lines.pop() || "";
+
+      for (let line of lines) {
+        line = line.trim();
+        if (!line) continue;
+
+        if (line.startsWith("event:")) {
+          eventType = line.replace(/^event:\s*/, "").trim();
+          continue;
+        }
+
+        if (line.startsWith("data:")) {
+          const dataStr = line.replace(/^data:\s*/, "").trim();
+
+          try {
+            const dataObj = JSON.parse(dataStr);
+
+            if (eventType === "tool_approval") {
+              toolApprovalInfo.value = {
+                toolName: dataObj.tool_name,
+                arguments: dataObj.arguments,
+                checkpointId: dataObj.checkpoint_id,
+                interruptId: dataObj.interrupt_id,
+              };
+              showToolApprovalModal.value = true;
+              return;
+            }
+
+            if (dataObj.error) {
+              setAssistantError(`AI 服务错误: ${dataObj.error}`);
+              return;
+            }
+
+            if (dataObj.reasoning_content) {
+              appendThinkingContent(dataObj.reasoning_content);
+              scheduleScrollToBottom();
+            }
+
+            if (dataObj.thinking) {
+              setAssistantThinking(dataObj.thinking);
+              scheduleScrollToBottom();
+            }
+
+            if (dataObj.content) {
+              appendAssistantContent(dataObj.content);
+              scheduleScrollToBottom();
+            }
+          } catch (e) {
+            console.warn("Parse error:", e);
+          }
+        }
+      }
+    }
+  } catch (err: any) {
+    setAssistantError(`工具审批请求失败: ${err?.message || "未知错误"}`);
+  } finally {
+    isGenerating.value = false;
+    await scrollToBottom();
+  }
 };
 
 const lastLoadedHistoryId = ref<number>(0);
@@ -1560,6 +1689,38 @@ onBeforeUnmount(() => {
         />
       </NDrawerContent>
     </NDrawer>
+
+    <NModal
+      v-model:show="showToolApprovalModal"
+      preset="card"
+      title="工具调用确认"
+      :style="{ width: appStore.isMobile ? '95vw' : '500px' }"
+      :segmented="{ content: 'soft', footer: 'soft' }"
+    >
+      <div class="space-y-4">
+        <div class="flex items-center gap-2 text-amber-500">
+          <SvgIcon icon="mdi:alert-circle-outline" class="text-xl" />
+          <span class="font-medium">AI 请求调用工具</span>
+        </div>
+        <div class="rounded-lg bg-gray-50 p-4 dark:bg-gray-800">
+          <div class="mb-2">
+            <span class="text-sm text-gray-500">工具名称：</span>
+            <span class="font-medium">{{ toolApprovalInfo?.toolName }}</span>
+          </div>
+          <div>
+            <span class="text-sm text-gray-500">调用参数：</span>
+            <pre class="mt-1 overflow-x-auto text-sm">{{ toolApprovalInfo?.arguments }}</pre>
+          </div>
+        </div>
+        <p class="text-sm text-gray-500">是否允许该工具执行？</p>
+      </div>
+      <template #footer>
+        <div class="flex justify-end gap-3">
+          <NButton @click="handleToolApproval(false, '用户拒绝')">拒绝</NButton>
+          <NButton type="primary" @click="handleToolApproval(true)">允许</NButton>
+        </div>
+      </template>
+    </NModal>
   </div>
 </template>
 

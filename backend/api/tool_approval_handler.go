@@ -4,36 +4,32 @@ import (
 	"backend/model"
 	"backend/service"
 	"errors"
-	"fmt"
 	"io"
 	"log"
 	"net/http"
-	"time"
+	"strconv"
+	"strings"
 
 	"github.com/cloudwego/eino/schema"
 	"github.com/gin-gonic/gin"
 )
 
-type ChatMessage struct {
-	Role    string `json:"role" binding:"required"`
-	Content string `json:"content" binding:"required"`
+type ToolApprovalRequest struct {
+	CheckPointID    string        `json:"checkpoint_id" binding:"required"`
+	InterruptID     string        `json:"interrupt_id" binding:"required"`
+	Approved        bool          `json:"approved"`
+	Reason          string        `json:"reason,omitempty"`
+	HistoryID       uint          `json:"history_id"`
+	TrainingType    string        `json:"training_type"`
+	CustomTrainingID *uint        `json:"custom_training_id"`
+	Messages        []ChatMessage `json:"messages"`
 }
 
-type ChatRequest struct {
-	HistoryID        uint          `json:"history_id"`
-	TrainingType     string        `json:"training_type"`
-	CustomTrainingID *uint         `json:"custom_training_id"`
-	AgentID          uint          `json:"agent_id" binding:"required"`
-	Model            string        `json:"model"`
-	Messages         []ChatMessage `json:"messages" binding:"required"`
-}
-
-func HandleChatStream(agentService *service.AIAgentService, historyService *service.HistoryService, mem0Service *service.Mem0Service) gin.HandlerFunc {
+func HandleToolApproval(agentService *service.AIAgentService, historyService *service.HistoryService, mem0Service *service.Mem0Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		requestStart := time.Now()
-		var req ChatRequest
+		var req ToolApprovalRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request format: " + err.Error()})
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 
@@ -41,6 +37,18 @@ func HandleChatStream(agentService *service.AIAgentService, historyService *serv
 		if !exists {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 			return
+		}
+
+		// Parse checkpoint_id format: userID_historyID
+		parts := strings.SplitN(req.CheckPointID, "_", 2)
+		var historyID uint
+		if len(parts) == 2 {
+			if hid, err := strconv.ParseUint(parts[1], 10, 32); err == nil {
+				historyID = uint(hid)
+			}
+		}
+		if historyID == 0 {
+			historyID = req.HistoryID
 		}
 
 		inputMessages := make([]*schema.Message, len(req.Messages))
@@ -51,14 +59,10 @@ func HandleChatStream(agentService *service.AIAgentService, historyService *serv
 			}
 		}
 
-		iter, err := agentService.ChatStream(userID.(uint), req.AgentID, req.HistoryID, inputMessages, req.Model)
+		iter, err := agentService.ResumeToolApproval(req.CheckPointID, req.InterruptID, req.Approved, req.Reason)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to call AI: " + err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to resume: " + err.Error()})
 			return
-		}
-		log.Printf("[chat] user=%d agent=%d model=%s messages=%d init_ms=%d", userID.(uint), req.AgentID, req.Model, len(inputMessages), time.Since(requestStart).Milliseconds())
-		for _, m := range inputMessages {
-			log.Printf("[chat]   [%s] %s", m.Role, m.Content)
 		}
 
 		c.Header("Content-Type", "text/event-stream")
@@ -68,13 +72,14 @@ func HandleChatStream(agentService *service.AIAgentService, historyService *serv
 
 		var fullAssistantReply string
 		var fullThinkingContent string
-		firstTokenLogged := false
+
 		c.Stream(func(w io.Writer) bool {
 			event, ok := iter.Next()
 			if !ok {
-				log.Printf("chat stream completed user=%d reply_chars=%d total_ms=%d", userID.(uint), len(fullAssistantReply), time.Since(requestStart).Milliseconds())
+				log.Printf("[tool-approval] stream completed user=%d reply_chars=%d", userID.(uint), len(fullAssistantReply))
 				c.SSEvent("message", "[DONE]")
 
+				// Save history
 				allMessages := make([]*schema.Message, 0, len(inputMessages)+1)
 				allMessages = append(allMessages, inputMessages...)
 				if fullAssistantReply != "" {
@@ -102,9 +107,9 @@ func HandleChatStream(agentService *service.AIAgentService, historyService *serv
 				}
 
 				saveFunc := func() {
-					historyID, saveErr := historyService.SaveHistory(userID.(uint), req.HistoryID, req.TrainingType, req.CustomTrainingID, title, msgs, false)
-					if saveErr == nil && req.HistoryID == 0 {
-						c.SSEvent("history_id", gin.H{"history_id": historyID, "title": title})
+					_, saveErr := historyService.SaveHistory(userID.(uint), historyID, req.TrainingType, req.CustomTrainingID, title, msgs, false)
+					if saveErr != nil {
+						log.Printf("[tool-approval] save history failed user=%d err=%v", userID.(uint), saveErr)
 					}
 				}
 
@@ -122,17 +127,13 @@ func HandleChatStream(agentService *service.AIAgentService, historyService *serv
 						}
 						if len(memMessages) > 0 {
 							if _, err := mem0Service.AddMemory(userID.(uint), memMessages, nil); err != nil {
-								log.Printf("mem0 save memory failed user=%d err=%v", userID.(uint), err)
+								log.Printf("[tool-approval] mem0 save memory failed user=%d err=%v", userID.(uint), err)
 							}
 						}
 					}
 				}
 
-				if req.HistoryID == 0 {
-					saveFunc()
-				} else {
-					go saveFunc()
-				}
+				go saveFunc()
 				go saveMemoryFunc()
 
 				return false
@@ -146,38 +147,10 @@ func HandleChatStream(agentService *service.AIAgentService, historyService *serv
 			if event.Action != nil && event.Action.Interrupted != nil {
 				for _, ictx := range event.Action.Interrupted.InterruptContexts {
 					if approvalInfo, ok := ictx.Info.(*service.ToolApprovalInfo); ok {
-						log.Printf("[chat] tool_approval required user=%d tool=%s id=%s", userID.(uint), approvalInfo.ToolName, ictx.ID)
-
-						// Save to get history_id for tool_approval_handler to update later
-						title := "AI 训练对话"
-						for _, m := range inputMessages {
-							if m.Role == schema.User && m.Content != "" {
-								title = m.Content
-								if len(title) > 20 {
-									title = title[:20] + "..."
-								}
-								break
-							}
-						}
-						savedHistoryID := req.HistoryID
-						if savedHistoryID == 0 {
-							msgs := make([]model.OpenAIMessage, len(inputMessages))
-							for i, m := range inputMessages {
-								msgs[i] = model.OpenAIMessage{Role: string(m.Role), Content: m.Content}
-							}
-							newID, saveErr := historyService.SaveHistory(userID.(uint), 0, req.TrainingType, req.CustomTrainingID, title, msgs, false)
-							if saveErr != nil {
-								log.Printf("[chat] save history failed user=%d err=%v", userID.(uint), saveErr)
-							} else {
-								savedHistoryID = newID
-								c.SSEvent("history_id", gin.H{"history_id": savedHistoryID, "title": title})
-							}
-						}
-
 						c.SSEvent("tool_approval", gin.H{
 							"tool_name":     approvalInfo.ToolName,
 							"arguments":     approvalInfo.Arguments,
-							"checkpoint_id": fmt.Sprintf("%d_%d", userID.(uint), savedHistoryID),
+							"checkpoint_id": req.CheckPointID,
 							"interrupt_id":  ictx.ID,
 						})
 						return false
@@ -198,12 +171,7 @@ func HandleChatStream(agentService *service.AIAgentService, historyService *serv
 							break
 						}
 						if err != nil {
-							log.Printf("stream recv error: %v", err)
 							break
-						}
-						if !firstTokenLogged {
-							firstTokenLogged = true
-							log.Printf("chat first token user=%d first_token_ms=%d", userID.(uint), time.Since(requestStart).Milliseconds())
 						}
 						if msg.ReasoningContent != "" {
 							fullThinkingContent += msg.ReasoningContent
@@ -229,17 +197,5 @@ func HandleChatStream(agentService *service.AIAgentService, historyService *serv
 
 			return true
 		})
-	}
-}
-
-// HandleListModels 返回所有已启用的模型列表
-func HandleListModels(aiAgentService *service.AIAgentService) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		models, err := aiAgentService.ListEnabledModels()
-		if err != nil {
-			SendError(c, "500", "获取模型列表失败: "+err.Error())
-			return
-		}
-		SendSuccess(c, models)
 	}
 }

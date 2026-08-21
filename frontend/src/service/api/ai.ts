@@ -126,3 +126,68 @@ export async function fetchChatStream(data: {
 
   return response;
 }
+
+/**
+ * Tool approval API - direct fetch with proper auth interceptors
+ * Returns raw Response object with ReadableStream for SSE handling
+ */
+export async function fetchToolApproval(data: {
+  checkpoint_id: string;
+  interrupt_id: string;
+  approved: boolean;
+  reason?: string;
+  history_id?: number;
+  training_type?: string;
+  custom_training_id?: number;
+  agent_id?: number;
+  messages?: { role: string; content: string }[];
+}): Promise<Response> {
+  const isHttpProxy =
+    import.meta.env.DEV && import.meta.env.VITE_HTTP_PROXY === "Y";
+  const { baseURL } = getServiceBaseURL(import.meta.env, isHttpProxy);
+
+  let Authorization = getAuthorization();
+
+  let response = await fetch(`${baseURL}/api/chat/tool-approval`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: Authorization || "",
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (response.ok) {
+    try {
+      const contentType = response.headers.get("content-type");
+      if (contentType?.includes("text/event-stream")) {
+        return response;
+      }
+
+      if (contentType?.includes("application/json")) {
+        const errorData = await response.json();
+        const expiredTokenCodes =
+          import.meta.env.VITE_SERVICE_EXPIRED_TOKEN_CODES?.split(",") || [];
+
+        if (expiredTokenCodes.includes(String(errorData.code))) {
+          const success = await handleExpiredRequest(requestInstance.state);
+          if (success) {
+            Authorization = getAuthorization();
+            response = await fetch(`${baseURL}/api/chat/tool-approval`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: Authorization || "",
+              },
+              body: JSON.stringify(data),
+            });
+          }
+        }
+      }
+    } catch {
+      // Continue normally if checking fails
+    }
+  }
+
+  return response;
+}
