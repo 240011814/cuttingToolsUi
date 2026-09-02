@@ -27,7 +27,7 @@ func NewModelScenarioQueryTool() (tool.InvokableTool, error) {
 }
 
 func init() {
-	Register("model_scenario_query", "模型和场景查询", "查询思维模型和生活场景的列表与详情。可用于帮助用户了解有哪些思维模型可用、按分类浏览模型和场景、或查看某个具体模型/场景的详细内容。", ModelScenarioQueryConfig{}, func(config map[string]any) (tool.BaseTool, error) {
+	Register("model_scenario_query", "思维模型和场景应对方法查询", "查询思维模型和生活场景的列表与详情。可用于帮助用户了解有哪些思维模型可用、按分类浏览模型和场景、或查看某个具体模型/场景的详细内容。", ModelScenarioQueryConfig{}, func(config map[string]any) (tool.BaseTool, error) {
 		return NewModelScenarioQueryTool()
 	})
 }
@@ -35,7 +35,7 @@ func init() {
 func (t *modelScenarioQueryTool) Info(_ context.Context) (*schema.ToolInfo, error) {
 	return &schema.ToolInfo{
 		Name: "model_scenario_query",
-		Desc: "查询思维模型和生活场景的列表与详情。支持按类型(model/scenario)、分类、名称关键词筛选列表，或根据ID查看详细信息。",
+		Desc: "查询思维模型和生活场景应对方法的列表与详情。支持按类型(model/scenario)、分类、名称关键词筛选列表，或根据ID查看详细信息。",
 		ParamsOneOf: schema.NewParamsOneOfByParams(map[string]*schema.ParameterInfo{
 			"action": {
 				Type:     schema.String,
