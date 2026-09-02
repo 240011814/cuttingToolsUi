@@ -7,7 +7,20 @@ import (
 	"strings"
 
 	"github.com/cloudwego/eino/components/tool"
+	"gorm.io/gorm"
 )
+
+var db *gorm.DB
+
+// SetDB sets the database connection for tools that need database access
+func SetDB(database *gorm.DB) {
+	db = database
+}
+
+// GetDB returns the database connection
+func GetDB() *gorm.DB {
+	return db
+}
 
 type ToolParam struct {
 	Name        string `json:"name"`

@@ -7,6 +7,7 @@ import (
 	"backend/api"
 	"backend/config"
 	"backend/service"
+	"backend/service/tools"
 
 	"github.com/gin-gonic/gin"
 )
@@ -24,6 +25,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to initialize Database: %v", err)
 	}
+
+	tools.SetDB(service.DB)
 
 	systemConfigService := service.NewSystemConfigService()
 
