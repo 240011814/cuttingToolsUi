@@ -18,6 +18,7 @@ type modelScenarioQueryRequest struct {
 	Action   string `json:"action" jsonschema:"description=操作类型: list(列表查询) 或 get(详情查询)"`
 	Type     string `json:"type,omitempty" jsonschema:"description=类型过滤: model(思维模型) 或 scenario(场景), 仅list时有效"`
 	Category string `json:"category,omitempty" jsonschema:"description=分类过滤, 仅list时有效"`
+	Keyword  string `json:"keyword,omitempty" jsonschema:"description=按名称模糊搜索, 仅list时有效"`
 	ID       uint   `json:"id,omitempty" jsonschema:"description=记录ID, 仅get时有效"`
 }
 
@@ -34,7 +35,7 @@ func init() {
 func (t *modelScenarioQueryTool) Info(_ context.Context) (*schema.ToolInfo, error) {
 	return &schema.ToolInfo{
 		Name: "model_scenario_query",
-		Desc: "查询思维模型和生活场景的列表与详情。支持按类型(model/scenario)和分类筛选列表，或根据ID查看详细信息。",
+		Desc: "查询思维模型和生活场景的列表与详情。支持按类型(model/scenario)、分类、名称关键词筛选列表，或根据ID查看详细信息。",
 		ParamsOneOf: schema.NewParamsOneOfByParams(map[string]*schema.ParameterInfo{
 			"action": {
 				Type:     schema.String,
@@ -49,6 +50,11 @@ func (t *modelScenarioQueryTool) Info(_ context.Context) (*schema.ToolInfo, erro
 			"category": {
 				Type:     schema.String,
 				Desc:     "分类名称过滤, 仅list时有效",
+				Required: false,
+			},
+			"keyword": {
+				Type:     schema.String,
+				Desc:     "按名称模糊搜索关键词, 仅list时有效",
 				Required: false,
 			},
 			"id": {
@@ -88,6 +94,9 @@ func (t *modelScenarioQueryTool) handleList(req modelScenarioQueryRequest) (stri
 	}
 	if req.Category != "" {
 		query = query.Where("category = ?", req.Category)
+	}
+	if req.Keyword != "" {
+		query = query.Where("name LIKE ?", "%"+req.Keyword+"%")
 	}
 
 	var items []model.ModelScenario
