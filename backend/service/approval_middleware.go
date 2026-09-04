@@ -9,7 +9,7 @@ import (
 	"backend/model"
 
 	"github.com/cloudwego/eino/adk"
-	"github.com/cloudwego/eino/components/tool"
+	"github.com/cloudwego/eino/compose"
 	"github.com/cloudwego/eino/schema"
 )
 
@@ -67,86 +67,83 @@ func isConfirmRequired(toolName string) bool {
 	return dbTool.ConfirmRequired
 }
 
-type ApprovalMiddleware struct {
-	*adk.BaseChatModelAgentMiddleware
-}
+func NewApprovalMiddleware() adk.AgentMiddleware {
+	return adk.AgentMiddleware{
+		WrapToolCall: compose.ToolMiddleware{
+			Invokable: func(endpoint compose.InvokableToolEndpoint) compose.InvokableToolEndpoint {
+				return func(ctx context.Context, input *compose.ToolInput) (*compose.ToolOutput, error) {
+					if !isConfirmRequired(input.Name) {
+						return endpoint(ctx, input)
+					}
 
-func (m *ApprovalMiddleware) WrapInvokableToolCall(
-	_ context.Context,
-	endpoint adk.InvokableToolCallEndpoint,
-	tCtx *adk.ToolContext,
-) (adk.InvokableToolCallEndpoint, error) {
-	if !isConfirmRequired(tCtx.Name) {
-		return endpoint, nil
+					wasInterrupted, _, storedArgs := compose.GetInterruptState[string](ctx)
+
+					if !wasInterrupted {
+						return nil, compose.StatefulInterrupt(ctx, &ToolApprovalInfo{
+							ToolName:  input.Name,
+							Arguments: input.Arguments,
+							CallID:    input.CallID,
+						}, input.Arguments)
+					}
+
+					isTarget, hasData, data := compose.GetResumeContext[*ToolApprovalResult](ctx)
+					if isTarget && hasData {
+						if data.Approved {
+							input.Arguments = storedArgs
+							return endpoint(ctx, input)
+						}
+						reason := "操作已被用户拒绝"
+						if data.Reason != "" {
+							reason = fmt.Sprintf("操作已被用户拒绝: %s", data.Reason)
+						}
+						return &compose.ToolOutput{Result: reason}, nil
+					}
+
+					return nil, compose.StatefulInterrupt(ctx, &ToolApprovalInfo{
+						ToolName:  input.Name,
+						Arguments: storedArgs,
+						CallID:    input.CallID,
+					}, storedArgs)
+				}
+			},
+			Streamable: func(endpoint compose.StreamableToolEndpoint) compose.StreamableToolEndpoint {
+				return func(ctx context.Context, input *compose.ToolInput) (*compose.StreamToolOutput, error) {
+					if !isConfirmRequired(input.Name) {
+						return endpoint(ctx, input)
+					}
+
+					wasInterrupted, _, storedArgs := compose.GetInterruptState[string](ctx)
+
+					if !wasInterrupted {
+						return nil, compose.StatefulInterrupt(ctx, &ToolApprovalInfo{
+							ToolName:  input.Name,
+							Arguments: input.Arguments,
+							CallID:    input.CallID,
+						}, input.Arguments)
+					}
+
+					isTarget, hasData, data := compose.GetResumeContext[*ToolApprovalResult](ctx)
+					if isTarget && hasData {
+						if data.Approved {
+							input.Arguments = storedArgs
+							return endpoint(ctx, input)
+						}
+						reason := "操作已被用户拒绝"
+						if data.Reason != "" {
+							reason = fmt.Sprintf("操作已被用户拒绝: %s", data.Reason)
+						}
+						return &compose.StreamToolOutput{
+							Result: schema.StreamReaderFromArray([]string{reason}),
+						}, nil
+					}
+
+					return nil, compose.StatefulInterrupt(ctx, &ToolApprovalInfo{
+						ToolName:  input.Name,
+						Arguments: storedArgs,
+						CallID:    input.CallID,
+					}, storedArgs)
+				}
+			},
+		},
 	}
-
-	return func(ctx context.Context, args string, opts ...tool.Option) (string, error) {
-		wasInterrupted, _, storedArgs := tool.GetInterruptState[string](ctx)
-
-		if !wasInterrupted {
-			return "", tool.StatefulInterrupt(ctx, &ToolApprovalInfo{
-				ToolName:  tCtx.Name,
-				Arguments: args,
-				CallID:    tCtx.CallID,
-			}, args)
-		}
-
-		isTarget, hasData, data := tool.GetResumeContext[*ToolApprovalResult](ctx)
-		if isTarget && hasData {
-			if data.Approved {
-				return endpoint(ctx, storedArgs, opts...)
-			}
-			reason := "操作已被用户拒绝"
-			if data.Reason != "" {
-				reason = fmt.Sprintf("操作已被用户拒绝: %s", data.Reason)
-			}
-			return reason, nil
-		}
-
-		return "", tool.StatefulInterrupt(ctx, &ToolApprovalInfo{
-			ToolName:  tCtx.Name,
-			Arguments: storedArgs,
-			CallID:    tCtx.CallID,
-		}, storedArgs)
-	}, nil
-}
-
-func (m *ApprovalMiddleware) WrapStreamableToolCall(
-	_ context.Context,
-	endpoint adk.StreamableToolCallEndpoint,
-	tCtx *adk.ToolContext,
-) (adk.StreamableToolCallEndpoint, error) {
-	if !isConfirmRequired(tCtx.Name) {
-		return endpoint, nil
-	}
-
-	return func(ctx context.Context, args string, opts ...tool.Option) (*schema.StreamReader[string], error) {
-		wasInterrupted, _, storedArgs := tool.GetInterruptState[string](ctx)
-
-		if !wasInterrupted {
-			return nil, tool.StatefulInterrupt(ctx, &ToolApprovalInfo{
-				ToolName:  tCtx.Name,
-				Arguments: args,
-				CallID:    tCtx.CallID,
-			}, args)
-		}
-
-		isTarget, hasData, data := tool.GetResumeContext[*ToolApprovalResult](ctx)
-		if isTarget && hasData {
-			if data.Approved {
-				return endpoint(ctx, storedArgs, opts...)
-			}
-			reason := "操作已被用户拒绝"
-			if data.Reason != "" {
-				reason = fmt.Sprintf("操作已被用户拒绝: %s", data.Reason)
-			}
-			return schema.StreamReaderFromArray([]string{reason}), nil
-		}
-
-		return nil, tool.StatefulInterrupt(ctx, &ToolApprovalInfo{
-			ToolName:  tCtx.Name,
-			Arguments: storedArgs,
-			CallID:    tCtx.CallID,
-		}, storedArgs)
-	}, nil
 }

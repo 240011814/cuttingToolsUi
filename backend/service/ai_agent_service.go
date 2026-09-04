@@ -12,8 +12,6 @@ import (
 
 	"github.com/cloudwego/eino-ext/components/model/ark"
 	"github.com/cloudwego/eino/adk"
-	"github.com/cloudwego/eino/callbacks"
-	einomodel "github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/components/tool"
 	"github.com/cloudwego/eino/compose"
 	"github.com/cloudwego/eino/schema"
@@ -29,7 +27,7 @@ type AIAgentService struct {
 	runnerCache    map[string]*adk.Runner
 	promptCache    map[string]string
 	sysCfgService  *SystemConfigService
-	checkpointStore adk.CheckPointStore
+	checkpointStore compose.CheckPointStore
 }
 
 func NewAIAgentService(timeoutMinutes int, sysCfgService *SystemConfigService) (*AIAgentService, error) {
@@ -316,8 +314,8 @@ func (s *AIAgentService) getOrCreateRunner(modelOverride string) (*adk.Runner, e
 				Tools: s.buildTools(),
 			},
 		},
-		Handlers: []adk.ChatModelAgentMiddleware{
-			&ApprovalMiddleware{},
+		Middlewares: []adk.AgentMiddleware{
+			NewApprovalMiddleware(),
 		},
 	})
 	if err != nil {
@@ -396,7 +394,7 @@ func (s *AIAgentService) getModel(modelOverride string) (*ark.ChatModel, error) 
 
 
 
-func (s *AIAgentService) ChatStream(userID uint, agentID uint, historyID uint, messages []*schema.Message, modelOverride string) (*adk.AsyncIterator[*adk.TypedAgentEvent[*schema.Message]], error) {
+func (s *AIAgentService) ChatStream(userID uint, agentID uint, historyID uint, messages []*schema.Message, modelOverride string) (*adk.AsyncIterator[*adk.AgentEvent], error) {
 	runner, err := s.getOrCreateRunner(modelOverride)
 	if err != nil {
 		return nil, err
@@ -404,50 +402,15 @@ func (s *AIAgentService) ChatStream(userID uint, agentID uint, historyID uint, m
 
 	customPrompt := s.getCustomPrompt(userID, agentID)
 
-	logHandler := callbacks.NewHandlerBuilder().
-		OnStartFn(func(ctx context.Context, info *callbacks.RunInfo, input callbacks.CallbackInput) context.Context {
-			if mi := einomodel.ConvCallbackInput(input); mi != nil {
-				log.Printf("[eino] %s start: %d messages", info.Name, len(mi.Messages))
-				for _, m := range mi.Messages {
-					log.Printf("[eino]   [%s] %s", m.Role, m.Content)
-				}
-			} else {
-				log.Printf("[eino] %s start", info.Name)
-			}
-			return ctx
-		}).
-		OnEndFn(func(ctx context.Context, info *callbacks.RunInfo, output callbacks.CallbackOutput) context.Context {
-			if mo := einomodel.ConvCallbackOutput(output); mo != nil && mo.Message != nil {
-				if mo.Message.ResponseMeta != nil && mo.Message.ResponseMeta.Usage.TotalTokens > 0 {
-					log.Printf("[eino] %s end: prompt_tokens=%d completion_tokens=%d total_tokens=%d",
-						info.Name,
-						mo.Message.ResponseMeta.Usage.PromptTokens,
-						mo.Message.ResponseMeta.Usage.CompletionTokens,
-						mo.Message.ResponseMeta.Usage.TotalTokens)
-				}
-				if mo.Message.Content != "" {
-					log.Printf("[eino] %s end: reply=%s", info.Name, mo.Message.Content)
-				}
-			} else {
-				log.Printf("[eino] %s end", info.Name)
-			}
-			return ctx
-		}).
-		OnErrorFn(func(ctx context.Context, info *callbacks.RunInfo, err error) context.Context {
-			log.Printf("[eino] %s error: %v", info.Name, err)
-			return ctx
-		}).
-		Build()
-
 	checkPointID := fmt.Sprintf("%d_%d", userID, historyID)
-	return runner.Run(s.ctx, messages, adk.WithCallbacks(logHandler), adk.WithCheckPointID(checkPointID), adk.WithSessionValues(map[string]any{
+	return runner.Run(s.ctx, messages, adk.WithCheckPointID(checkPointID), adk.WithSessionValues(map[string]any{
 		"custom_prompt": customPrompt,
 		"current_time":  time.Now().Format("2006-01-02 15:04:05"),
 		"user_id":       userID,
 	})), nil
 }
 
-func (s *AIAgentService) ResumeToolApproval(checkPointID string, interruptID string, approved bool, reason string) (*adk.AsyncIterator[*adk.TypedAgentEvent[*schema.Message]], error) {
+func (s *AIAgentService) ResumeToolApproval(checkPointID string, interruptID string, approved bool, reason string) (*adk.AsyncIterator[*adk.AgentEvent], error) {
 	runner, err := s.getOrCreateRunner("")
 	if err != nil {
 		return nil, err
