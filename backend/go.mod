@@ -3,7 +3,7 @@ module backend
 go 1.26.0
 
 require (
-	github.com/cloudwego/eino v0.7.13
+	github.com/cloudwego/eino v0.9.19
 	github.com/cloudwego/eino-ext/components/model/ark v0.1.69
 	github.com/gin-gonic/gin v1.12.0
 	github.com/go-telegram-bot-api/telegram-bot-api/v5 v5.5.1
