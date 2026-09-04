@@ -63,11 +63,6 @@ func (s *Mem0ServiceImpl) LoadFromTool() {
 	}
 }
 
-func (s *Mem0ServiceImpl) ReloadFromTool() {
-	s.LoadFromTool()
-	log.Printf("mem0 config reloaded: enabled=%v baseURL=%s", s.enabled, s.baseURL)
-}
-
 func (s *Mem0ServiceImpl) IsConfigured() bool {
 	return s != nil && s.enabled && s.apiKey != ""
 }

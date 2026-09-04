@@ -35,7 +35,6 @@ type Mem0Service interface {
 	IsConfigured() bool
 	GetEnabled() bool
 	LoadFromTool()
-	ReloadFromTool()
 	AddMemory(userID uint, messages []Mem0Message, metadata map[string]any) (*Mem0AddResponse, error)
 	SearchMemories(userID uint, query string, topK int) ([]Mem0Memory, error)
 	ListMemories(userID uint, page, pageSize int) (*Mem0ListResponse, error)

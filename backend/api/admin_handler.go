@@ -350,7 +350,7 @@ func (h *AdminHandler) HandleCreateAITool(c *gin.Context) {
 	service.InvalidateConfirmRequiredCache(tool.Name)
 	h.aiAgentSvc.ClearRunnerCache()
 	if tool.Name == "mem0_memory" {
-		h.mem0Service.ReloadFromTool()
+		h.mem0Service.LoadFromTool()
 	}
 	SendSuccess(c, tool)
 }
@@ -375,7 +375,7 @@ func (h *AdminHandler) HandleUpdateAITool(c *gin.Context) {
 	service.InvalidateConfirmRequiredCache(req.Name)
 	h.aiAgentSvc.ClearRunnerCache()
 	if req.Name == "mem0_memory" {
-		h.mem0Service.ReloadFromTool()
+		h.mem0Service.LoadFromTool()
 	}
 	SendSuccess(c, nil)
 }
@@ -396,7 +396,7 @@ func (h *AdminHandler) HandleDeleteAITool(c *gin.Context) {
 	service.InvalidateConfirmRequiredCache(tool.Name)
 	h.aiAgentSvc.ClearRunnerCache()
 	if tool.Name == "mem0_memory" {
-		h.mem0Service.ReloadFromTool()
+		h.mem0Service.LoadFromTool()
 	}
 	SendSuccess(c, nil)
 }
