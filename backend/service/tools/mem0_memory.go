@@ -16,6 +16,11 @@ var mem0Svc interfaces.Mem0Service
 // SetMem0Service 注册 mem0 服务实例供工具使用
 func SetMem0Service(svc interfaces.Mem0Service) { mem0Svc = svc }
 
+type Mem0MemoryConfig struct {
+	APIKey  string `json:"api_key" description:"Mem0 API Key" required:"true"`
+	BaseURL string `json:"base_url" description:"Mem0 API 地址"`
+}
+
 type mem0MemoryTool struct{}
 
 type mem0ToolRequest struct {
@@ -27,7 +32,7 @@ type mem0ToolRequest struct {
 func init() {
 	Register("mem0_memory", "用户记忆管理",
 		"管理用户的长期记忆。可以搜索用户之前的学习记录、偏好和进度，也可以添加新的记忆。当需要了解用户的训练历史、学习偏好或之前的表现时使用搜索；当需要记住用户的重要信息时使用添加。",
-		nil,
+		Mem0MemoryConfig{},
 		func(config map[string]any) (tool.BaseTool, error) {
 			return &mem0MemoryTool{}, nil
 		})
