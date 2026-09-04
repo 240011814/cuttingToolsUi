@@ -27,7 +27,7 @@ type ChatRequest struct {
 	Messages         []ChatMessage `json:"messages" binding:"required"`
 }
 
-func HandleChatStream(agentService *service.AIAgentService, historyService *service.HistoryService, mem0Service *service.Mem0Service) gin.HandlerFunc {
+func HandleChatStream(agentService *service.AIAgentService, historyService *service.HistoryService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		requestStart := time.Now()
 		var req ChatRequest
@@ -83,7 +83,7 @@ func HandleChatStream(agentService *service.AIAgentService, historyService *serv
 						InputMessages:    inputMessages,
 						AssistantReply:   fullAssistantReply,
 						ThinkingContent:  fullThinkingContent,
-					}, mem0Service)
+					})
 					if saveErr == nil && req.HistoryID == 0 {
 						c.SSEvent("history_id", gin.H{"history_id": historyID, "title": "AI 训练对话"})
 					}
@@ -115,7 +115,7 @@ func HandleChatStream(agentService *service.AIAgentService, historyService *serv
 								HistoryID:     0,
 								TrainingType:  req.TrainingType,
 								InputMessages: inputMessages,
-							}, nil)
+							})
 							if saveErr != nil {
 								log.Printf("[chat] save history failed user=%d err=%v", userID.(uint), saveErr)
 							} else {

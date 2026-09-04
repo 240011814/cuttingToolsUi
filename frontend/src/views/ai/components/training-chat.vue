@@ -12,7 +12,6 @@ import {
   fetchGenerateShareToken,
 } from "@/service/api";
 import { fetchGetAIModels, fetchGetUserPrompt, fetchChatStream, fetchToolApproval } from "@/service/api/ai";
-import { fetchSearchMemories } from "@/service/api/memory";
 import { fetchCourseList, fetchCreateCourseItem, type Course } from "@/service/api/course";
 import { useAuth } from "@/hooks/business/auth";
 import MarkdownIt from "markdown-it";
@@ -179,39 +178,11 @@ const messages = ref<ChatMessage[]>([
 ]);
 
 const showPromptEditor = ref(false);
-const memorySearchQuery = ref("用户已经训练过的场景和学习进度和用户的偏好");
-const memorySearchTopK = ref(30);
-const mem0Enabled = ref(true);
 
 async function refreshPrompt() {
   const { data } = await fetchGetUserPrompt(props.agentId);
   if (data) {
     systemMessage.value.content = data.effective_prompt || props.systemPrompt;
-    if (data.memory_search_query) {
-      memorySearchQuery.value = data.memory_search_query;
-    }
-    if (data.memory_search_top_k) {
-      memorySearchTopK.value = data.memory_search_top_k;
-    }
-    mem0Enabled.value = data.mem0_enabled !== false;
-  }
-}
-
-async function loadMemories() {
-  if (!mem0Enabled.value) return;
-  try {
-    const query =
-      memorySearchQuery.value?.trim() || "用户已经训练过的场景和学习进度和用户的偏好";
-    const { data: memories } = await fetchSearchMemories(query, memorySearchTopK.value);
-    if (memories && memories.length > 0) {
-      const memoryText = memories.map((m: any) => `- ${m.memory}`).join("\n");
-      systemMessage.value = {
-        role: "system",
-        content: `${systemMessage.value.content}\n\n---\n以下是基于「${query}」检索到的用户记忆，回答时请参考：\n${memoryText}\n---`,
-      };
-    }
-  } catch {
-    // Memory load failure should not block chat
   }
 }
 const historyId = ref<number>(0);
@@ -898,7 +869,7 @@ const handleSaveTitle = async () => {
 
 onMounted(() => {
   loadModels();
-  refreshPrompt().then(() => loadMemories());
+  refreshPrompt();
 
   const queryHistoryId = route.query.history_id;
   if (queryHistoryId) {

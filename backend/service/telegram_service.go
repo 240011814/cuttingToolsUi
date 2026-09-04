@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	interfaces "backend/interface"
 	"backend/model"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -246,10 +247,10 @@ type TelegramService struct {
 	running         bool   // 是否正在运行
 }
 
-func NewTelegramService(sysCfgService *SystemConfigService) *TelegramService {
+func NewTelegramService(sysCfgService *SystemConfigService, mem0Service interfaces.Mem0Service) *TelegramService {
 	s := &TelegramService{
 		sysCfgService:  sysCfgService,
-		historyService: NewHistoryService(),
+		historyService: NewHistoryService(mem0Service),
 		promptService:  NewPromptService(DB, nil),
 		stopCh:         make(chan struct{}),
 		sessions:       make(map[int64]*TelegramSession),

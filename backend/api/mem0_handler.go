@@ -1,17 +1,17 @@
 package api
 
 import (
-	"backend/service"
+	interfaces "backend/interface"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
 
 type Mem0Handler struct {
-	mem0Service *service.Mem0Service
+	mem0Service interfaces.Mem0Service
 }
 
-func NewMem0Handler(mem0Service *service.Mem0Service) *Mem0Handler {
+func NewMem0Handler(mem0Service interfaces.Mem0Service) *Mem0Handler {
 	return &Mem0Handler{
 		mem0Service: mem0Service,
 	}
@@ -34,8 +34,8 @@ func (h *Mem0Handler) HandleAddMemory(c *gin.Context) {
 	}
 
 	var req struct {
-		Messages []service.Mem0Message `json:"messages" binding:"required"`
-		Metadata map[string]any        `json:"metadata"`
+		Messages []interfaces.Mem0Message `json:"messages" binding:"required"`
+		Metadata map[string]any     `json:"metadata"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		SendError(c, "400", err.Error())

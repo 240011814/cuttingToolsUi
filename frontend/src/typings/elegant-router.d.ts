@@ -27,7 +27,6 @@ declare module "@elegant-router/types" {
     "ai_error-book": "/ai/error-book";
     "ai_exercise": "/ai/exercise";
     "ai_history": "/ai/history";
-    "ai_memory": "/ai/memory";
     "ai_note": "/ai/note";
     "ai_training": "/ai/training";
     "ai_vocabulary": "/ai/vocabulary";
@@ -121,7 +120,6 @@ declare module "@elegant-router/types" {
     | "ai_error-book"
     | "ai_exercise"
     | "ai_history"
-    | "ai_memory"
     | "ai_note"
     | "ai_training"
     | "ai_vocabulary"

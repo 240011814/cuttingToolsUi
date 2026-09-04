@@ -9,15 +9,10 @@ const message = useMessage();
 const loading = ref(false);
 const savingRegister = ref(false);
 const saving2fa = ref(false);
-const savingMem0 = ref(false);
 const savingTelegram = ref(false);
 const savingTimeout = ref(false);
 const registerEnabled = ref(false);
 const admin2faEnabled = ref(false);
-const mem0Enabled = ref(true);
-const mem0ApiKey = ref("");
-const mem0BaseUrl = ref("");
-const showApiKey = ref(false);
 const telegramEnabled = ref(true);
 const telegramBotToken = ref("");
 const showTelegramToken = ref(false);
@@ -37,17 +32,8 @@ async function loadConfig() {
       const registerConfig = data.find((c: any) => c.key === "register_enabled");
       registerEnabled.value = registerConfig?.value === "true";
 
-      const mem0EnabledConfig = data.find((c: any) => c.key === "mem0_enabled");
-      mem0Enabled.value = mem0EnabledConfig?.value !== "false";
-
       const admin2faConfig = data.find((c: any) => c.key === "admin_2fa_enabled");
       admin2faEnabled.value = admin2faConfig?.value === "true";
-
-      const apiKeyConfig = data.find((c: any) => c.key === "mem0_api_key");
-      mem0ApiKey.value = apiKeyConfig?.value || "";
-
-      const baseUrlConfig = data.find((c: any) => c.key === "mem0_base_url");
-      mem0BaseUrl.value = baseUrlConfig?.value || "https://api.mem0.ai/v1";
 
       const telegramEnabledConfig = data.find((c: any) => c.key === "telegram_enabled");
       telegramEnabled.value = telegramEnabledConfig?.value !== "false";
@@ -108,32 +94,6 @@ async function handleToggleAdmin2FA(val: boolean) {
     message.error(`保存失败: ${err?.message || "未知错误"}`);
   } finally {
     saving2fa.value = false;
-  }
-}
-
-async function handleToggleMem0(val: boolean) {
-  savingMem0.value = true;
-  try {
-    await saveConfig("mem0_enabled", val ? "true" : "false", "Mem0 记忆服务开关");
-    message.success(val ? "Mem0 记忆服务已开启" : "Mem0 记忆服务已关闭");
-  } catch (err: any) {
-    mem0Enabled.value = !val;
-    message.error(`保存失败: ${err?.message || "未知错误"}`);
-  } finally {
-    savingMem0.value = false;
-  }
-}
-
-async function handleSaveMem0() {
-  savingMem0.value = true;
-  try {
-    await saveConfig("mem0_api_key", mem0ApiKey.value, "Mem0 API 密钥");
-    await saveConfig("mem0_base_url", mem0BaseUrl.value, "Mem0 API 地址");
-    message.success("Mem0 配置已保存并生效");
-  } catch (err: any) {
-    message.error(`保存失败: ${err?.message || "未知错误"}`);
-  } finally {
-    savingMem0.value = false;
   }
 }
 
@@ -226,56 +186,6 @@ onMounted(() => {
               <template #checked>开启</template>
               <template #unchecked>关闭</template>
             </NSwitch>
-          </div>
-
-          <!-- Mem0 配置 -->
-          <div class="p-4 rounded-lg border border-gray-200 dark:border-gray-700">
-            <div class="flex items-center justify-between mb-4">
-              <div>
-                <div class="font-bold text-gray-800 dark:text-gray-200">Mem0 记忆服务</div>
-                <div class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                  关闭后将停止所有记忆功能，包括对话记忆保存和记忆搜索。
-                </div>
-              </div>
-              <NSwitch
-                v-model:value="mem0Enabled"
-                :loading="savingMem0"
-                @update:value="handleToggleMem0"
-              >
-                <template #checked>开启</template>
-                <template #unchecked>关闭</template>
-              </NSwitch>
-            </div>
-            <NForm label-placement="left" label-width="100">
-              <NFormItem label="API Key">
-                <NInput
-                  v-model:value="mem0ApiKey"
-                  :type="showApiKey ? 'text' : 'password'"
-                  placeholder="输入 Mem0 API Key"
-                  :disabled="!mem0Enabled"
-                >
-                  <template #suffix>
-                    <div
-                      class="cursor-pointer text-gray-400 hover:text-gray-600"
-                      :class="showApiKey ? 'i-mdi:eye-off' : 'i-mdi:eye'"
-                      @click="showApiKey = !showApiKey"
-                    />
-                  </template>
-                </NInput>
-              </NFormItem>
-              <NFormItem label="Base URL">
-                <NInput
-                  v-model:value="mem0BaseUrl"
-                  placeholder="https://api.mem0.ai/v1"
-                  :disabled="!mem0Enabled"
-                />
-              </NFormItem>
-              <NFormItem>
-                <NButton type="primary" :loading="savingMem0" :disabled="!mem0Enabled" @click="handleSaveMem0">
-                  保存 Mem0 配置
-                </NButton>
-              </NFormItem>
-            </NForm>
           </div>
 
           <!-- Telegram Bot 配置 -->

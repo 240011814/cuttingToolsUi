@@ -40,7 +40,7 @@ func (s *PromptService) ListVersions(userID uint, agentID uint) ([]model.UserPro
 	return list, err
 }
 
-func (s *PromptService) SaveUserPrompt(userID uint, agentID uint, content, remark, memorySearchQuery string, memorySearchTopK int) error {
+func (s *PromptService) SaveUserPrompt(userID uint, agentID uint, content, remark string) error {
 	err := s.db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Model(&model.UserPrompt{}).
 			Where("user_id = ? AND agent_id = ?", userID, agentID).
@@ -53,19 +53,13 @@ func (s *PromptService) SaveUserPrompt(userID uint, agentID uint, content, remar
 			Where("user_id = ? AND agent_id = ?", userID, agentID).
 			Select("COALESCE(MAX(version), 0)").Scan(&maxVersion)
 
-		if memorySearchTopK <= 0 {
-			memorySearchTopK = 30
-		}
-
 		newPrompt := model.UserPrompt{
-			UserID:            userID,
-			AgentID:           agentID,
-			CustomPrompt:      content,
-			MemorySearchQuery: memorySearchQuery,
-			MemorySearchTopK:  memorySearchTopK,
-			Version:           maxVersion + 1,
-			IsActive:          true,
-			Remark:            remark,
+			UserID:       userID,
+			AgentID:      agentID,
+			CustomPrompt: content,
+			Version:      maxVersion + 1,
+			IsActive:     true,
+			Remark:       remark,
 		}
 
 		return tx.Create(&newPrompt).Error

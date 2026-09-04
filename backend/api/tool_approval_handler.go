@@ -24,7 +24,7 @@ type ToolApprovalRequest struct {
 	Messages         []ChatMessage `json:"messages"`
 }
 
-func HandleToolApproval(agentService *service.AIAgentService, historyService *service.HistoryService, mem0Service *service.Mem0Service) gin.HandlerFunc {
+func HandleToolApproval(agentService *service.AIAgentService, historyService *service.HistoryService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req ToolApprovalRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -86,7 +86,7 @@ func HandleToolApproval(agentService *service.AIAgentService, historyService *se
 					InputMessages:    inputMessages,
 					AssistantReply:   fullAssistantReply,
 					ThinkingContent:  fullThinkingContent,
-				}, mem0Service)
+				})
 
 				return false
 			}

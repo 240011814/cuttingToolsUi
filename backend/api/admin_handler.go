@@ -3,20 +3,23 @@ package api
 import (
 	"strconv"
 
+	interfaces "backend/interface"
 	"backend/model"
 	"backend/service"
 	"backend/service/tools"
+
 	"github.com/gin-gonic/gin"
 )
 
 type AdminHandler struct {
-	svc        *service.AdminService
-	aiAgentSvc *service.AIAgentService
-	authSvc    *service.AuthService
+	svc          *service.AdminService
+	aiAgentSvc   *service.AIAgentService
+	authSvc      *service.AuthService
+	mem0Service  interfaces.Mem0Service
 }
 
-func NewAdminHandler(svc *service.AdminService, aiAgentSvc *service.AIAgentService, authSvc *service.AuthService) *AdminHandler {
-	return &AdminHandler{svc: svc, aiAgentSvc: aiAgentSvc, authSvc: authSvc}
+func NewAdminHandler(svc *service.AdminService, aiAgentSvc *service.AIAgentService, authSvc *service.AuthService, mem0Service interfaces.Mem0Service) *AdminHandler {
+	return &AdminHandler{svc: svc, aiAgentSvc: aiAgentSvc, authSvc: authSvc, mem0Service: mem0Service}
 }
 
 func (h *AdminHandler) HandleListUsers(c *gin.Context) {
@@ -344,7 +347,11 @@ func (h *AdminHandler) HandleCreateAITool(c *gin.Context) {
 		SendError(c, "500", "创建工具失败: "+err.Error())
 		return
 	}
+	service.InvalidateConfirmRequiredCache(tool.Name)
 	h.aiAgentSvc.ClearRunnerCache()
+	if tool.Name == "mem0_memory" {
+		h.mem0Service.ReloadFromTool()
+	}
 	SendSuccess(c, tool)
 }
 
@@ -367,6 +374,9 @@ func (h *AdminHandler) HandleUpdateAITool(c *gin.Context) {
 	}
 	service.InvalidateConfirmRequiredCache(req.Name)
 	h.aiAgentSvc.ClearRunnerCache()
+	if req.Name == "mem0_memory" {
+		h.mem0Service.ReloadFromTool()
+	}
 	SendSuccess(c, nil)
 }
 
@@ -385,10 +395,11 @@ func (h *AdminHandler) HandleDeleteAITool(c *gin.Context) {
 	}
 	service.InvalidateConfirmRequiredCache(tool.Name)
 	h.aiAgentSvc.ClearRunnerCache()
+	if tool.Name == "mem0_memory" {
+		h.mem0Service.ReloadFromTool()
+	}
 	SendSuccess(c, nil)
 }
-
-// HandleListAIToolMetas 返回所有已注册的工具元信息（通过反射获取）
 func (h *AdminHandler) HandleListAIToolMetas(c *gin.Context) {
 	metas := tools.GetAllToolMeta()
 	SendSuccess(c, metas)

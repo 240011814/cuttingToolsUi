@@ -9,15 +9,13 @@ import (
 
 type SystemConfigHandler struct {
 	configSvc       *service.SystemConfigService
-	mem0Svc         *service.Mem0Service
 	telegramService *service.TelegramService
 	aiAgentSvc      *service.AIAgentService
 }
 
-func NewSystemConfigHandler(configSvc *service.SystemConfigService, mem0Svc *service.Mem0Service, telegramService *service.TelegramService, aiAgentSvc ...*service.AIAgentService) *SystemConfigHandler {
+func NewSystemConfigHandler(configSvc *service.SystemConfigService, telegramService *service.TelegramService, aiAgentSvc ...*service.AIAgentService) *SystemConfigHandler {
 	h := &SystemConfigHandler{
 		configSvc:       configSvc,
-		mem0Svc:         mem0Svc,
 		telegramService: telegramService,
 	}
 	if len(aiAgentSvc) > 0 {
@@ -49,12 +47,6 @@ func (h *SystemConfigHandler) Update(c *gin.Context) {
 	if err := h.configSvc.SetValue(req.Key, req.Value, req.Remark); err != nil {
 		SendError(c, "500", "更新配置失败: "+err.Error())
 		return
-	}
-
-	// mem0 相关配置变更后立即热更新
-	if req.Key == "mem0_api_key" || req.Key == "mem0_base_url" || req.Key == "mem0_enabled" {
-		newCfg := h.configSvc.GetMem0Config()
-		h.mem0Svc.ReloadConfig(newCfg)
 	}
 
 	// 当关闭 2FA 时，清除所有用户的 TOTP 密钥，确保重新开启时需要重新绑定

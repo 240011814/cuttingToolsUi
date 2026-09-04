@@ -9,11 +9,10 @@ import (
 
 type PromptHandler struct {
 	promptSvc *service.PromptService
-	configSvc *service.SystemConfigService
 }
 
-func NewPromptHandler(promptSvc *service.PromptService, configSvc *service.SystemConfigService) *PromptHandler {
-	return &PromptHandler{promptSvc: promptSvc, configSvc: configSvc}
+func NewPromptHandler(promptSvc *service.PromptService) *PromptHandler {
+	return &PromptHandler{promptSvc: promptSvc}
 }
 
 func (h *PromptHandler) GetUserPrompt(c *gin.Context) {
@@ -30,19 +29,14 @@ func (h *PromptHandler) GetUserPrompt(c *gin.Context) {
 		return
 	}
 
-	effectivePrompt, memorySearchQuery, memorySearchTopK, err := h.promptSvc.GetEffectivePrompt(userID, uint(agentID))
+	effectivePrompt, _, _, err := h.promptSvc.GetEffectivePrompt(userID, uint(agentID))
 	if err != nil {
 		SendError(c, "500", "获取提示词失败: "+err.Error())
 		return
 	}
 
-	mem0Cfg := h.configSvc.GetMem0Config()
-
 	SendSuccess(c, gin.H{
 		"effective_prompt":      effectivePrompt,
-		"memory_search_query":  memorySearchQuery,
-		"memory_search_top_k":  memorySearchTopK,
-		"mem0_enabled":         mem0Cfg.Enabled,
 		"default_prompt":       "",
 		"versions":             versions,
 		"is_customized":        len(versions) > 0,
@@ -58,17 +52,15 @@ func (h *PromptHandler) SaveUserPrompt(c *gin.Context) {
 	}
 
 	var req struct {
-		Prompt            string `json:"prompt" binding:"required"`
-		Remark            string `json:"remark"`
-		MemorySearchQuery string `json:"memory_search_query"`
-		MemorySearchTopK  int    `json:"memory_search_top_k"`
+		Prompt string `json:"prompt" binding:"required"`
+		Remark string `json:"remark"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		SendError(c, "400", "无效的请求参数")
 		return
 	}
 
-	if err := h.promptSvc.SaveUserPrompt(userID, uint(agentID), req.Prompt, req.Remark, req.MemorySearchQuery, req.MemorySearchTopK); err != nil {
+	if err := h.promptSvc.SaveUserPrompt(userID, uint(agentID), req.Prompt, req.Remark); err != nil {
 		SendError(c, "500", "保存失败: "+err.Error())
 		return
 	}

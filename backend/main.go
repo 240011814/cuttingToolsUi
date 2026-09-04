@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"net/http"
+	"time"
 
 	"backend/api"
 	"backend/config"
@@ -48,7 +49,17 @@ func main() {
 	promptService = service.NewPromptService(service.DB, aiAgentService)
 	aiAgentHandler := api.NewAIAgentHandler(aiAgentService)
 
-	adminHandler := api.NewAdminHandler(adminService, aiAgentService, authService)
+	// mem0 从 ai_tools 表读取配置
+	timeoutConfig := systemConfigService.GetTimeoutConfig()
+	var mem0Timeout time.Duration
+	if timeoutConfig.HTTPTimeout > 0 {
+		mem0Timeout = time.Duration(timeoutConfig.HTTPTimeout) * time.Second
+	}
+	mem0Svc := service.NewMem0Service(mem0Timeout, service.DB)
+	mem0Svc.LoadFromTool()
+	tools.SetMem0Service(mem0Svc)
+
+	adminHandler := api.NewAdminHandler(adminService, aiAgentService, authService, mem0Svc)
 
 	dashboardService := service.NewDashboardService()
 	dashboardHandler := api.NewDashboardHandler(dashboardService)
@@ -56,24 +67,20 @@ func main() {
 	cutService := service.NewCutService()
 	cutHandler := api.NewCutHandler(cutService)
 
-	promptHandler := api.NewPromptHandler(promptService, systemConfigService)
+	promptHandler := api.NewPromptHandler(promptService)
 
-	// mem0 配置从数据库读取
-	mem0Cfg := systemConfigService.GetMem0Config()
-	timeoutConfig := systemConfigService.GetTimeoutConfig()
-	mem0Service := service.NewMem0Service(mem0Cfg, timeoutConfig)
-	mem0Handler := api.NewMem0Handler(mem0Service)
+	mem0Handler := api.NewMem0Handler(mem0Svc)
 
 	// Telegram Bot
-	telegramService := service.NewTelegramService(systemConfigService)
+	telegramService := service.NewTelegramService(systemConfigService, mem0Svc)
 	telegramHandler := api.NewTelegramHandler(telegramService, systemConfigService)
 
-	systemConfigHandler := api.NewSystemConfigHandler(systemConfigService, mem0Service, telegramService, aiAgentService)
+	systemConfigHandler := api.NewSystemConfigHandler(systemConfigService, telegramService, aiAgentService)
 
 	userPrefService := service.NewUserPreferenceService()
 	userPrefHandler := api.NewUserPreferenceHandler(userPrefService)
 
-	historyService := service.NewHistoryService()
+	historyService := service.NewHistoryService(mem0Svc)
 	historyHandler := api.NewHistoryHandler(historyService)
 
 	lotteryService := service.NewLotteryService()
@@ -131,8 +138,8 @@ func main() {
 
 		apiGroup.GET("/dashboard/stats", dashboardHandler.GetStats)
 		apiGroup.GET("/ai/models", api.RequirePermission("ai:model:view"), api.HandleListModels(aiAgentService))
-		apiGroup.POST("/chat", api.RequirePermission("ai:chat:send"), api.HandleChatStream(aiAgentService, historyService, mem0Service))
-		apiGroup.POST("/chat/tool-approval", api.RequirePermission("ai:chat:send"), api.HandleToolApproval(aiAgentService, historyService, mem0Service))
+		apiGroup.POST("/chat", api.RequirePermission("ai:chat:send"), api.HandleChatStream(aiAgentService, historyService))
+		apiGroup.POST("/chat/tool-approval", api.RequirePermission("ai:chat:send"), api.HandleToolApproval(aiAgentService, historyService))
 
 		// User specific AI prompt management
 		promptGroup := apiGroup.Group("/user-prompts")

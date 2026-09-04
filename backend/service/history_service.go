@@ -1,6 +1,7 @@
 package service
 
 import (
+	interfaces "backend/interface"
 	"backend/model"
 	"crypto/rand"
 	"encoding/hex"
@@ -28,10 +29,12 @@ func truncateUTF8(s string, maxBytes int) string {
 	return s[:maxBytes]
 }
 
-type HistoryService struct{}
+type HistoryService struct {
+	mem0Service interfaces.Mem0Service
+}
 
-func NewHistoryService() *HistoryService {
-	return &HistoryService{}
+func NewHistoryService(mem0Service interfaces.Mem0Service) *HistoryService {
+	return &HistoryService{mem0Service: mem0Service}
 }
 
 func (s *HistoryService) ListHistory(userID uint, page, pageSize int, title string, isFavorite *bool) ([]model.TrainingHistory, int64, error) {
@@ -231,7 +234,7 @@ type SaveConversationParams struct {
 	ThinkingContent  string
 }
 
-func (s *HistoryService) SaveConversation(params *SaveConversationParams, mem0Service *Mem0Service) (uint, error) {
+func (s *HistoryService) SaveConversation(params *SaveConversationParams) (uint, error) {
 	allMessages := make([]*schema.Message, 0, len(params.InputMessages)+1)
 	allMessages = append(allMessages, params.InputMessages...)
 	if params.AssistantReply != "" {
@@ -265,19 +268,19 @@ func (s *HistoryService) SaveConversation(params *SaveConversationParams, mem0Se
 		return 0, err
 	}
 
-	if mem0Service != nil && mem0Service.IsConfigured() {
-		memMessages := make([]Mem0Message, 0, len(allMessages))
+	if s.mem0Service != nil && s.mem0Service.IsConfigured() {
+		memMessages := make([]interfaces.Mem0Message, 0, len(allMessages))
 		for _, m := range allMessages {
 			if m.Role == schema.System {
 				continue
 			}
-			memMessages = append(memMessages, Mem0Message{
+			memMessages = append(memMessages, interfaces.Mem0Message{
 				Role:    string(m.Role),
 				Content: m.Content,
 			})
 		}
 		if len(memMessages) > 0 {
-			if _, err := mem0Service.AddMemory(params.UserID, memMessages, nil); err != nil {
+			if _, err := s.mem0Service.AddMemory(params.UserID, memMessages, nil); err != nil {
 				log.Printf("mem0 save memory failed user=%d err=%v", params.UserID, err)
 			}
 		}

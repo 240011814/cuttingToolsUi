@@ -242,7 +242,6 @@ const local: App.I18n.Schema = {
     "ai_error-book": "Error Book",
     ai_note: "Note Book",
     ai_history: "History Records",
-    ai_memory: "Memory",
     ai_exercise: "Exercise",
     ai_course: "Course Pack",
     "ai_course-detail": "Edit Course",
