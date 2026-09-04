@@ -4,9 +4,12 @@ import (
 	"backend/model"
 	"crypto/rand"
 	"encoding/hex"
+	"log"
 	"regexp"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/cloudwego/eino/schema"
 )
 
 var (
@@ -117,23 +120,26 @@ func (s *HistoryService) SaveHistory(userID uint, historyID uint, trainingType s
 			return 0, err
 		}
 
-		if err := DB.Where("history_id = ?", historyID).Delete(&model.TrainingMessage{}).Error; err != nil {
-			return 0, err
-		}
+		// 查询已有消息数量，只追加新消息
+		var existingCount int64
+		DB.Model(&model.TrainingMessage{}).Where("history_id = ?", historyID).Count(&existingCount)
 
-		msgs := make([]model.TrainingMessage, len(messages))
-		for i, m := range messages {
-			msgs[i] = model.TrainingMessage{
-				HistoryID:       historyID,
-				Role:            m.Role,
-				Content:         m.Content,
-				ThinkingContent: m.ThinkingContent,
-				SortOrder:       i,
+		if len(messages) > int(existingCount) {
+			newMsgs := make([]model.TrainingMessage, 0, len(messages)-int(existingCount))
+			for i := int(existingCount); i < len(messages); i++ {
+				m := messages[i]
+				newMsgs = append(newMsgs, model.TrainingMessage{
+					HistoryID:       historyID,
+					Role:            m.Role,
+					Content:         m.Content,
+					ThinkingContent: m.ThinkingContent,
+					SortOrder:       i,
+				})
 			}
-		}
-		if len(msgs) > 0 {
-			if err := DB.Create(&msgs).Error; err != nil {
-				return 0, err
+			if len(newMsgs) > 0 {
+				if err := DB.Create(&newMsgs).Error; err != nil {
+					return 0, err
+				}
 			}
 		}
 
@@ -213,4 +219,69 @@ func (s *HistoryService) GetSharedHistory(shareToken string) (*model.TrainingHis
 	history.Messages = messages
 
 	return &history, nil
+}
+
+type SaveConversationParams struct {
+	UserID           uint
+	HistoryID        uint
+	TrainingType     string
+	CustomTrainingID *uint
+	InputMessages    []*schema.Message
+	AssistantReply   string
+	ThinkingContent  string
+}
+
+func (s *HistoryService) SaveConversation(params *SaveConversationParams, mem0Service *Mem0Service) (uint, error) {
+	allMessages := make([]*schema.Message, 0, len(params.InputMessages)+1)
+	allMessages = append(allMessages, params.InputMessages...)
+	if params.AssistantReply != "" {
+		allMessages = append(allMessages, &schema.Message{
+			Role:    schema.Assistant,
+			Content: params.AssistantReply,
+		})
+	}
+
+	msgs := make([]model.OpenAIMessage, len(allMessages))
+	for i, m := range allMessages {
+		msgs[i] = model.OpenAIMessage{Role: string(m.Role), Content: m.Content}
+	}
+	if params.ThinkingContent != "" && len(msgs) > 0 {
+		msgs[len(msgs)-1].ThinkingContent = params.ThinkingContent
+	}
+
+	title := "AI 训练对话"
+	for _, m := range params.InputMessages {
+		if m.Role == schema.User && m.Content != "" {
+			title = m.Content
+			if len(title) > 20 {
+				title = title[:20] + "..."
+			}
+			break
+		}
+	}
+
+	historyID, err := s.SaveHistory(params.UserID, params.HistoryID, params.TrainingType, params.CustomTrainingID, title, msgs, false)
+	if err != nil {
+		return 0, err
+	}
+
+	if mem0Service != nil && mem0Service.IsConfigured() {
+		memMessages := make([]Mem0Message, 0, len(allMessages))
+		for _, m := range allMessages {
+			if m.Role == schema.System {
+				continue
+			}
+			memMessages = append(memMessages, Mem0Message{
+				Role:    string(m.Role),
+				Content: m.Content,
+			})
+		}
+		if len(memMessages) > 0 {
+			if _, err := mem0Service.AddMemory(params.UserID, memMessages, nil); err != nil {
+				log.Printf("mem0 save memory failed user=%d err=%v", params.UserID, err)
+			}
+		}
+	}
+
+	return historyID, nil
 }

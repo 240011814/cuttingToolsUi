@@ -1,7 +1,6 @@
 package api
 
 import (
-	"backend/model"
 	"backend/service"
 	"errors"
 	"fmt"
@@ -75,56 +74,18 @@ func HandleChatStream(agentService *service.AIAgentService, historyService *serv
 				log.Printf("chat stream completed user=%d reply_chars=%d total_ms=%d", userID.(uint), len(fullAssistantReply), time.Since(requestStart).Milliseconds())
 				c.SSEvent("message", "[DONE]")
 
-				allMessages := make([]*schema.Message, 0, len(inputMessages)+1)
-				allMessages = append(allMessages, inputMessages...)
-				if fullAssistantReply != "" {
-					assistantMsg := &schema.Message{Role: schema.Assistant, Content: fullAssistantReply}
-					allMessages = append(allMessages, assistantMsg)
-				}
-
-				msgs := make([]model.OpenAIMessage, len(allMessages))
-				for i, m := range allMessages {
-					msgs[i] = model.OpenAIMessage{Role: string(m.Role), Content: m.Content}
-				}
-				if fullThinkingContent != "" && len(msgs) > 0 {
-					msgs[len(msgs)-1].ThinkingContent = fullThinkingContent
-				}
-
-				title := "AI 训练对话"
-				for _, m := range inputMessages {
-					if m.Role == schema.User && m.Content != "" {
-						title = m.Content
-						if len(title) > 20 {
-							title = title[:20] + "..."
-						}
-						break
-					}
-				}
-
 				saveFunc := func() {
-					historyID, saveErr := historyService.SaveHistory(userID.(uint), req.HistoryID, req.TrainingType, req.CustomTrainingID, title, msgs, false)
+					historyID, saveErr := historyService.SaveConversation(&service.SaveConversationParams{
+						UserID:           userID.(uint),
+						HistoryID:        req.HistoryID,
+						TrainingType:     req.TrainingType,
+						CustomTrainingID: req.CustomTrainingID,
+						InputMessages:    inputMessages,
+						AssistantReply:   fullAssistantReply,
+						ThinkingContent:  fullThinkingContent,
+					}, mem0Service)
 					if saveErr == nil && req.HistoryID == 0 {
-						c.SSEvent("history_id", gin.H{"history_id": historyID, "title": title})
-					}
-				}
-
-				saveMemoryFunc := func() {
-					if mem0Service != nil && mem0Service.IsConfigured() {
-						memMessages := make([]service.Mem0Message, 0, len(allMessages))
-						for _, m := range allMessages {
-							if m.Role == schema.System {
-								continue
-							}
-							memMessages = append(memMessages, service.Mem0Message{
-								Role:    string(m.Role),
-								Content: m.Content,
-							})
-						}
-						if len(memMessages) > 0 {
-							if _, err := mem0Service.AddMemory(userID.(uint), memMessages, nil); err != nil {
-								log.Printf("mem0 save memory failed user=%d err=%v", userID.(uint), err)
-							}
-						}
+						c.SSEvent("history_id", gin.H{"history_id": historyID, "title": "AI 训练对话"})
 					}
 				}
 
@@ -133,7 +94,6 @@ func HandleChatStream(agentService *service.AIAgentService, historyService *serv
 				} else {
 					go saveFunc()
 				}
-				go saveMemoryFunc()
 
 				return false
 			}
@@ -148,29 +108,19 @@ func HandleChatStream(agentService *service.AIAgentService, historyService *serv
 					if approvalInfo, ok := ictx.Info.(*service.ToolApprovalInfo); ok {
 						log.Printf("[chat] tool_approval required user=%d tool=%s id=%s", userID.(uint), approvalInfo.ToolName, ictx.ID)
 
-						// Save to get history_id for tool_approval_handler to update later
-						title := "AI 训练对话"
-						for _, m := range inputMessages {
-							if m.Role == schema.User && m.Content != "" {
-								title = m.Content
-								if len(title) > 20 {
-									title = title[:20] + "..."
-								}
-								break
-							}
-						}
 						savedHistoryID := req.HistoryID
 						if savedHistoryID == 0 {
-							msgs := make([]model.OpenAIMessage, len(inputMessages))
-							for i, m := range inputMessages {
-								msgs[i] = model.OpenAIMessage{Role: string(m.Role), Content: m.Content}
-							}
-							newID, saveErr := historyService.SaveHistory(userID.(uint), 0, req.TrainingType, req.CustomTrainingID, title, msgs, false)
+							newID, saveErr := historyService.SaveConversation(&service.SaveConversationParams{
+								UserID:        userID.(uint),
+								HistoryID:     0,
+								TrainingType:  req.TrainingType,
+								InputMessages: inputMessages,
+							}, nil)
 							if saveErr != nil {
 								log.Printf("[chat] save history failed user=%d err=%v", userID.(uint), saveErr)
 							} else {
 								savedHistoryID = newID
-								c.SSEvent("history_id", gin.H{"history_id": savedHistoryID, "title": title})
+								c.SSEvent("history_id", gin.H{"history_id": savedHistoryID, "title": "AI 训练对话"})
 							}
 						}
 

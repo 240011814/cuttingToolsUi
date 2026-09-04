@@ -1,7 +1,6 @@
 package api
 
 import (
-	"backend/model"
 	"backend/service"
 	"errors"
 	"io"
@@ -15,14 +14,14 @@ import (
 )
 
 type ToolApprovalRequest struct {
-	CheckPointID    string        `json:"checkpoint_id" binding:"required"`
-	InterruptID     string        `json:"interrupt_id" binding:"required"`
-	Approved        bool          `json:"approved"`
-	Reason          string        `json:"reason,omitempty"`
-	HistoryID       uint          `json:"history_id"`
-	TrainingType    string        `json:"training_type"`
-	CustomTrainingID *uint        `json:"custom_training_id"`
-	Messages        []ChatMessage `json:"messages"`
+	CheckPointID     string        `json:"checkpoint_id" binding:"required"`
+	InterruptID      string        `json:"interrupt_id" binding:"required"`
+	Approved         bool          `json:"approved"`
+	Reason           string        `json:"reason,omitempty"`
+	HistoryID        uint          `json:"history_id"`
+	TrainingType     string        `json:"training_type"`
+	CustomTrainingID *uint         `json:"custom_training_id"`
+	Messages         []ChatMessage `json:"messages"`
 }
 
 func HandleToolApproval(agentService *service.AIAgentService, historyService *service.HistoryService, mem0Service *service.Mem0Service) gin.HandlerFunc {
@@ -79,62 +78,15 @@ func HandleToolApproval(agentService *service.AIAgentService, historyService *se
 				log.Printf("[tool-approval] stream completed user=%d reply_chars=%d", userID.(uint), len(fullAssistantReply))
 				c.SSEvent("message", "[DONE]")
 
-				// Save history
-				allMessages := make([]*schema.Message, 0, len(inputMessages)+1)
-				allMessages = append(allMessages, inputMessages...)
-				if fullAssistantReply != "" {
-					assistantMsg := &schema.Message{Role: schema.Assistant, Content: fullAssistantReply}
-					allMessages = append(allMessages, assistantMsg)
-				}
-
-				msgs := make([]model.OpenAIMessage, len(allMessages))
-				for i, m := range allMessages {
-					msgs[i] = model.OpenAIMessage{Role: string(m.Role), Content: m.Content}
-				}
-				if fullThinkingContent != "" && len(msgs) > 0 {
-					msgs[len(msgs)-1].ThinkingContent = fullThinkingContent
-				}
-
-				title := "AI 训练对话"
-				for _, m := range inputMessages {
-					if m.Role == schema.User && m.Content != "" {
-						title = m.Content
-						if len(title) > 20 {
-							title = title[:20] + "..."
-						}
-						break
-					}
-				}
-
-				saveFunc := func() {
-					_, saveErr := historyService.SaveHistory(userID.(uint), historyID, req.TrainingType, req.CustomTrainingID, title, msgs, false)
-					if saveErr != nil {
-						log.Printf("[tool-approval] save history failed user=%d err=%v", userID.(uint), saveErr)
-					}
-				}
-
-				saveMemoryFunc := func() {
-					if mem0Service != nil && mem0Service.IsConfigured() {
-						memMessages := make([]service.Mem0Message, 0, len(allMessages))
-						for _, m := range allMessages {
-							if m.Role == schema.System {
-								continue
-							}
-							memMessages = append(memMessages, service.Mem0Message{
-								Role:    string(m.Role),
-								Content: m.Content,
-							})
-						}
-						if len(memMessages) > 0 {
-							if _, err := mem0Service.AddMemory(userID.(uint), memMessages, nil); err != nil {
-								log.Printf("[tool-approval] mem0 save memory failed user=%d err=%v", userID.(uint), err)
-							}
-						}
-					}
-				}
-
-				go saveFunc()
-				go saveMemoryFunc()
+				go historyService.SaveConversation(&service.SaveConversationParams{
+					UserID:           userID.(uint),
+					HistoryID:        historyID,
+					TrainingType:     req.TrainingType,
+					CustomTrainingID: req.CustomTrainingID,
+					InputMessages:    inputMessages,
+					AssistantReply:   fullAssistantReply,
+					ThinkingContent:  fullThinkingContent,
+				}, mem0Service)
 
 				return false
 			}
