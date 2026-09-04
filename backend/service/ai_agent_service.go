@@ -315,6 +315,7 @@ func (s *AIAgentService) getOrCreateRunner(modelOverride string) (*adk.Runner, e
 			},
 		},
 		Middlewares: []adk.AgentMiddleware{
+			NewLoggingMiddleware(),
 			NewApprovalMiddleware(),
 		},
 	})

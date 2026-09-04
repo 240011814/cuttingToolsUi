@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/gob"
 	"fmt"
+	"log"
 	"sync"
 
 	"backend/model"
@@ -144,6 +145,34 @@ func NewApprovalMiddleware() adk.AgentMiddleware {
 					}, storedArgs)
 				}
 			},
+		},
+	}
+}
+
+func NewLoggingMiddleware() adk.AgentMiddleware {
+	return adk.AgentMiddleware{
+		BeforeChatModel: func(ctx context.Context, state *adk.ChatModelAgentState) error {
+			log.Printf("[eino] chat model start: %d messages", len(state.Messages))
+			for _, m := range state.Messages {
+				log.Printf("[eino]   [%s] %s", m.Role, m.Content)
+			}
+			return nil
+		},
+		AfterChatModel: func(ctx context.Context, state *adk.ChatModelAgentState) error {
+			for _, m := range state.Messages {
+				if m.Role == schema.Assistant {
+					if m.ResponseMeta != nil && m.ResponseMeta.Usage.TotalTokens > 0 {
+						log.Printf("[eino] chat model end: prompt_tokens=%d completion_tokens=%d total_tokens=%d",
+							m.ResponseMeta.Usage.PromptTokens,
+							m.ResponseMeta.Usage.CompletionTokens,
+							m.ResponseMeta.Usage.TotalTokens)
+					}
+					if m.Content != "" {
+						log.Printf("[eino] chat model end: reply=%s", m.Content)
+					}
+				}
+			}
+			return nil
 		},
 	}
 }
