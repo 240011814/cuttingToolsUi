@@ -314,7 +314,7 @@ func (s *AIAgentService) getOrCreateRunner(modelOverride string) (*adk.Runner, e
 				Tools: s.buildTools(),
 			},
 		},
-		Middlewares: []adk.AgentMiddleware{
+		Handlers: []adk.ChatModelAgentMiddleware{
 			NewLoggingMiddleware(),
 			NewApprovalMiddleware(),
 		},
