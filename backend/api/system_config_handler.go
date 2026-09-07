@@ -1,6 +1,7 @@
 package api
 
 import (
+	iface "backend/interface"
 	"backend/model"
 	"backend/service"
 
@@ -11,12 +12,14 @@ type SystemConfigHandler struct {
 	configSvc       *service.SystemConfigService
 	telegramService *service.TelegramService
 	aiAgentSvc      *service.AIAgentService
+	notifier        iface.Notifier
 }
 
-func NewSystemConfigHandler(configSvc *service.SystemConfigService, telegramService *service.TelegramService, aiAgentSvc ...*service.AIAgentService) *SystemConfigHandler {
+func NewSystemConfigHandler(configSvc *service.SystemConfigService, telegramService *service.TelegramService, notifier iface.Notifier, aiAgentSvc ...*service.AIAgentService) *SystemConfigHandler {
 	h := &SystemConfigHandler{
 		configSvc:       configSvc,
 		telegramService: telegramService,
+		notifier:        notifier,
 	}
 	if len(aiAgentSvc) > 0 {
 		h.aiAgentSvc = aiAgentSvc[0]
@@ -84,4 +87,38 @@ func (h *SystemConfigHandler) GetRegisterStatus(c *gin.Context) {
 		return
 	}
 	SendSuccess(c, gin.H{"enabled": val == "true"})
+}
+
+// SendTestEmail 发送测试邮件
+func (h *SystemConfigHandler) SendTestEmail(c *gin.Context) {
+	var req struct {
+		Email   string `json:"email" binding:"required,email"`
+		Subject string `json:"subject"`
+		Content string `json:"content"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		SendError(c, "400", "请输入有效的邮箱地址")
+		return
+	}
+
+	subject := req.Subject
+	if subject == "" {
+		subject = "测试邮件"
+	}
+	content := req.Content
+	if content == "" {
+		content = "这是一封 SMTP 邮件服务的测试邮件。\n\n如果您收到此邮件，说明 SMTP 配置正确。"
+	}
+
+	msg := iface.NotifyMessage{
+		Subject: subject,
+		Body:    content,
+	}
+
+	if err := h.notifier.Send(req.Email, msg); err != nil {
+		SendError(c, "500", "发送测试邮件失败: "+err.Error())
+		return
+	}
+
+	SendSuccess(c, gin.H{"message": "测试邮件已发送"})
 }

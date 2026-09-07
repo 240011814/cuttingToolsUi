@@ -745,6 +745,8 @@ declare namespace App {
           telegramBinding: string;
           userName: string;
           nickname: string;
+          email: string;
+          emailPlaceholder: string;
           role: string;
           createdAt: string;
           updatedAt: string;

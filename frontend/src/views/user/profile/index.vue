@@ -33,7 +33,8 @@ const profileFormRef = ref<FormInst | null>(null);
 const passwordFormRef = ref<FormInst | null>(null);
 
 const profileForm = reactive({
-  nickname: ''
+  nickname: '',
+  email: ''
 });
 
 const passwordForm = reactive({
@@ -94,13 +95,14 @@ async function loadProfile() {
   if (!error) {
     profile.value = data;
     profileForm.nickname = data.nickname;
+    profileForm.email = data.email || '';
   }
   loading.value = false;
 }
 
 async function handleUpdateProfile() {
   await profileFormRef.value?.validate();
-  const { error } = await fetchUpdateProfile({ nickname: profileForm.nickname });
+  const { error } = await fetchUpdateProfile({ nickname: profileForm.nickname, email: profileForm.email });
   if (!error) {
     message.success($t('page.userProfile.updateSuccess'));
     authStore.userInfo.userName = profile.value?.userName || '';
@@ -210,6 +212,9 @@ loadTelegramConfig();
               <NDescriptionsItem :label="$t('page.userProfile.nickname')">
                 {{ profile?.nickname }}
               </NDescriptionsItem>
+              <NDescriptionsItem :label="$t('page.userProfile.email')">
+                {{ profile?.email || '-' }}
+              </NDescriptionsItem>
               <NDescriptionsItem :label="$t('page.userProfile.lastLoginAt')">
                 {{ profile?.lastLoginAt || '-' }}
               </NDescriptionsItem>
@@ -239,6 +244,12 @@ loadTelegramConfig();
                     <NInput
                       v-model:value="profileForm.nickname"
                       :placeholder="$t('page.userProfile.nicknamePlaceholder')"
+                    />
+                  </NFormItem>
+                  <NFormItem :label="$t('page.userProfile.email')" path="email">
+                    <NInput
+                      v-model:value="profileForm.email"
+                      :placeholder="$t('page.userProfile.emailPlaceholder')"
                     />
                   </NFormItem>
                   <NFormItem :label="$t('page.userProfile.lastLoginAt')">

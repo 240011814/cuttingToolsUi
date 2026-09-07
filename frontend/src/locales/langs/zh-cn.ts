@@ -659,6 +659,8 @@ const local: App.I18n.Schema = {
       telegramBinding: "Telegram 绑定",
       userName: "用户名",
       nickname: "昵称",
+      email: "邮箱",
+      emailPlaceholder: "请输入邮箱地址",
       role: "角色",
       createdAt: "创建时间",
       updatedAt: "更新时间",

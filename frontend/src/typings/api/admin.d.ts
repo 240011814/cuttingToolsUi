@@ -31,6 +31,7 @@ declare namespace Api {
       userId: number;
       userName: string;
       nickname: string;
+      email: string;
       role: string;
       lastLoginAt: string | null;
       createdAt: string;
@@ -39,6 +40,7 @@ declare namespace Api {
 
     interface UpdateProfileParams {
       nickname: string;
+      email: string;
     }
 
     interface ChangePasswordParams {

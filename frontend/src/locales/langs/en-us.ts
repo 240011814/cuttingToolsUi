@@ -665,6 +665,8 @@ const local: App.I18n.Schema = {
       telegramBinding: "Telegram Binding",
       userName: "Username",
       nickname: "Nickname",
+      email: "Email",
+      emailPlaceholder: "Please enter email address",
       role: "Role",
       createdAt: "Created At",
       updatedAt: "Updated At",

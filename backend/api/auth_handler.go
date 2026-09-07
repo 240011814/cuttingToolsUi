@@ -147,7 +147,7 @@ func HandleUpdateProfile(authService *service.AuthService) gin.HandlerFunc {
 			return
 		}
 
-		if err := authService.UpdateProfile(userID, req.Nickname); err != nil {
+		if err := authService.UpdateProfile(userID, req.Nickname, req.Email); err != nil {
 			SendError(c, "500", "更新用户信息失败: "+err.Error())
 			return
 		}

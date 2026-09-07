@@ -11,6 +11,10 @@ const savingRegister = ref(false);
 const saving2fa = ref(false);
 const savingTelegram = ref(false);
 const savingTimeout = ref(false);
+const savingSmtp = ref(false);
+const sendingTestEmail = ref(false);
+const showTestEmailModal = ref(false);
+const testEmailForm = ref({ email: "", subject: "", content: "" });
 const registerEnabled = ref(false);
 const admin2faEnabled = ref(false);
 const telegramEnabled = ref(true);
@@ -21,6 +25,15 @@ const aiTimeoutMinutes = ref(5);
 const aiTlsHandshakeTimeout = ref(15);
 const aiResponseHeaderTimeout = ref(30);
 const httpTimeoutSeconds = ref(30);
+const smtpEnabled = ref(false);
+const smtpHost = ref("");
+const smtpPort = ref(587);
+const smtpEncryption = ref("ssl");
+const smtpUser = ref("");
+const smtpPassword = ref("");
+const showSmtpPassword = ref(false);
+const smtpFrom = ref("");
+const smtpFromName = ref("");
 
 async function loadConfig() {
   loading.value = true;
@@ -55,6 +68,30 @@ async function loadConfig() {
 
       const httpTimeoutConfig = data.find((c: any) => c.key === "http_timeout_seconds");
       httpTimeoutSeconds.value = httpTimeoutConfig ? Number(httpTimeoutConfig.value) : 30;
+
+      const smtpEnabledConfig = data.find((c: any) => c.key === "smtp_enabled");
+      smtpEnabled.value = smtpEnabledConfig?.value === "true";
+
+      const smtpHostConfig = data.find((c: any) => c.key === "smtp_host");
+      smtpHost.value = smtpHostConfig?.value || "";
+
+      const smtpPortConfig = data.find((c: any) => c.key === "smtp_port");
+      smtpPort.value = smtpPortConfig ? Number(smtpPortConfig.value) : 587;
+
+      const smtpEncryptionConfig = data.find((c: any) => c.key === "smtp_encryption");
+      smtpEncryption.value = smtpEncryptionConfig?.value || "ssl";
+
+      const smtpUserConfig = data.find((c: any) => c.key === "smtp_user");
+      smtpUser.value = smtpUserConfig?.value || "";
+
+      const smtpPasswordConfig = data.find((c: any) => c.key === "smtp_password");
+      smtpPassword.value = smtpPasswordConfig?.value || "";
+
+      const smtpFromConfig = data.find((c: any) => c.key === "smtp_from");
+      smtpFrom.value = smtpFromConfig?.value || "";
+
+      const smtpFromNameConfig = data.find((c: any) => c.key === "smtp_from_name");
+      smtpFromName.value = smtpFromNameConfig?.value || "";
     }
   } catch (err: any) {
     message.error(`加载配置失败: ${err?.message || "未知错误"}`);
@@ -135,6 +172,67 @@ async function handleSaveTimeout() {
     message.error(`保存失败: ${err?.message || "未知错误"}`);
   } finally {
     savingTimeout.value = false;
+  }
+}
+
+async function handleToggleSmtp(val: boolean) {
+  savingSmtp.value = true;
+  try {
+    await saveConfig("smtp_enabled", val ? "true" : "false", "SMTP邮件服务开关");
+    message.success(val ? "SMTP 邮件服务已启用" : "SMTP 邮件服务已禁用");
+  } catch (err: any) {
+    smtpEnabled.value = !val;
+    message.error(`保存失败: ${err?.message || "未知错误"}`);
+  } finally {
+    savingSmtp.value = false;
+  }
+}
+
+async function handleSaveSmtp() {
+  savingSmtp.value = true;
+  try {
+    await saveConfig("smtp_host", smtpHost.value, "SMTP服务器地址");
+    await saveConfig("smtp_port", String(smtpPort.value), "SMTP服务器端口");
+    await saveConfig("smtp_encryption", smtpEncryption.value, "SMTP加密方式(none/ssl/starttls)");
+    await saveConfig("smtp_user", smtpUser.value, "SMTP用户名");
+    await saveConfig("smtp_password", smtpPassword.value, "SMTP密码");
+    await saveConfig("smtp_from", smtpFrom.value, "发件人邮箱地址");
+    await saveConfig("smtp_from_name", smtpFromName.value, "发件人显示名称");
+    message.success("SMTP 配置已保存");
+  } catch (err: any) {
+    message.error(`保存失败: ${err?.message || "未知错误"}`);
+  } finally {
+    savingSmtp.value = false;
+  }
+}
+
+function openTestEmailModal() {
+  testEmailForm.value = { email: "", subject: "测试邮件", content: "这是一封 SMTP 邮件服务的测试邮件。\n\n如果您收到此邮件，说明 SMTP 配置正确。" };
+  showTestEmailModal.value = true;
+}
+
+async function handleSendTestEmail() {
+  if (!testEmailForm.value.email) {
+    message.warning("请输入收件人邮箱");
+    return;
+  }
+  sendingTestEmail.value = true;
+  try {
+    await request({
+      url: "/api/admin/system-config/test-email",
+      method: "post",
+      data: {
+        email: testEmailForm.value.email,
+        subject: testEmailForm.value.subject,
+        content: testEmailForm.value.content,
+      },
+    });
+    message.success("测试邮件已发送，请检查收件箱");
+    showTestEmailModal.value = false;
+  } catch (err: any) {
+    message.error(`发送失败: ${err?.message || "未知错误"}`);
+  } finally {
+    sendingTestEmail.value = false;
   }
 }
 
@@ -300,8 +398,135 @@ onMounted(() => {
               </NFormItem>
             </NForm>
           </div>
+
+          <!-- SMTP 邮件配置 -->
+          <div class="p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+            <div class="flex items-center justify-between mb-4">
+              <div>
+                <div class="font-bold text-gray-800 dark:text-gray-200">SMTP 邮件服务</div>
+                <div class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  配置 SMTP 邮件服务器，用于发送系统通知邮件。
+                </div>
+              </div>
+              <NSwitch
+                v-model:value="smtpEnabled"
+                :loading="savingSmtp"
+                @update:value="handleToggleSmtp"
+              >
+                <template #checked>开启</template>
+                <template #unchecked>关闭</template>
+              </NSwitch>
+            </div>
+            <NForm label-placement="left" label-width="120">
+              <NGrid :cols="2" :x-gap="12" :y-gap="8">
+                <NFormItemGi label="SMTP 主机" path="smtpHost">
+                  <NInput
+                    v-model:value="smtpHost"
+                    placeholder="smtp.example.com"
+                    :disabled="!smtpEnabled"
+                  />
+                </NFormItemGi>
+                <NFormItemGi label="SMTP 端口" path="smtpPort">
+                  <NInputNumber
+                    v-model:value="smtpPort"
+                    :min="1"
+                    :max="65535"
+                    :disabled="!smtpEnabled"
+                    size="small"
+                  />
+                </NFormItemGi>
+                <NFormItemGi label="加密方式" path="smtpEncryption">
+                  <NSelect
+                    v-model:value="smtpEncryption"
+                    :options="[
+                      { label: 'SSL/TLS', value: 'ssl' },
+                      { label: 'STARTTLS', value: 'starttls' },
+                      { label: '无加密', value: 'none' }
+                    ]"
+                    :disabled="!smtpEnabled"
+                  />
+                </NFormItemGi>
+                <NFormItemGi label="用户名" path="smtpUser">
+                  <NInput
+                    v-model:value="smtpUser"
+                    placeholder="SMTP 用户名"
+                    :disabled="!smtpEnabled"
+                  />
+                </NFormItemGi>
+                <NFormItemGi label="密码" path="smtpPassword">
+                  <NInput
+                    v-model:value="smtpPassword"
+                    :type="showSmtpPassword ? 'text' : 'password'"
+                    placeholder="SMTP 密码"
+                    :disabled="!smtpEnabled"
+                  >
+                    <template #suffix>
+                      <div
+                        class="cursor-pointer text-gray-400 hover:text-gray-600"
+                        :class="showSmtpPassword ? 'i-mdi:eye-off' : 'i-mdi:eye'"
+                        @click="showSmtpPassword = !showSmtpPassword"
+                      />
+                    </template>
+                  </NInput>
+                </NFormItemGi>
+                <NFormItemGi label="发件人邮箱" path="smtpFrom">
+                  <NInput
+                    v-model:value="smtpFrom"
+                    placeholder="noreply@example.com"
+                    :disabled="!smtpEnabled"
+                  />
+                </NFormItemGi>
+                <NFormItemGi label="发件人名称" path="smtpFromName">
+                  <NInput
+                    v-model:value="smtpFromName"
+                    placeholder="系统通知"
+                    :disabled="!smtpEnabled"
+                  />
+                </NFormItemGi>
+              </NGrid>
+              <NFormItem class="mt-4">
+                <NSpace>
+                  <NButton type="primary" :loading="savingSmtp" :disabled="!smtpEnabled" @click="handleSaveSmtp">
+                    保存 SMTP 配置
+                  </NButton>
+                  <NButton type="info" :disabled="!smtpEnabled" @click="openTestEmailModal">
+                    <template #icon>
+                      <SvgIcon icon="mdi:email-fast-outline" />
+                    </template>
+                    发送测试邮件
+                  </NButton>
+                </NSpace>
+              </NFormItem>
+            </NForm>
+          </div>
         </div>
       </NSpin>
     </NCard>
+
+    <!-- 发送测试邮件弹窗 -->
+    <NModal v-model:show="showTestEmailModal" preset="card" title="发送测试邮件" style="width: 500px">
+      <NForm label-placement="left" label-width="80">
+        <NFormItem label="收件邮箱" required>
+          <NInput v-model:value="testEmailForm.email" placeholder="请输入收件人邮箱" />
+        </NFormItem>
+        <NFormItem label="邮件主题">
+          <NInput v-model:value="testEmailForm.subject" placeholder="测试邮件" />
+        </NFormItem>
+        <NFormItem label="邮件内容">
+          <NInput
+            v-model:value="testEmailForm.content"
+            type="textarea"
+            placeholder="请输入邮件内容"
+            :rows="6"
+          />
+        </NFormItem>
+      </NForm>
+      <template #footer>
+        <NSpace justify="end">
+          <NButton @click="showTestEmailModal = false">取消</NButton>
+          <NButton type="primary" :loading="sendingTestEmail" @click="handleSendTestEmail">发送</NButton>
+        </NSpace>
+      </template>
+    </NModal>
   </div>
 </template>

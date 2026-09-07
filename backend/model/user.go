@@ -10,6 +10,7 @@ type User struct {
 	Username                string     `gorm:"size:50;not null;unique" json:"userName"`
 	PasswordHash            string     `gorm:"size:255;not null" json:"-"`
 	Nickname                string     `gorm:"size:100" json:"nickname"`
+	Email                   string     `gorm:"size:255;default:''" json:"email"`
 	Role                    string     `gorm:"size:20;default:'R_USER'" json:"role"`
 	TotpSecret              *string    `gorm:"column:totp_secret;size:64" json:"-"` // TOTP secret, nil = not set up
 	TelegramChatID          *int64     `gorm:"column:telegram_chat_id;uniqueIndex" json:"-"`
@@ -75,6 +76,7 @@ type UserProfileResponse struct {
 	UserId      uint       `json:"userId"`
 	UserName    string     `json:"userName"`
 	Nickname    string     `json:"nickname"`
+	Email       string     `json:"email"`
 	Role        string     `json:"role"`
 	LastLoginAt *time.Time `json:"lastLoginAt"`
 	CreatedAt   time.Time  `json:"createdAt"`
@@ -84,6 +86,7 @@ type UserProfileResponse struct {
 // UpdateProfileRequest 更新当前用户信息请求
 type UpdateProfileRequest struct {
 	Nickname string `json:"nickname" binding:"required"`
+	Email    string `json:"email"`
 }
 
 // ChangePasswordRequest 修改密码请求

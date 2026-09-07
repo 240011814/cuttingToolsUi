@@ -197,6 +197,7 @@ func (s *AuthService) GetUserProfile(userId uint) (*model.UserProfileResponse, e
 		UserId:      user.ID,
 		UserName:    user.Username,
 		Nickname:    user.Nickname,
+		Email:       user.Email,
 		Role:        user.Role,
 		LastLoginAt: user.LastLoginAt,
 		CreatedAt:   user.CreatedAt,
@@ -204,8 +205,11 @@ func (s *AuthService) GetUserProfile(userId uint) (*model.UserProfileResponse, e
 	}, nil
 }
 
-func (s *AuthService) UpdateProfile(userId uint, nickname string) error {
-	result := DB.Model(&model.User{}).Where("id = ?", userId).Update("nickname", nickname)
+func (s *AuthService) UpdateProfile(userId uint, nickname, email string) error {
+	result := DB.Model(&model.User{}).Where("id = ?", userId).Updates(map[string]interface{}{
+		"nickname": nickname,
+		"email":    email,
+	})
 	if result.Error != nil {
 		return result.Error
 	}

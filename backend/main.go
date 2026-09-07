@@ -75,7 +75,10 @@ func main() {
 	telegramService := service.NewTelegramService(systemConfigService, mem0Svc)
 	telegramHandler := api.NewTelegramHandler(telegramService, systemConfigService)
 
-	systemConfigHandler := api.NewSystemConfigHandler(systemConfigService, telegramService, aiAgentService)
+	// Notification
+	emailNotifier := service.NewEmailNotifier(systemConfigService)
+
+	systemConfigHandler := api.NewSystemConfigHandler(systemConfigService, telegramService, emailNotifier, aiAgentService)
 
 	userPrefService := service.NewUserPreferenceService()
 	userPrefHandler := api.NewUserPreferenceHandler(userPrefService)
@@ -328,6 +331,7 @@ func main() {
 			{
 				configGroup.GET("", systemConfigHandler.GetAll)
 				configGroup.PUT("", systemConfigHandler.Update)
+				configGroup.POST("/test-email", systemConfigHandler.SendTestEmail)
 			}
 		}
 	}
