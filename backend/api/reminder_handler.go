@@ -17,7 +17,6 @@ func NewReminderHandler(reminderSvc *service.ReminderService) *ReminderHandler {
 	return &ReminderHandler{reminderSvc: reminderSvc}
 }
 
-// List 查询当前用户某月备忘
 func (h *ReminderHandler) List(c *gin.Context) {
 	userID := GetUserID(c)
 	if userID == 0 {
@@ -36,16 +35,15 @@ func (h *ReminderHandler) List(c *gin.Context) {
 		month = int(now.Month())
 	}
 
-	reminders, err := h.reminderSvc.ListByMonth(userID, year, time.Month(month))
+	jobs, err := h.reminderSvc.ListByMonth(userID, year, time.Month(month))
 	if err != nil {
 		SendError(c, "500", "查询备忘失败: "+err.Error())
 		return
 	}
 
-	SendSuccess(c, reminders)
+	SendSuccess(c, jobs)
 }
 
-// Create 创建备忘
 func (h *ReminderHandler) Create(c *gin.Context) {
 	userID := GetUserID(c)
 	if userID == 0 {
@@ -59,16 +57,15 @@ func (h *ReminderHandler) Create(c *gin.Context) {
 		return
 	}
 
-	reminder, err := h.reminderSvc.Create(userID, req)
+	job, err := h.reminderSvc.Create(userID, req)
 	if err != nil {
 		SendError(c, "500", err.Error())
 		return
 	}
 
-	SendSuccess(c, reminder)
+	SendSuccess(c, job)
 }
 
-// Update 更新备忘
 func (h *ReminderHandler) Update(c *gin.Context) {
 	userID := GetUserID(c)
 	if userID == 0 {
@@ -88,16 +85,15 @@ func (h *ReminderHandler) Update(c *gin.Context) {
 		return
 	}
 
-	reminder, err := h.reminderSvc.Update(userID, uint(id), req)
+	job, err := h.reminderSvc.Update(userID, uint(id), req)
 	if err != nil {
 		SendError(c, "500", err.Error())
 		return
 	}
 
-	SendSuccess(c, reminder)
+	SendSuccess(c, job)
 }
 
-// Delete 删除备忘
 func (h *ReminderHandler) Delete(c *gin.Context) {
 	userID := GetUserID(c)
 	if userID == 0 {

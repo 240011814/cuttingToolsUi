@@ -79,13 +79,14 @@ func main() {
 	// Notification
 	emailNotifier := service.NewEmailNotifier(systemConfigService)
 
-	// Reminder & Scheduler
-	reminderService := service.NewReminderService()
-	reminderScheduler, err := service.NewReminderScheduler(emailNotifier, reminderService)
+	// Job Scheduler
+	jobScheduler, err := service.NewJobScheduler()
 	if err != nil {
-		log.Printf("Warning: Failed to create reminder scheduler: %v", err)
+		log.Printf("Warning: Failed to create job scheduler: %v", err)
 	}
-	reminderService.InitScheduler(reminderScheduler)
+
+	// Reminder Service
+	reminderService := service.NewReminderService(jobScheduler, emailNotifier)
 	reminderHandler := api.NewReminderHandler(reminderService)
 	tools.SetReminderService(reminderService)
 
@@ -369,8 +370,8 @@ func main() {
 	r.GET("/api/share/:token", api.HandleGetSharedHistory(historyService))
 
 	// gocron-ui (独立端口 8090)
-	if reminderScheduler != nil {
-		uiServer := gocronui.NewServer(reminderScheduler.GetScheduler(), 8090, gocronui.WithTitle("定时任务管理"))
+	if jobScheduler != nil {
+		uiServer := gocronui.NewServer(jobScheduler.GetScheduler(), 8090, gocronui.WithTitle("定时任务管理"))
 		go func() {
 			log.Println("gocron-ui available at http://localhost:8090")
 			if err := http.ListenAndServe(":8090", uiServer.Router); err != nil {
@@ -387,9 +388,9 @@ func main() {
 	}()
 
 	// Start Scheduler
-	if reminderScheduler != nil {
-		reminderScheduler.Start()
-		reminderScheduler.LoadAll()
+	if jobScheduler != nil {
+		jobScheduler.Start()
+		jobScheduler.LoadAll()
 	}
 
 	r.Run(":8080")

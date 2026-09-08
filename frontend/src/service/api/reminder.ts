@@ -1,12 +1,17 @@
 import { request } from '../request';
 
-export interface Reminder {
-  id: number;
-  userId: number;
+export interface ReminderParams {
   title: string;
   content: string;
-  remindAt: string;
-  notified: boolean;
+}
+
+export interface Reminder {
+  id: number;
+  jobId: number;
+  userId: number;
+  scheduledAt: string;
+  status: string;
+  params: ReminderParams;
   repeatType: 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly';
   repeatInterval: number;
   repeatEndAt: string | null;

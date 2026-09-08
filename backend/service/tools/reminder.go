@@ -13,10 +13,9 @@ import (
 	"github.com/cloudwego/eino/schema"
 )
 
-// ReminderService 备忘服务接口，直接复用 service 层原生方法
 type ReminderService interface {
-	Create(userID uint, req model.CreateReminderRequest) (*model.Reminder, error)
-	ListByMonth(userID uint, year int, month time.Month) ([]model.Reminder, error)
+	Create(userID uint, req model.CreateReminderRequest) (*model.Job, error)
+	ListByMonth(userID uint, year int, month time.Month) ([]model.Job, error)
 	Delete(userID, id uint) error
 }
 
@@ -25,14 +24,14 @@ var reminderSvc ReminderService
 func SetReminderService(svc ReminderService) { reminderSvc = svc }
 
 type reminderRequest struct {
-	Action          string `json:"action" jsonschema:"description=操作类型: create 创建备忘, list 查询备忘, delete 删除备忘"`
-	Title           string `json:"title,omitempty" jsonschema:"description=备忘标题（create 时必填）"`
-	Content         string `json:"content,omitempty" jsonschema:"description=备忘内容"`
-	RemindAt        string `json:"remind_at,omitempty" jsonschema:"description=提醒时间，格式: 2006-01-02 15:04:05（create 时必填）"`
-	RepeatType      string `json:"repeat_type,omitempty" jsonschema:"description=重复类型: none 不重复, daily 每天, weekly 每周, monthly 每月, yearly 每年"`
-	RepeatInterval  int    `json:"repeat_interval,omitempty" jsonschema:"description=重复间隔数，默认1"`
-	RemindID        string `json:"reminder_id,omitempty" jsonschema:"description=备忘ID（delete 时必填）"`
-	ListDate        string `json:"list_date,omitempty" jsonschema:"description=查询日期，格式: 2006-01-02（list 时使用，默认当天）"`
+	Action         string `json:"action" jsonschema:"description=操作类型: create 创建备忘, list 查询备忘, delete 删除备忘"`
+	Title          string `json:"title,omitempty" jsonschema:"description=备忘标题（create 时必填）"`
+	Content        string `json:"content,omitempty" jsonschema:"description=备忘内容"`
+	RemindAt       string `json:"remind_at,omitempty" jsonschema:"description=提醒时间，格式: 2006-01-02 15:04:05（create 时必填）"`
+	RepeatType     string `json:"repeat_type,omitempty" jsonschema:"description=重复类型: none 不重复, daily 每天, weekly 每周, monthly 每月, yearly 每年"`
+	RepeatInterval int    `json:"repeat_interval,omitempty" jsonschema:"description=重复间隔数，默认1"`
+	RemindID       string `json:"reminder_id,omitempty" jsonschema:"description=备忘ID（delete 时必填）"`
+	ListDate       string `json:"list_date,omitempty" jsonschema:"description=查询日期，格式: 2006-01-02（list 时使用，默认当天）"`
 }
 
 func init() {
@@ -51,14 +50,14 @@ func (t *reminderTool) Info(_ context.Context) (*schema.ToolInfo, error) {
 		Name: "reminder",
 		Desc: "管理用户的备忘提醒。可以创建、查询和删除备忘。支持设置提醒时间和重复提醒。",
 		ParamsOneOf: schema.NewParamsOneOfByParams(map[string]*schema.ParameterInfo{
-			"action":           {Type: schema.String, Desc: "操作类型: create 创建备忘, list 查询备忘, delete 删除备忘", Required: true},
-			"title":            {Type: schema.String, Desc: "备忘标题（create 时必填）", Required: false},
-			"content":          {Type: schema.String, Desc: "备忘内容", Required: false},
-			"remind_at":        {Type: schema.String, Desc: "提醒时间，格式: 2006-01-02 15:04:05（create 时必填）", Required: false},
-			"repeat_type":      {Type: schema.String, Desc: "重复类型: none 不重复, daily 每天, weekly 每周, monthly 每月, yearly 每年", Required: false},
-			"repeat_interval":  {Type: schema.Integer, Desc: "重复间隔数，默认1", Required: false},
-			"reminder_id":      {Type: schema.String, Desc: "备忘ID（delete 时必填）", Required: false},
-			"list_date":        {Type: schema.String, Desc: "查询日期，格式: 2006-01-02（list 时使用，默认当天）", Required: false},
+			"action":          {Type: schema.String, Desc: "操作类型: create 创建备忘, list 查询备忘, delete 删除备忘", Required: true},
+			"title":           {Type: schema.String, Desc: "备忘标题（create 时必填）", Required: false},
+			"content":         {Type: schema.String, Desc: "备忘内容", Required: false},
+			"remind_at":       {Type: schema.String, Desc: "提醒时间，格式: 2006-01-02 15:04:05（create 时必填）", Required: false},
+			"repeat_type":     {Type: schema.String, Desc: "重复类型: none 不重复, daily 每天, weekly 每周, monthly 每月, yearly 每年", Required: false},
+			"repeat_interval": {Type: schema.Integer, Desc: "重复间隔数，默认1", Required: false},
+			"reminder_id":     {Type: schema.String, Desc: "备忘ID（delete 时必填）", Required: false},
+			"list_date":       {Type: schema.String, Desc: "查询日期，格式: 2006-01-02（list 时使用，默认当天）", Required: false},
 		}),
 	}, nil
 }
@@ -96,34 +95,34 @@ func (t *reminderTool) InvokableRun(ctx context.Context, arguments string, _ ...
 		if repeatInterval <= 0 {
 			repeatInterval = 1
 		}
-		reminder, err := reminderSvc.Create(userID, model.CreateReminderRequest{
+		job, err := reminderSvc.Create(userID, model.CreateReminderRequest{
 			Title: req.Title, Content: req.Content, RemindAt: t,
 			RepeatType: repeatType, RepeatInterval: repeatInterval,
 		})
 		if err != nil {
 			return "", err
 		}
-		data, _ := json.Marshal(reminder)
+		data, _ := json.Marshal(job)
 		return string(data), nil
 
 	case "list":
 		now := time.Now()
-		reminders, _ := reminderSvc.ListByMonth(userID, now.Year(), now.Month())
-		var filtered []model.Reminder
+		jobs, _ := reminderSvc.ListByMonth(userID, now.Year(), now.Month())
+		var filtered []model.Job
 		if req.ListDate != "" {
 			d, err := time.ParseInLocation("2006-01-02", req.ListDate, time.Local)
 			if err != nil {
 				return "", fmt.Errorf("日期格式错误，应为: 2006-01-02")
 			}
-			for _, r := range reminders {
-				if r.RemindAt.Year() == d.Year() && r.RemindAt.Month() == d.Month() && r.RemindAt.Day() == d.Day() {
-					filtered = append(filtered, r)
+			for _, j := range jobs {
+				if j.ScheduledAt.Year() == d.Year() && j.ScheduledAt.Month() == d.Month() && j.ScheduledAt.Day() == d.Day() {
+					filtered = append(filtered, j)
 				}
 			}
 		} else {
-			for _, r := range reminders {
-				if r.RemindAt.Year() == now.Year() && r.RemindAt.Month() == now.Month() && r.RemindAt.Day() == now.Day() {
-					filtered = append(filtered, r)
+			for _, j := range jobs {
+				if j.ScheduledAt.Year() == now.Year() && j.ScheduledAt.Month() == now.Month() && j.ScheduledAt.Day() == now.Day() {
+					filtered = append(filtered, j)
 				}
 			}
 		}

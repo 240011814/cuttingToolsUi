@@ -47,7 +47,6 @@ const rules = {
   title: { required: true, message: '请输入标题', trigger: ['blur', 'input'] },
 };
 
-// 监听月份变化
 watch(currentDate, () => {
   loadReminders();
 });
@@ -68,7 +67,7 @@ function handleDateChange(date: Date) {
 const selectedDayReminders = computed(() => {
   const d = selectedDate.value;
   return reminders.value.filter((r) => {
-    const rd = new Date(r.remindAt);
+    const rd = new Date(r.scheduledAt);
     return (
       rd.getFullYear() === d.getFullYear() &&
       rd.getMonth() === d.getMonth() &&
@@ -82,7 +81,7 @@ function openCreateModal() {
   form.value = {
     title: '',
     content: '',
-    remindAt: selectedDate.value.getTime(),
+    remindAt: Date.now(),
     repeatType: 'none',
     repeatInterval: 1,
     repeatEndAt: null,
@@ -93,9 +92,9 @@ function openCreateModal() {
 function openEditModal(reminder: Reminder) {
   editingId.value = reminder.id;
   form.value = {
-    title: reminder.title,
-    content: reminder.content,
-    remindAt: new Date(reminder.remindAt).getTime(),
+    title: reminder.params.title,
+    content: reminder.params.content,
+    remindAt: new Date(reminder.scheduledAt).getTime(),
     repeatType: reminder.repeatType,
     repeatInterval: reminder.repeatInterval,
     repeatEndAt: reminder.repeatEndAt ? new Date(reminder.repeatEndAt).getTime() : null,
@@ -134,7 +133,7 @@ async function handleSubmit() {
 function handleDelete(reminder: Reminder) {
   dialog.warning({
     title: '确认删除',
-    content: `确定要删除备忘「${reminder.title}」吗？`,
+    content: `确定要删除备忘「${reminder.params.title}」吗？`,
     positiveText: '删除',
     negativeText: '取消',
     onPositiveClick: async () => {
@@ -167,7 +166,6 @@ onMounted(() => {
 
 <template>
   <div class="h-full p-4 overflow-auto">
-    <!-- 顶部标题栏 -->
     <NCard size="small">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-3">
@@ -189,7 +187,6 @@ onMounted(() => {
     </NCard>
 
     <div class="flex gap-4">
-      <!-- 左侧日历 -->
       <NCard size="small" class="flex-[7]">
         <NCalendar
           :value="currentDate.getTime()"
@@ -199,7 +196,7 @@ onMounted(() => {
           <template #default="{ year, month, date }">
             <div class="relative flex items-center justify-center">
               <div
-                v-if="reminders.some(r => { const d = new Date(r.remindAt); return d.getFullYear() === year && d.getMonth() + 1 === month && d.getDate() === date; })"
+                v-if="reminders.some(r => { const d = new Date(r.scheduledAt); return d.getFullYear() === year && d.getMonth() + 1 === month && d.getDate() === date; })"
                 class="w-6px h-6px rounded-full bg-primary"
               />
             </div>
@@ -207,7 +204,6 @@ onMounted(() => {
         </NCalendar>
       </NCard>
 
-      <!-- 右侧备忘列表 -->
       <NCard size="small" class="flex-[3]">
         <template #header>
           <div class="flex items-center justify-between">
@@ -233,24 +229,20 @@ onMounted(() => {
             <div
               v-for="item in selectedDayReminders"
               :key="item.id"
-              class="p-3 rounded-lg border border-gray-100 dark:border-gray-700 hover:border-primary/50 transition-colors"
-              :class="{ 'opacity-50 bg-gray-50 dark:bg-gray-800/50': item.notified, 'bg-white dark:bg-gray-800': !item.notified }"
+              class="p-3 rounded-lg border border-gray-100 dark:border-gray-700 hover:border-primary/50 transition-colors bg-white dark:bg-gray-800"
             >
               <div class="flex items-start justify-between gap-3">
                 <div class="flex-1 min-w-0">
                   <div class="flex items-center gap-2">
-                    <span class="font-bold text-15px truncate">{{ item.title }}</span>
-                    <NTag v-if="item.notified" size="tiny" type="success" :bordered="false">
-                      已通知
-                    </NTag>
+                    <span class="font-bold text-15px truncate">{{ item.params.title }}</span>
                   </div>
-                  <div v-if="item.content" class="text-gray-500 mt-1 text-13px line-clamp-2">{{ item.content }}</div>
+                  <div v-if="item.params.content" class="text-gray-500 mt-1 text-13px line-clamp-2">{{ item.params.content }}</div>
                   <div class="flex flex-wrap gap-1 mt-2">
                     <NTag size="tiny" :bordered="false" type="warning">
                       <template #icon>
                         <SvgIcon icon="mdi:clock-outline" class="text-12px" />
                       </template>
-                      {{ formatTime(item.remindAt) }}
+                      {{ formatTime(item.scheduledAt) }}
                     </NTag>
                     <NTag v-if="item.repeatType !== 'none'" size="tiny" type="info" :bordered="false">
                       <template #icon>
@@ -275,7 +267,6 @@ onMounted(() => {
       </NCard>
     </div>
 
-    <!-- 新增/编辑弹窗 -->
     <NModal v-model:show="showModal" preset="card" :title="editingId ? '编辑备忘' : '新增备忘'" style="width: 520px">
       <NForm ref="formRef" :model="form" :rules="rules" label-placement="left" label-width="80">
         <NFormItem label="标题" path="title">
