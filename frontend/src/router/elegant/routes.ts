@@ -373,6 +373,30 @@ export const generatedRoutes: GeneratedRoute[] = [
     ]
   },
   {
+    name: 'tool',
+    path: '/tool',
+    component: 'layout.base',
+    meta: {
+      title: 'tool',
+      i18nKey: 'route.tool',
+      icon: 'mdi:tools',
+      order: 10
+    },
+    children: [
+      {
+        name: 'tool_calendar',
+        path: '/tool/calendar',
+        component: 'view.tool_calendar',
+        meta: {
+          title: 'tool_calendar',
+          i18nKey: 'route.tool_calendar',
+          icon: 'mdi:calendar-month-outline',
+          order: 10
+        }
+      }
+    ]
+  },
+  {
     name: 'user',
     path: '/user',
     component: 'layout.base',

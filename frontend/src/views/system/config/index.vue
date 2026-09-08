@@ -239,6 +239,10 @@ async function handleSendTestEmail() {
 onMounted(() => {
   loadConfig();
 });
+
+function openGocronUI() {
+  window.open('http://localhost:8090', '_blank');
+}
 </script>
 
 <template>
@@ -498,6 +502,24 @@ onMounted(() => {
                 </NSpace>
               </NFormItem>
             </NForm>
+          </div>
+
+          <!-- 定时任务管理 -->
+          <div
+            class="flex items-center justify-between p-4 rounded-lg border border-gray-200 dark:border-gray-700"
+          >
+            <div>
+              <div class="font-bold text-gray-800 dark:text-gray-200">定时任务管理</div>
+              <div class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                查看和管理系统的定时任务，包括备忘提醒调度器。
+              </div>
+            </div>
+            <NButton type="primary" secondary @click="openGocronUI">
+              <template #icon>
+                <SvgIcon icon="mdi:cog-clockwise" />
+              </template>
+              打开管理面板
+            </NButton>
           </div>
         </div>
       </NSpin>

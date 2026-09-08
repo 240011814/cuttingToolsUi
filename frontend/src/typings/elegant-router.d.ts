@@ -48,6 +48,8 @@ declare module "@elegant-router/types" {
     "system_model-scenario": "/system/model-scenario";
     "system_permission": "/system/permission";
     "system_user": "/system/user";
+    "tool": "/tool";
+    "tool_calendar": "/tool/calendar";
     "user": "/user";
     "user_profile": "/user/profile";
   };
@@ -92,6 +94,7 @@ declare module "@elegant-router/types" {
     | "lottery"
     | "share"
     | "system"
+    | "tool"
     | "user"
   >;
 
@@ -137,6 +140,7 @@ declare module "@elegant-router/types" {
     | "system_model-scenario"
     | "system_permission"
     | "system_user"
+    | "tool_calendar"
     | "user_profile"
   >;
 

@@ -194,6 +194,8 @@ const routeMap: RouteMap = {
   "system_model-scenario": "/system/model-scenario",
   "system_permission": "/system/permission",
   "system_user": "/system/user",
+  "tool": "/tool",
+  "tool_calendar": "/tool/calendar",
   "user": "/user",
   "user_profile": "/user/profile"
 };

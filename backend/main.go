@@ -11,6 +11,7 @@ import (
 	"backend/service/tools"
 
 	"github.com/gin-gonic/gin"
+	gocronui "github.com/go-co-op/gocron-ui/server"
 )
 
 func main() {
@@ -78,6 +79,14 @@ func main() {
 	// Notification
 	emailNotifier := service.NewEmailNotifier(systemConfigService)
 
+	// Reminder & Scheduler
+	reminderService := service.NewReminderService()
+	reminderScheduler, err := service.NewReminderScheduler(emailNotifier, reminderService)
+	if err != nil {
+		log.Printf("Warning: Failed to create reminder scheduler: %v", err)
+	}
+	reminderHandler := api.NewReminderHandler(reminderService, reminderScheduler)
+
 	systemConfigHandler := api.NewSystemConfigHandler(systemConfigService, telegramService, emailNotifier, aiAgentService)
 
 	userPrefService := service.NewUserPreferenceService()
@@ -138,6 +147,12 @@ func main() {
 		apiGroup.GET("/telegram/status", telegramHandler.HandleGetTelegramStatus)
 		apiGroup.POST("/telegram/bind-code", telegramHandler.HandleGenerateBindCode)
 		apiGroup.POST("/telegram/unbind", telegramHandler.HandleUnbindTelegram)
+
+		// Reminders
+		apiGroup.GET("/reminders", reminderHandler.List)
+		apiGroup.POST("/reminders", reminderHandler.Create)
+		apiGroup.PUT("/reminders/:id", reminderHandler.Update)
+		apiGroup.DELETE("/reminders/:id", reminderHandler.Delete)
 
 		apiGroup.GET("/dashboard/stats", dashboardHandler.GetStats)
 		apiGroup.GET("/ai/models", api.RequirePermission("ai:model:view"), api.HandleListModels(aiAgentService))
@@ -351,12 +366,29 @@ func main() {
 	// Public share route (no auth required, under /api for reverse proxy compatibility)
 	r.GET("/api/share/:token", api.HandleGetSharedHistory(historyService))
 
+	// gocron-ui (独立端口 8090)
+	if reminderScheduler != nil {
+		uiServer := gocronui.NewServer(reminderScheduler.GetScheduler(), 8090, gocronui.WithTitle("定时任务管理"))
+		go func() {
+			log.Println("gocron-ui available at http://localhost:8090")
+			if err := http.ListenAndServe(":8090", uiServer.Router); err != nil {
+				log.Printf("Warning: Failed to start gocron-ui: %v", err)
+			}
+		}()
+	}
+
 	// Start Telegram Bot
 	go func() {
 		if err := telegramService.StartBot(); err != nil {
 			log.Printf("Warning: Failed to start Telegram Bot: %v", err)
 		}
 	}()
+
+	// Start Scheduler
+	if reminderScheduler != nil {
+		reminderScheduler.Start()
+		reminderScheduler.LoadAll()
+	}
 
 	r.Run(":8080")
 }

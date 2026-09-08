@@ -1,0 +1,8 @@
+{
+  "meta": {
+    "title": "tool",
+    "i18nKey": "route.tool",
+    "icon": "mdi:tools",
+    "order": 10
+  }
+}

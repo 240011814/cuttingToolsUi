@@ -259,6 +259,8 @@ const local: App.I18n.Schema = {
     system_config: "System Config",
     "system_lottery": "Lottery Management",
     "system_model-scenario": "Models & Scenarios",
+    tool: "Tools",
+    tool_calendar: "Calendar",
     user: "User",
     user_profile: "Profile",
     share: "Shared Conversation",

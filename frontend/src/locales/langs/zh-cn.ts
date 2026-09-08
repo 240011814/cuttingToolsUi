@@ -255,6 +255,8 @@ const local: App.I18n.Schema = {
     system_config: "系统配置",
     "system_lottery": "抽奖管理",
     "system_model-scenario": "模型和场景",
+    tool: "工具",
+    tool_calendar: "日历备忘",
     user: "用户",
     user_profile: "个人中心",
     share: "分享对话",

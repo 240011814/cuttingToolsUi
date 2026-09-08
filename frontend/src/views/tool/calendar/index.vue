@@ -1,0 +1,314 @@
+<script setup lang="ts">
+import { ref, computed, watch, onMounted } from 'vue';
+import { useMessage, useDialog } from 'naive-ui';
+import type { FormInst } from 'naive-ui';
+import {
+  fetchGetReminders,
+  fetchCreateReminder,
+  fetchUpdateReminder,
+  fetchDeleteReminder,
+} from '@/service/api';
+import type { Reminder } from '@/service/api';
+
+defineOptions({ name: 'ToolCalendar' });
+
+const message = useMessage();
+const dialog = useDialog();
+
+const loading = ref(false);
+const reminders = ref<Reminder[]>([]);
+const selectedDate = ref(new Date());
+const showModal = ref(false);
+const editingId = ref<number | null>(null);
+const formRef = ref<FormInst | null>(null);
+
+const currentDate = ref(new Date());
+const currentYear = computed(() => currentDate.value.getFullYear());
+const currentMonth = computed(() => currentDate.value.getMonth() + 1);
+
+const form = ref({
+  title: '',
+  content: '',
+  remindAt: null as number | null,
+  repeatType: 'none',
+  repeatInterval: 1,
+  repeatEndAt: null as number | null,
+});
+
+const repeatOptions = [
+  { label: '不重复', value: 'none' },
+  { label: '每天', value: 'daily' },
+  { label: '每周', value: 'weekly' },
+  { label: '每月', value: 'monthly' },
+  { label: '每年', value: 'yearly' },
+];
+
+const rules = {
+  title: { required: true, message: '请输入标题', trigger: ['blur', 'input'] },
+};
+
+// 监听月份变化
+watch(currentDate, () => {
+  loadReminders();
+});
+
+async function loadReminders() {
+  loading.value = true;
+  const { data, error } = await fetchGetReminders({ year: currentYear.value, month: currentMonth.value });
+  if (!error) {
+    reminders.value = data || [];
+  }
+  loading.value = false;
+}
+
+function handleDateChange(date: Date) {
+  selectedDate.value = date;
+}
+
+const selectedDayReminders = computed(() => {
+  const d = selectedDate.value;
+  return reminders.value.filter((r) => {
+    const rd = new Date(r.remindAt);
+    return (
+      rd.getFullYear() === d.getFullYear() &&
+      rd.getMonth() === d.getMonth() &&
+      rd.getDate() === d.getDate()
+    );
+  });
+});
+
+function openCreateModal() {
+  editingId.value = null;
+  form.value = {
+    title: '',
+    content: '',
+    remindAt: selectedDate.value.getTime(),
+    repeatType: 'none',
+    repeatInterval: 1,
+    repeatEndAt: null,
+  };
+  showModal.value = true;
+}
+
+function openEditModal(reminder: Reminder) {
+  editingId.value = reminder.id;
+  form.value = {
+    title: reminder.title,
+    content: reminder.content,
+    remindAt: new Date(reminder.remindAt).getTime(),
+    repeatType: reminder.repeatType,
+    repeatInterval: reminder.repeatInterval,
+    repeatEndAt: reminder.repeatEndAt ? new Date(reminder.repeatEndAt).getTime() : null,
+  };
+  showModal.value = true;
+}
+
+async function handleSubmit() {
+  await formRef.value?.validate();
+  const data = {
+    title: form.value.title,
+    content: form.value.content,
+    remindAt: new Date(form.value.remindAt as number).toISOString(),
+    repeatType: form.value.repeatType,
+    repeatInterval: form.value.repeatInterval,
+    repeatEndAt: form.value.repeatEndAt ? new Date(form.value.repeatEndAt as number).toISOString() : null,
+  };
+
+  if (editingId.value) {
+    const { error } = await fetchUpdateReminder(editingId.value, data);
+    if (!error) {
+      message.success('备忘已更新');
+      showModal.value = false;
+      loadReminders();
+    }
+  } else {
+    const { error } = await fetchCreateReminder(data);
+    if (!error) {
+      message.success('备忘已创建');
+      showModal.value = false;
+      loadReminders();
+    }
+  }
+}
+
+function handleDelete(reminder: Reminder) {
+  dialog.warning({
+    title: '确认删除',
+    content: `确定要删除备忘「${reminder.title}」吗？`,
+    positiveText: '删除',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      const { error } = await fetchDeleteReminder(reminder.id);
+      if (!error) {
+        message.success('删除成功');
+        loadReminders();
+      }
+    },
+  });
+}
+
+function formatTime(dateStr: string) {
+  return new Date(dateStr).toLocaleString('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function getRepeatLabel(type: string) {
+  return repeatOptions.find((o) => o.value === type)?.label || '不重复';
+}
+
+onMounted(() => {
+  loadReminders();
+});
+</script>
+
+<template>
+  <div class="h-full p-4 overflow-auto">
+    <!-- 顶部标题栏 -->
+    <NCard size="small">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-40px h-40px rounded-lg bg-primary/10 flex items-center justify-center">
+            <SvgIcon icon="mdi:calendar-month" class="text-24px text-primary" />
+          </div>
+          <div>
+            <div class="text-16px font-bold">日历备忘</div>
+            <div class="text-13px text-gray-400">管理您的备忘提醒，支持重复提醒</div>
+          </div>
+        </div>
+        <NButton type="primary" @click="openCreateModal">
+          <template #icon>
+            <SvgIcon icon="mdi:plus" />
+          </template>
+          新增备忘
+        </NButton>
+      </div>
+    </NCard>
+
+    <div class="flex gap-4">
+      <!-- 左侧日历 -->
+      <NCard size="small" class="flex-[7]">
+        <NCalendar
+          :value="currentDate.getTime()"
+          :is-date-disabled="() => false"
+          @update:value="(v: number) => { currentDate = new Date(v); handleDateChange(new Date(v)); }"
+        >
+          <template #default="{ year, month, date }">
+            <div class="relative flex items-center justify-center">
+              <div
+                v-if="reminders.some(r => { const d = new Date(r.remindAt); return d.getFullYear() === year && d.getMonth() + 1 === month && d.getDate() === date; })"
+                class="w-6px h-6px rounded-full bg-primary"
+              />
+            </div>
+          </template>
+        </NCalendar>
+      </NCard>
+
+      <!-- 右侧备忘列表 -->
+      <NCard size="small" class="flex-[3]">
+        <template #header>
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <SvgIcon icon="mdi:format-list-bulleted" class="text-18px text-primary" />
+              <span class="font-bold">
+                {{ selectedDate.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' }) }} 备忘
+              </span>
+              <NTag size="tiny" :bordered="false" type="info">
+                {{ selectedDayReminders.length }} 条
+              </NTag>
+            </div>
+          </div>
+        </template>
+
+        <NSpin :show="loading">
+          <div v-if="selectedDayReminders.length === 0" class="py-12 flex flex-col items-center justify-center text-gray-400">
+            <SvgIcon icon="mdi:calendar-blank-outline" class="text-48px mb-2 opacity-30" />
+            <div class="text-14px">暂无备忘</div>
+            <div class="text-12px mt-1">点击上方按钮添加新备忘</div>
+          </div>
+          <div v-else class="space-y-3">
+            <div
+              v-for="item in selectedDayReminders"
+              :key="item.id"
+              class="p-3 rounded-lg border border-gray-100 dark:border-gray-700 hover:border-primary/50 transition-colors"
+              :class="{ 'opacity-50 bg-gray-50 dark:bg-gray-800/50': item.notified, 'bg-white dark:bg-gray-800': !item.notified }"
+            >
+              <div class="flex items-start justify-between gap-3">
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2">
+                    <span class="font-bold text-15px truncate">{{ item.title }}</span>
+                    <NTag v-if="item.notified" size="tiny" type="success" :bordered="false">
+                      已通知
+                    </NTag>
+                  </div>
+                  <div v-if="item.content" class="text-gray-500 mt-1 text-13px line-clamp-2">{{ item.content }}</div>
+                  <div class="flex flex-wrap gap-1 mt-2">
+                    <NTag size="tiny" :bordered="false" type="warning">
+                      <template #icon>
+                        <SvgIcon icon="mdi:clock-outline" class="text-12px" />
+                      </template>
+                      {{ formatTime(item.remindAt) }}
+                    </NTag>
+                    <NTag v-if="item.repeatType !== 'none'" size="tiny" type="info" :bordered="false">
+                      <template #icon>
+                        <SvgIcon icon="mdi:repeat" class="text-12px" />
+                      </template>
+                      {{ getRepeatLabel(item.repeatType) }}{{ item.repeatInterval > 1 ? ` ×${item.repeatInterval}` : '' }}
+                    </NTag>
+                  </div>
+                </div>
+                <div class="flex items-center gap-1 flex-shrink-0">
+                  <NButton text type="primary" size="small" @click="openEditModal(item)">
+                    <SvgIcon icon="mdi:pencil-outline" />
+                  </NButton>
+                  <NButton text type="error" size="small" @click="handleDelete(item)">
+                    <SvgIcon icon="mdi:delete-outline" />
+                  </NButton>
+                </div>
+              </div>
+            </div>
+          </div>
+        </NSpin>
+      </NCard>
+    </div>
+
+    <!-- 新增/编辑弹窗 -->
+    <NModal v-model:show="showModal" preset="card" :title="editingId ? '编辑备忘' : '新增备忘'" style="width: 520px">
+      <NForm ref="formRef" :model="form" :rules="rules" label-placement="left" label-width="80">
+        <NFormItem label="标题" path="title">
+          <NInput v-model:value="form.title" placeholder="请输入标题" />
+        </NFormItem>
+        <NFormItem label="内容" path="content">
+          <NInput v-model:value="form.content" type="textarea" placeholder="请输入内容（可选）" :rows="3" />
+        </NFormItem>
+        <NFormItem label="提醒时间" path="remindAt">
+          <NDatePicker v-model:value="form.remindAt" type="datetime" style="width: 100%" />
+        </NFormItem>
+        <NFormItem label="重复">
+          <NSpace>
+            <NSelect v-model:value="form.repeatType" :options="repeatOptions" style="width: 120px" />
+            <NInputNumber
+              v-if="form.repeatType !== 'none'"
+              v-model:value="form.repeatInterval"
+              :min="1"
+              :max="99"
+              style="width: 80px"
+            />
+          </NSpace>
+        </NFormItem>
+        <NFormItem v-if="form.repeatType !== 'none'" label="重复结束">
+          <NDatePicker v-model:value="form.repeatEndAt" type="datetime" style="width: 100%" clearable placeholder="不设置则永不过期" />
+        </NFormItem>
+      </NForm>
+      <template #footer>
+        <NSpace justify="end">
+          <NButton @click="showModal = false">取消</NButton>
+          <NButton type="primary" @click="handleSubmit">确定</NButton>
+        </NSpace>
+      </template>
+    </NModal>
+  </div>
+</template>
