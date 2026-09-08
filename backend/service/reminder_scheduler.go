@@ -51,11 +51,18 @@ func (rs *ReminderScheduler) Shutdown() error {
 // LoadAll 启动时加载所有未通知的备忘，注册定时任务
 func (rs *ReminderScheduler) LoadAll() error {
 	var reminders []model.Reminder
-	if err := DB.Where("notified = false AND remind_at > ?", time.Now()).Find(&reminders).Error; err != nil {
+	if err := DB.Where("notified = false").Find(&reminders).Error; err != nil {
 		return err
 	}
 
 	for _, r := range reminders {
+		if r.RemindAt.Before(time.Now()) {
+			// 过去时间的备忘：不通知，但重复的要计算下一次
+			if r.RepeatType != "none" {
+				go rs.HandlePastRepeat(r)
+			}
+			continue
+		}
 		rs.scheduleReminder(r)
 	}
 
@@ -89,13 +96,12 @@ func (rs *ReminderScheduler) scheduleReminder(r model.Reminder) {
 		delete(rs.jobMap, r.ID)
 	}
 
-	// 如果已过期，直接处理
+	// 如果已过期，不发送通知，只记录
 	if r.RemindAt.Before(time.Now()) {
-		go rs.processReminder(r)
+		log.Printf("[ReminderScheduler] 备忘 %s 时间已过期，跳过通知", r.Title)
 		return
 	}
 
-	delay := time.Until(r.RemindAt)
 	job, err := rs.scheduler.NewJob(
 		gocron.OneTimeJob(
 			gocron.OneTimeJobStartDateTime(r.RemindAt),
@@ -110,6 +116,7 @@ func (rs *ReminderScheduler) scheduleReminder(r model.Reminder) {
 	}
 
 	rs.jobMap[r.ID] = job
+	delay := time.Until(r.RemindAt)
 	log.Printf("[ReminderScheduler] 已注册任务: %s, %v 后执行", r.Title, delay)
 }
 
@@ -140,30 +147,62 @@ func (rs *ReminderScheduler) processReminder(r model.Reminder) {
 
 	// 创建下一次重复备忘
 	if r.RepeatType != "none" {
-		nextAt := calcNextTime(r.RemindAt, r.RepeatType, r.RepeatInterval)
-		if !nextAt.IsZero() && (r.RepeatEndAt == nil || !nextAt.After(*r.RepeatEndAt)) {
-			newReminder := model.Reminder{
-				UserID:         r.UserID,
-				Title:          r.Title,
-				Content:        r.Content,
-				RemindAt:       nextAt,
-				RepeatType:     r.RepeatType,
-				RepeatInterval: r.RepeatInterval,
-				RepeatEndAt:    r.RepeatEndAt,
-			}
-			if err := DB.Create(&newReminder).Error; err != nil {
-				log.Printf("[ReminderScheduler] 创建下次备忘失败: %v", err)
-				return
-			}
-			// 注册新任务
-			rs.scheduleReminder(newReminder)
-		}
+		rs.createNextRepeat(r)
 	}
 
 	// 从 map 中移除已执行的任务
 	rs.mu.Lock()
 	delete(rs.jobMap, r.ID)
 	rs.mu.Unlock()
+}
+
+// handlePastRepeat 处理过去时间的重复备忘：跳过通知，计算下一次
+func (rs *ReminderScheduler) HandlePastRepeat(r model.Reminder) {
+	log.Printf("[ReminderScheduler] 处理过期重复备忘: %s (reminder=%d)", r.Title, r.ID)
+
+	// 标记当前为已通知（跳过）
+	rs.reminderSvc.MarkNotified(r.ID)
+
+	// 计算下一次时间
+	rs.createNextRepeat(r)
+}
+
+// createNextRepeat 创建下一次重复备忘
+func (rs *ReminderScheduler) createNextRepeat(r model.Reminder) {
+	if r.RepeatType == "none" {
+		return
+	}
+
+	// 从当前时间反复计算，找到第一个未来时间
+	nextAt := calcNextTime(r.RemindAt, r.RepeatType, r.RepeatInterval)
+	maxIter := 100
+	for i := 0; nextAt.Before(time.Now()) && i < maxIter; i++ {
+		nextAt = calcNextTime(nextAt, r.RepeatType, r.RepeatInterval)
+	}
+
+	if nextAt.IsZero() || nextAt.Before(time.Now()) {
+		return
+	}
+
+	if r.RepeatEndAt != nil && nextAt.After(*r.RepeatEndAt) {
+		return
+	}
+
+	newReminder := model.Reminder{
+		UserID:         r.UserID,
+		Title:          r.Title,
+		Content:        r.Content,
+		RemindAt:       nextAt,
+		RepeatType:     r.RepeatType,
+		RepeatInterval: r.RepeatInterval,
+		RepeatEndAt:    r.RepeatEndAt,
+	}
+	if err := DB.Create(&newReminder).Error; err != nil {
+		log.Printf("[ReminderScheduler] 创建下次备忘失败: %v", err)
+		return
+	}
+
+	rs.scheduleReminder(newReminder)
 }
 
 func calcNextTime(at time.Time, repeatType string, interval int) time.Time {

@@ -7,16 +7,34 @@ import (
 	"net"
 	"net/smtp"
 	"strconv"
+	"sync"
 )
+
+// SMTPConfig SMTP 配置缓存
+type SMTPConfig struct {
+	Host       string
+	Port       int
+	Encryption string
+	User       string
+	Password   string
+	From       string
+	FromName   string
+}
 
 // EmailNotifier 邮件通知器
 type EmailNotifier struct {
 	configSvc *SystemConfigService
+	mu        sync.RWMutex
+	smtpCache *SMTPConfig
 }
 
 // NewEmailNotifier 创建邮件通知器
 func NewEmailNotifier(configSvc *SystemConfigService) *EmailNotifier {
-	return &EmailNotifier{configSvc: configSvc}
+	n := &EmailNotifier{
+		configSvc: configSvc,
+	}
+	n.RefreshConfig()
+	return n
 }
 
 // Name 返回通知器名称
@@ -24,8 +42,8 @@ func (n *EmailNotifier) Name() string {
 	return "email"
 }
 
-// Send 发送邮件通知
-func (n *EmailNotifier) Send(to string, msg iface.NotifyMessage) error {
+// RefreshConfig 刷新 SMTP 配置缓存
+func (n *EmailNotifier) RefreshConfig() {
 	host, _ := n.configSvc.GetValue("smtp_host")
 	portStr, _ := n.configSvc.GetValue("smtp_port")
 	encryption, _ := n.configSvc.GetValue("smtp_encryption")
@@ -33,10 +51,6 @@ func (n *EmailNotifier) Send(to string, msg iface.NotifyMessage) error {
 	password, _ := n.configSvc.GetValue("smtp_password")
 	from, _ := n.configSvc.GetValue("smtp_from")
 	fromName, _ := n.configSvc.GetValue("smtp_from_name")
-
-	if host == "" || user == "" || password == "" || from == "" {
-		return fmt.Errorf("SMTP 配置不完整，请先填写 SMTP 主机、用户名、密码和发件人邮箱")
-	}
 
 	port := 587
 	if portStr != "" {
@@ -49,19 +63,44 @@ func (n *EmailNotifier) Send(to string, msg iface.NotifyMessage) error {
 		fromName = "系统通知"
 	}
 
+	cfg := &SMTPConfig{
+		Host:       host,
+		Port:       port,
+		Encryption: encryption,
+		User:       user,
+		Password:   password,
+		From:       from,
+		FromName:   fromName,
+	}
+
+	n.mu.Lock()
+	n.smtpCache = cfg
+	n.mu.Unlock()
+}
+
+// Send 发送邮件通知
+func (n *EmailNotifier) Send(to string, msg iface.NotifyMessage) error {
+	n.mu.RLock()
+	cfg := n.smtpCache
+	n.mu.RUnlock()
+
+	if cfg.Host == "" || cfg.User == "" || cfg.Password == "" || cfg.From == "" {
+		return fmt.Errorf("SMTP 配置不完整，请先填写 SMTP 主机、用户名、密码和发件人邮箱")
+	}
+
 	data := fmt.Sprintf("From: %s <%s>\r\nTo: %s\r\nSubject: %s\r\nContent-Type: text/plain; charset=UTF-8\r\nMIME-Version: 1.0\r\n\r\n%s",
-		fromName, from, to, msg.Subject, msg.Body)
+		cfg.FromName, cfg.From, to, msg.Subject, msg.Body)
 
-	addr := fmt.Sprintf("%s:%d", host, port)
-	auth := smtp.PlainAuth("", user, password, host)
+	addr := fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)
+	auth := smtp.PlainAuth("", cfg.User, cfg.Password, cfg.Host)
 
-	switch encryption {
+	switch cfg.Encryption {
 	case "ssl":
-		return n.sendSSL(addr, auth, from, to, data, host, port)
+		return n.sendSSL(addr, auth, cfg.From, to, data, cfg.Host, cfg.Port)
 	case "starttls":
-		return n.sendStartTLS(addr, auth, from, to, data, host)
+		return n.sendStartTLS(addr, auth, cfg.From, to, data, cfg.Host)
 	default:
-		return smtp.SendMail(addr, auth, from, []string{to}, []byte(data))
+		return smtp.SendMail(addr, auth, cfg.From, []string{to}, []byte(data))
 	}
 }
 

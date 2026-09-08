@@ -12,14 +12,14 @@ type SystemConfigHandler struct {
 	configSvc       *service.SystemConfigService
 	telegramService *service.TelegramService
 	aiAgentSvc      *service.AIAgentService
-	notifier        iface.Notifier
+	emailNotifier   *service.EmailNotifier
 }
 
-func NewSystemConfigHandler(configSvc *service.SystemConfigService, telegramService *service.TelegramService, notifier iface.Notifier, aiAgentSvc ...*service.AIAgentService) *SystemConfigHandler {
+func NewSystemConfigHandler(configSvc *service.SystemConfigService, telegramService *service.TelegramService, emailNotifier *service.EmailNotifier, aiAgentSvc ...*service.AIAgentService) *SystemConfigHandler {
 	h := &SystemConfigHandler{
 		configSvc:       configSvc,
 		telegramService: telegramService,
-		notifier:        notifier,
+		emailNotifier:   emailNotifier,
 	}
 	if len(aiAgentSvc) > 0 {
 		h.aiAgentSvc = aiAgentSvc[0]
@@ -69,9 +69,18 @@ func (h *SystemConfigHandler) Update(c *gin.Context) {
 	for _, key := range timeoutKeys {
 		if req.Key == key {
 			h.configSvc.ReloadTimeoutConfig()
-		if h.aiAgentSvc != nil {
-			go h.aiAgentSvc.ReloadConfig()
+			if h.aiAgentSvc != nil {
+				go h.aiAgentSvc.ReloadConfig()
 			}
+			break
+		}
+	}
+
+	// SMTP 配置变更后刷新缓存
+	smtpKeys := []string{"smtp_host", "smtp_port", "smtp_encryption", "smtp_user", "smtp_password", "smtp_from", "smtp_from_name"}
+	for _, key := range smtpKeys {
+		if req.Key == key {
+			h.emailNotifier.RefreshConfig()
 			break
 		}
 	}
@@ -115,7 +124,7 @@ func (h *SystemConfigHandler) SendTestEmail(c *gin.Context) {
 		Body:    content,
 	}
 
-	if err := h.notifier.Send(req.Email, msg); err != nil {
+	if err := h.emailNotifier.Send(req.Email, msg); err != nil {
 		SendError(c, "500", "发送测试邮件失败: "+err.Error())
 		return
 	}

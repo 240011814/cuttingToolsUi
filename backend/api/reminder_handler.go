@@ -66,8 +66,8 @@ func (h *ReminderHandler) Create(c *gin.Context) {
 		return
 	}
 
-	// 注册定时任务
-	if h.scheduler != nil {
+	// 注册定时任务（仅未来时间）
+	if h.scheduler != nil && !reminder.RemindAt.Before(time.Now()) {
 		h.scheduler.ScheduleReminder(*reminder)
 	}
 
@@ -100,11 +100,18 @@ func (h *ReminderHandler) Update(c *gin.Context) {
 		return
 	}
 
-	// 重新注册定时任务
+	// 更新定时任务：先移除旧的，再注册新的
 	if h.scheduler != nil {
 		h.scheduler.RemoveReminder(reminder.ID)
 		if !reminder.Notified {
-			h.scheduler.ScheduleReminder(*reminder)
+			if reminder.RemindAt.Before(time.Now()) {
+				// 过去时间的重复备忘：跳过通知，计算下一次
+				if reminder.RepeatType != "none" {
+					go h.scheduler.HandlePastRepeat(*reminder)
+				}
+			} else {
+				h.scheduler.ScheduleReminder(*reminder)
+			}
 		}
 	}
 
