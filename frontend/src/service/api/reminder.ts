@@ -10,6 +10,7 @@ export interface Reminder {
   jobId: number;
   userId: number;
   scheduledAt: string;
+  advanceMinutes: number;
   status: string;
   params: ReminderParams;
   repeatType: 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly';
@@ -23,6 +24,7 @@ export interface CreateReminderParams {
   title: string;
   content?: string;
   remindAt: string;
+  advanceMinutes?: number;
   repeatType?: string;
   repeatInterval?: number;
   repeatEndAt?: string | null;
@@ -32,6 +34,7 @@ export interface UpdateReminderParams {
   title?: string;
   content?: string;
   remindAt?: string;
+  advanceMinutes?: number;
   repeatType?: string;
   repeatInterval?: number;
   repeatEndAt?: string | null;

@@ -11,6 +11,7 @@ type Job struct {
 	JobID          uint            `gorm:"not null;index" json:"jobId"`
 	UserID         *uint           `gorm:"index" json:"userId"`
 	ScheduledAt    time.Time       `gorm:"not null;index" json:"scheduledAt"`
+	AdvanceMinutes int             `gorm:"default:0" json:"advanceMinutes"`
 	Status         string          `gorm:"size:20;default:'pending';index" json:"status"`
 	RetryCount     int             `gorm:"default:0" json:"retryCount"`
 	MaxRetries     int             `gorm:"default:3" json:"maxRetries"`
@@ -47,6 +48,7 @@ type CreateReminderRequest struct {
 	Title          string     `json:"title" binding:"required"`
 	Content        string     `json:"content"`
 	RemindAt       time.Time  `json:"remindAt" binding:"required"`
+	AdvanceMinutes int        `json:"advanceMinutes"`
 	RepeatType     string     `json:"repeatType"`
 	RepeatInterval int        `json:"repeatInterval"`
 	RepeatEndAt    *time.Time `json:"repeatEndAt"`
@@ -56,6 +58,7 @@ type UpdateReminderRequest struct {
 	Title          string     `json:"title"`
 	Content        string     `json:"content"`
 	RemindAt       time.Time  `json:"remindAt"`
+	AdvanceMinutes *int       `json:"advanceMinutes"`
 	RepeatType     string     `json:"repeatType"`
 	RepeatInterval int        `json:"repeatInterval"`
 	RepeatEndAt    *time.Time `json:"repeatEndAt"`

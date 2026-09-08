@@ -55,6 +55,11 @@ func (s *ReminderService) Create(userID uint, req model.CreateReminderRequest) (
 		repeatInterval = 1
 	}
 
+	advanceMinutes := req.AdvanceMinutes
+	if advanceMinutes < 0 {
+		advanceMinutes = 0
+	}
+
 	params := model.ReminderParams{
 		Title:   req.Title,
 		Content: req.Content,
@@ -66,6 +71,7 @@ func (s *ReminderService) Create(userID uint, req model.CreateReminderRequest) (
 		JobID:          0,
 		UserID:         &userID,
 		ScheduledAt:    req.RemindAt,
+		AdvanceMinutes: advanceMinutes,
 		Status:         model.JobStatusPending,
 		MaxRetries:     3,
 		Params:         paramsJSON,
@@ -112,6 +118,13 @@ func (s *ReminderService) Update(userID, id uint, req model.UpdateReminderReques
 	}
 	if !req.RemindAt.IsZero() {
 		updates["scheduled_at"] = req.RemindAt
+	}
+	if req.AdvanceMinutes != nil {
+		advanceMinutes := *req.AdvanceMinutes
+		if advanceMinutes < 0 {
+			advanceMinutes = 0
+		}
+		updates["advance_minutes"] = advanceMinutes
 	}
 	if req.RepeatType != "" {
 		updates["repeat_type"] = req.RepeatType

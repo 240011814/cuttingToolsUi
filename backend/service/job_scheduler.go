@@ -115,15 +115,21 @@ func (js *JobScheduler) scheduleJob(job model.Job) {
 		delete(js.jobMap, jobKey)
 	}
 
+	// 计算实际调度时间（提醒时间 - 提前分钟数）
+	scheduledAt := job.ScheduledAt
+	if job.AdvanceMinutes > 0 {
+		scheduledAt = job.ScheduledAt.Add(-time.Duration(job.AdvanceMinutes) * time.Minute)
+	}
+
 	// 如果已过期，不调度
-	if job.ScheduledAt.Before(time.Now()) {
+	if scheduledAt.Before(time.Now()) {
 		log.Printf("[JobScheduler] 任务 %s:%d 时间已过期，跳过调度", job.JobType, job.JobID)
 		return
 	}
 
 	gocronJob, err := js.scheduler.NewJob(
 		gocron.OneTimeJob(
-			gocron.OneTimeJobStartDateTime(job.ScheduledAt),
+			gocron.OneTimeJobStartDateTime(scheduledAt),
 		),
 		gocron.NewTask(js.executeJob, job),
 		gocron.WithName(fmt.Sprintf("%s:%d", job.JobType, job.JobID)),
@@ -135,8 +141,8 @@ func (js *JobScheduler) scheduleJob(job model.Job) {
 	}
 
 	js.jobMap[jobKey] = gocronJob
-	delay := time.Until(job.ScheduledAt)
-	log.Printf("[JobScheduler] 已注册任务: %s:%d, %v 后执行", job.JobType, job.JobID, delay)
+	delay := time.Until(scheduledAt)
+	log.Printf("[JobScheduler] 已注册任务: %s:%d, %v 后执行 (提前通知: %d分钟)", job.JobType, job.JobID, delay, job.AdvanceMinutes)
 }
 
 func (js *JobScheduler) executeJob(job model.Job) {

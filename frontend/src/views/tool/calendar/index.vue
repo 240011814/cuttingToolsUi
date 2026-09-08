@@ -30,6 +30,7 @@ const form = ref({
   title: '',
   content: '',
   remindAt: null as number | null,
+  advanceMinutes: 3,
   repeatType: 'none',
   repeatInterval: 1,
   repeatEndAt: null as number | null,
@@ -82,6 +83,7 @@ function openCreateModal() {
     title: '',
     content: '',
     remindAt: Date.now(),
+    advanceMinutes: 3,
     repeatType: 'none',
     repeatInterval: 1,
     repeatEndAt: null,
@@ -95,6 +97,7 @@ function openEditModal(reminder: Reminder) {
     title: reminder.params.title,
     content: reminder.params.content,
     remindAt: new Date(reminder.scheduledAt).getTime(),
+    advanceMinutes: reminder.advanceMinutes || 0,
     repeatType: reminder.repeatType,
     repeatInterval: reminder.repeatInterval,
     repeatEndAt: reminder.repeatEndAt ? new Date(reminder.repeatEndAt).getTime() : null,
@@ -108,6 +111,7 @@ async function handleSubmit() {
     title: form.value.title,
     content: form.value.content,
     remindAt: new Date(form.value.remindAt as number).toISOString(),
+    advanceMinutes: form.value.advanceMinutes,
     repeatType: form.value.repeatType,
     repeatInterval: form.value.repeatInterval,
     repeatEndAt: form.value.repeatEndAt ? new Date(form.value.repeatEndAt as number).toISOString() : null,
@@ -298,6 +302,13 @@ onMounted(() => {
         </NFormItem>
         <NFormItem label="内容" path="content">
           <NInput v-model:value="form.content" type="textarea" placeholder="请输入内容（可选）" :rows="3" />
+        </NFormItem>
+        <NFormItem label="提前通知">
+          <div class="w-full">
+            <NInputNumber v-model:value="form.advanceMinutes" :min="0" :max="1440" style="width: 100%">
+              <template #suffix>分钟</template>
+            </NInputNumber>
+          </div>
         </NFormItem>
         <NFormItem label="提醒时间" path="remindAt">
           <NDatePicker v-model:value="form.remindAt" type="datetime" style="width: 100%" />
