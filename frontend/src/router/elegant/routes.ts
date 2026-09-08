@@ -167,7 +167,7 @@ export const generatedRoutes: GeneratedRoute[] = [
       title: 'cut',
       i18nKey: 'route.cut',
       icon: 'mdi:scissors-cutting',
-      order: 3,
+      order: 4,
       permissions: ['cut:menu:view']
     },
     children: [
@@ -298,7 +298,7 @@ export const generatedRoutes: GeneratedRoute[] = [
       title: 'system',
       i18nKey: 'route.system',
       icon: 'mdi:cog-outline',
-      order: 4,
+      order: 5,
       permissions: ['sys:menu:view']
     },
     children: [
@@ -380,7 +380,7 @@ export const generatedRoutes: GeneratedRoute[] = [
       title: 'tool',
       i18nKey: 'route.tool',
       icon: 'mdi:tools',
-      order: 10
+      order: 3
     },
     children: [
       {
