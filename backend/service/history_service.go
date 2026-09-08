@@ -256,8 +256,9 @@ func (s *HistoryService) SaveConversation(params *SaveConversationParams) (uint,
 	for _, m := range params.InputMessages {
 		if m.Role == schema.User && m.Content != "" {
 			title = m.Content
-			if len(title) > 20 {
-				title = title[:20] + "..."
+			runes := []rune(title)
+			if len(runes) > 20 {
+				title = string(runes[:20]) + "..."
 			}
 			break
 		}
