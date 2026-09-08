@@ -2,7 +2,7 @@
 import { reactive, ref } from 'vue';
 import { useMessage } from 'naive-ui';
 import type { FormInst, FormRules } from 'naive-ui';
-import { fetchChangePassword, fetchGetUserProfile, fetchUpdateProfile, fetchGetTelegramConfig, fetchGetTelegramStatus, fetchGenerateTelegramBindCode, fetchUnbindTelegram } from '@/service/api';
+import { fetchChangePassword, fetchGetUserProfile, fetchUpdateProfile, fetchGetTelegramConfig, fetchGetTelegramStatus, fetchGenerateTelegramBindCode, fetchUnbindTelegram, fetchGetNotificationPreference, fetchSaveNotificationPreference } from '@/service/api';
 import { useAuthStore } from '@/store/modules/auth';
 import { $t } from '@/locales';
 import AppearanceSettings from '@/layouts/modules/theme-drawer/modules/appearance/index.vue';
@@ -26,6 +26,11 @@ const telegramConfigured = ref(false);
 const telegramStatus = ref<Api.Telegram.StatusResponse>({ isBound: false });
 const telegramBindCode = ref<Api.Telegram.BindCodeResponse | null>(null);
 const telegramLoading = ref(false);
+
+// Notification preference state
+const notificationChannels = ref<string[]>(['email']);
+const notificationLoading = ref(false);
+const savingNotification = ref(false);
 
 const { copy, isSupported } = useClipboard();
 
@@ -185,9 +190,29 @@ async function handleCopyBindCode() {
   }
 }
 
-// Load profile and telegram config on mount
+// Notification preference functions
+async function loadNotificationPreference() {
+  notificationLoading.value = true;
+  const { data, error } = await fetchGetNotificationPreference();
+  if (!error && data) {
+    notificationChannels.value = data;
+  }
+  notificationLoading.value = false;
+}
+
+async function handleSaveNotificationPreference() {
+  savingNotification.value = true;
+  const { error } = await fetchSaveNotificationPreference(notificationChannels.value);
+  if (!error) {
+    message.success('通知偏好已保存');
+  }
+  savingNotification.value = false;
+}
+
+// Load profile, telegram config and notification preference on mount
 loadProfile();
 loadTelegramConfig();
+loadNotificationPreference();
 </script>
 
 <template>
@@ -338,6 +363,73 @@ loadTelegramConfig();
                 </div>
                 <NDivider />
                 <ConfigOperation />
+              </div>
+            </NTabPane>
+
+            <NTabPane name="notification" tab="通知渠道">
+              <div class="max-w-600px py-4">
+                <NCard title="通知渠道设置">
+                  <NSpin :show="notificationLoading">
+                    <div class="space-y-4">
+                      <NAlert type="info">
+                        选择接收通知的渠道。备忘提醒将发送到你启用的所有渠道。
+                      </NAlert>
+
+                      <NCheckboxGroup v-model:value="notificationChannels">
+                        <NSpace vertical>
+                          <NCheckbox value="email" label="邮件通知">
+                            <div class="flex items-center gap-2">
+                              <SvgIcon icon="mdi:email-outline" class="text-20px" />
+                              <div>
+                                <div class="font-medium">邮件通知</div>
+                                <div class="text-12px text-gray-500">
+                                  {{ profile?.email || '未设置邮箱' }}
+                                </div>
+                              </div>
+                            </div>
+                          </NCheckbox>
+
+                          <NCheckbox
+                            value="telegram"
+                            :disabled="!telegramConfigured || !telegramStatus.isBound"
+                            label="Telegram 通知"
+                          >
+                            <div class="flex items-center gap-2">
+                              <SvgIcon icon="mdi:telegram" class="text-20px" />
+                              <div>
+                                <div class="font-medium">Telegram 通知</div>
+                                <div class="text-12px text-gray-500">
+                                  <template v-if="!telegramConfigured">
+                                    系统未配置 Telegram Bot
+                                  </template>
+                                  <template v-else-if="!telegramStatus.isBound">
+                                    请先绑定 Telegram 账号
+                                  </template>
+                                  <template v-else>
+                                    @{{ telegramStatus.telegramUsername }}
+                                  </template>
+                                </div>
+                              </div>
+                            </div>
+                          </NCheckbox>
+                        </NSpace>
+                      </NCheckboxGroup>
+
+                      <div class="flex justify-start mt-4">
+                        <NButton
+                          type="primary"
+                          :loading="savingNotification"
+                          @click="handleSaveNotificationPreference"
+                        >
+                          <template #icon>
+                            <SvgIcon icon="mdi:content-save-outline" />
+                          </template>
+                          保存设置
+                        </NButton>
+                      </div>
+                    </div>
+                  </NSpin>
+                </NCard>
               </div>
             </NTabPane>
 

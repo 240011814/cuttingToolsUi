@@ -12,13 +12,13 @@ import (
 
 type ReminderService struct {
 	jobScheduler *JobScheduler
-	notifier     iface.Notifier
+	notifiers    []iface.Notifier
 }
 
-func NewReminderService(jobScheduler *JobScheduler, notifier iface.Notifier) *ReminderService {
+func NewReminderService(jobScheduler *JobScheduler, notifiers ...iface.Notifier) *ReminderService {
 	s := &ReminderService{
 		jobScheduler: jobScheduler,
-		notifier:     notifier,
+		notifiers:    notifiers,
 	}
 	jobScheduler.RegisterCallback(model.JobTypeReminder, s.processReminder)
 	return s
@@ -127,7 +127,6 @@ func (s *ReminderService) Update(userID, id uint, req model.UpdateReminderReques
 
 	DB.First(&job, job.ID)
 
-	// 从调度器移除旧任务，重新注册新任务
 	s.jobScheduler.UnscheduleJob(job.ID, model.JobTypeReminder)
 	if !job.ScheduledAt.Before(time.Now()) {
 		s.jobScheduler.scheduleJob(job)
@@ -144,7 +143,6 @@ func (s *ReminderService) Delete(userID, id uint) error {
 	if result.RowsAffected == 0 {
 		return errors.New("备忘不存在")
 	}
-	// 从调度器移除
 	s.jobScheduler.UnscheduleJob(id, model.JobTypeReminder)
 	return nil
 }
@@ -162,20 +160,84 @@ func (s *ReminderService) processReminder(job model.Job) error {
 	}
 
 	var user model.User
-	if err := DB.First(&user, *job.UserID).Error; err != nil || user.Email == "" {
-		log.Printf("[ReminderService] 用户 %d 邮箱不存在，跳过", *job.UserID)
-		return nil
+	if err := DB.First(&user, *job.UserID).Error; err != nil {
+		return fmt.Errorf("用户不存在: %v", err)
 	}
+
+	// 获取用户通知偏好
+	channels := s.getUserNotificationChannels(user.ID)
 
 	msg := iface.NotifyMessage{
 		Subject: params.Title,
 		Body:    params.Content,
 	}
 
-	if err := s.notifier.Send(user.Email, msg); err != nil {
-		return fmt.Errorf("发送失败: %v", err)
+	var lastErr error
+	for _, notifier := range s.notifiers {
+		// 检查该通知渠道是否启用
+		if !s.isChannelEnabled(channels, notifier.Name()) {
+			continue
+		}
+
+		to := s.getRecipientForNotifier(notifier.Name(), &user)
+		if to == "" {
+			log.Printf("[ReminderService] 用户 %d 没有 %s 渠道的接收地址，跳过", user.ID, notifier.Name())
+			continue
+		}
+
+		if err := notifier.Send(to, msg); err != nil {
+			log.Printf("[ReminderService] 通过 %s 发送失败: %v", notifier.Name(), err)
+			lastErr = err
+		} else {
+			log.Printf("[ReminderService] 已通过 %s 发送: %s -> %s", notifier.Name(), params.Title, to)
+		}
 	}
 
-	log.Printf("[ReminderService] 已发送: %s -> %s", params.Title, user.Email)
-	return nil
+	return lastErr
+}
+
+// getUserNotificationChannels 获取用户的通知渠道偏好
+func (s *ReminderService) getUserNotificationChannels(userID uint) []string {
+	var pref model.UserPreference
+	err := DB.Where("user_id = ? AND pref_key = ?", userID, "notification_channels").First(&pref).Error
+	if err != nil {
+		// 默认使用邮件
+		return []string{"email"}
+	}
+
+	var channels []string
+	if err := json.Unmarshal(pref.PrefValue, &channels); err != nil {
+		return []string{"email"}
+	}
+
+	if len(channels) == 0 {
+		return []string{"email"}
+	}
+
+	return channels
+}
+
+// isChannelEnabled 检查渠道是否在启用列表中
+func (s *ReminderService) isChannelEnabled(channels []string, channelName string) bool {
+	for _, ch := range channels {
+		if ch == channelName {
+			return true
+		}
+	}
+	return false
+}
+
+// getRecipientForNotifier 获取通知的接收地址
+func (s *ReminderService) getRecipientForNotifier(notifierName string, user *model.User) string {
+	switch notifierName {
+	case "email":
+		return user.Email
+	case "telegram":
+		if user.TelegramChatID != nil {
+			return fmt.Sprintf("%d", *user.TelegramChatID)
+		}
+		return ""
+	default:
+		return ""
+	}
 }

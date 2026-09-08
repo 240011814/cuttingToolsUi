@@ -73,7 +73,7 @@ func main() {
 	mem0Handler := api.NewMem0Handler(mem0Svc)
 
 	// Telegram Bot
-	telegramService := service.NewTelegramService(systemConfigService, mem0Svc)
+	telegramService := service.NewTelegramService(systemConfigService)
 	telegramHandler := api.NewTelegramHandler(telegramService, systemConfigService)
 
 	// Notification
@@ -86,7 +86,7 @@ func main() {
 	}
 
 	// Reminder Service
-	reminderService := service.NewReminderService(jobScheduler, emailNotifier)
+	reminderService := service.NewReminderService(jobScheduler, emailNotifier, telegramService)
 	reminderHandler := api.NewReminderHandler(reminderService)
 	tools.SetReminderService(reminderService)
 
@@ -144,6 +144,8 @@ func main() {
 		// User Preferences
 		apiGroup.GET("/user/preferences/theme", userPrefHandler.GetThemePreference)
 		apiGroup.PUT("/user/preferences/theme", userPrefHandler.SaveThemePreference)
+		apiGroup.GET("/user/preferences/notification", userPrefHandler.GetNotificationPreference)
+		apiGroup.PUT("/user/preferences/notification", userPrefHandler.SaveNotificationPreference)
 
 		// Telegram Binding
 		apiGroup.GET("/telegram/config", telegramHandler.HandleGetTelegramConfig)
