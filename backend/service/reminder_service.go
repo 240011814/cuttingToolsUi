@@ -127,7 +127,8 @@ func (s *ReminderService) Update(userID, id uint, req model.UpdateReminderReques
 
 	DB.First(&job, job.ID)
 
-	s.jobScheduler.RemoveJob(job.ID, model.JobTypeReminder)
+	// 从调度器移除旧任务，重新注册新任务
+	s.jobScheduler.UnscheduleJob(job.ID, model.JobTypeReminder)
 	if !job.ScheduledAt.Before(time.Now()) {
 		s.jobScheduler.scheduleJob(job)
 	}
@@ -143,7 +144,8 @@ func (s *ReminderService) Delete(userID, id uint) error {
 	if result.RowsAffected == 0 {
 		return errors.New("备忘不存在")
 	}
-	s.jobScheduler.RemoveJob(id, model.JobTypeReminder)
+	// 从调度器移除
+	s.jobScheduler.UnscheduleJob(id, model.JobTypeReminder)
 	return nil
 }
 

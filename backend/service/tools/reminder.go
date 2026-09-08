@@ -34,10 +34,12 @@ type reminderRequest struct {
 	ListDate       string `json:"list_date,omitempty" jsonschema:"description=查询日期，格式: 2006-01-02（list 时使用，默认当天）"`
 }
 
+type ReminderConfig struct{}
+
 func init() {
 	Register("reminder", "备忘提醒",
 		"管理用户的备忘提醒。可以创建、查询和删除备忘。支持设置提醒时间和重复提醒。",
-		nil,
+		ReminderConfig{},
 		func(config map[string]any) (tool.BaseTool, error) {
 			return &reminderTool{}, nil
 		})
@@ -83,7 +85,7 @@ func (t *reminderTool) InvokableRun(ctx context.Context, arguments string, _ ...
 		if req.RemindAt == "" {
 			return "", fmt.Errorf("提醒时间不能为空")
 		}
-		t, err := time.ParseInLocation("2006-01-02 15:04:05", req.RemindAt, time.Local)
+		remindAt, err := time.ParseInLocation("2006-01-02 15:04:05", req.RemindAt, time.Local)
 		if err != nil {
 			return "", fmt.Errorf("提醒时间格式错误，应为: 2006-01-02 15:04:05")
 		}
@@ -96,7 +98,7 @@ func (t *reminderTool) InvokableRun(ctx context.Context, arguments string, _ ...
 			repeatInterval = 1
 		}
 		job, err := reminderSvc.Create(userID, model.CreateReminderRequest{
-			Title: req.Title, Content: req.Content, RemindAt: t,
+			Title: req.Title, Content: req.Content, RemindAt: remindAt,
 			RepeatType: repeatType, RepeatInterval: repeatInterval,
 		})
 		if err != nil {

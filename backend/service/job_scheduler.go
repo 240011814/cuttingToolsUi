@@ -91,8 +91,8 @@ func (js *JobScheduler) ScheduleJob(job *model.Job) error {
 	return nil
 }
 
-// RemoveJob 移除任务
-func (js *JobScheduler) RemoveJob(jobID uint, jobType string) error {
+// UnscheduleJob 从调度器移除任务（不改变数据库状态）
+func (js *JobScheduler) UnscheduleJob(jobID uint, jobType string) {
 	js.mu.Lock()
 	defer js.mu.Unlock()
 
@@ -101,18 +101,6 @@ func (js *JobScheduler) RemoveJob(jobID uint, jobType string) error {
 		js.scheduler.RemoveJob(job.ID())
 		delete(js.jobMap, jobKey)
 	}
-
-	// 从数据库删除
-	return DB.Where("job_id = ? AND job_type = ?", jobID, jobType).Delete(&model.Job{}).Error
-}
-
-// UpdateJob 更新任务
-func (js *JobScheduler) UpdateJob(job *model.Job) error {
-	// 先移除旧任务
-	js.RemoveJob(job.JobID, job.JobType)
-
-	// 重新创建
-	return js.ScheduleJob(job)
 }
 
 func (js *JobScheduler) scheduleJob(job model.Job) {
