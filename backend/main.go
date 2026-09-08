@@ -85,7 +85,9 @@ func main() {
 	if err != nil {
 		log.Printf("Warning: Failed to create reminder scheduler: %v", err)
 	}
-	reminderHandler := api.NewReminderHandler(reminderService, reminderScheduler)
+	reminderService.InitScheduler(reminderScheduler)
+	reminderHandler := api.NewReminderHandler(reminderService)
+	tools.SetReminderService(reminderService)
 
 	systemConfigHandler := api.NewSystemConfigHandler(systemConfigService, telegramService, emailNotifier, aiAgentService)
 

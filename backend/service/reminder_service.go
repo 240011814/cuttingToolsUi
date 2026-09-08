@@ -6,10 +6,17 @@ import (
 	"time"
 )
 
-type ReminderService struct{}
+type ReminderService struct {
+	scheduler *ReminderScheduler
+}
 
 func NewReminderService() *ReminderService {
 	return &ReminderService{}
+}
+
+// InitScheduler 注入调度器，打破循环依赖
+func (s *ReminderService) InitScheduler(scheduler *ReminderScheduler) {
+	s.scheduler = scheduler
 }
 
 func (s *ReminderService) ListByMonth(userID uint, year int, month time.Month) ([]model.Reminder, error) {
@@ -55,6 +62,11 @@ func (s *ReminderService) Create(userID uint, req model.CreateReminderRequest) (
 	if err := DB.Create(&reminder).Error; err != nil {
 		return nil, errors.New("创建备忘失败: " + err.Error())
 	}
+
+	if s.scheduler != nil && !reminder.RemindAt.Before(time.Now()) {
+		s.scheduler.ScheduleReminder(reminder)
+	}
+
 	return &reminder, nil
 }
 
@@ -88,6 +100,20 @@ func (s *ReminderService) Update(userID, id uint, req model.UpdateReminderReques
 	}
 
 	DB.First(&reminder, reminder.ID)
+
+	if s.scheduler != nil {
+		s.scheduler.RemoveReminder(reminder.ID)
+		if !reminder.Notified {
+			if reminder.RemindAt.Before(time.Now()) {
+				if reminder.RepeatType != "none" {
+					go s.scheduler.HandlePastRepeat(reminder)
+				}
+			} else {
+				s.scheduler.ScheduleReminder(reminder)
+			}
+		}
+	}
+
 	return &reminder, nil
 }
 
@@ -99,10 +125,12 @@ func (s *ReminderService) Delete(userID, id uint) error {
 	if result.RowsAffected == 0 {
 		return errors.New("备忘不存在")
 	}
+	if s.scheduler != nil {
+		s.scheduler.RemoveReminder(id)
+	}
 	return nil
 }
 
-// MarkNotified 标记为已通知
 func (s *ReminderService) MarkNotified(id uint) error {
 	return DB.Model(&model.Reminder{}).Where("id = ?", id).Update("notified", true).Error
 }
