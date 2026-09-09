@@ -10,6 +10,7 @@ type Config struct {
 	Database DatabaseConfig `yaml:"database"`
 	Auth     AuthConfig     `yaml:"auth"`
 	AI       AIConfig       `yaml:"ai"`
+	Baostock BaostockConfig `yaml:"baostock"`
 }
 
 type DatabaseConfig struct {
@@ -26,6 +27,10 @@ type AuthConfig struct {
 
 type AIConfig struct {
 	TimeoutMinutes int `yaml:"timeout_minutes"`
+}
+
+type BaostockConfig struct {
+	URL string `yaml:"url"`
 }
 
 // LoadConfig 从指定的文件路径加载配置，并融合环境变量（环境变量优先级更高）
@@ -63,6 +68,11 @@ func LoadConfig(path string) (*Config, error) {
 		config.Auth.JWTSecret = envSecret
 	}
 
+	// Baostock ENV
+	if envURL := os.Getenv("BAOSTOCK_API_URL"); envURL != "" {
+		config.Baostock.URL = envURL
+	}
+
 	// 3. 提供默认值兜底
 	if config.Database.Host == "" {
 		config.Database.Host = "127.0.0.1"
@@ -75,6 +85,9 @@ func LoadConfig(path string) (*Config, error) {
 	}
 	if config.AI.TimeoutMinutes <= 0 {
 		config.AI.TimeoutMinutes = 5
+	}
+	if config.Baostock.URL == "" {
+		config.Baostock.URL = "http://127.0.0.1:3002"
 	}
 
 	return &config, nil

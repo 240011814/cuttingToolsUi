@@ -74,7 +74,7 @@ frontend/
 
 ## 配置文件
 
-- `backend/config.yaml` — 数据库、mem0 API 密钥 (环境变量优先)
+- `backend/config.yaml` — 数据库、mem0 API 密钥、baostock API 地址 (环境变量优先)
 - `frontend/.env` — 默认环境变量
 - `frontend/.env.test` / `.env.prod` — 环境覆盖
 - `frontend/.oxfmtrc.json` — OxFmt 格式化规则

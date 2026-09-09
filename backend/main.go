@@ -111,7 +111,7 @@ func main() {
 	errorBookHandler := api.NewErrorBookHandler(errorBookService)
 
 	stockService := service.NewStockService()
-	stockHandler := api.NewStockHandler(stockService)
+	stockHandler := api.NewStockHandler(stockService, cfg.Baostock.URL)
 
 	r.GET("/api/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{

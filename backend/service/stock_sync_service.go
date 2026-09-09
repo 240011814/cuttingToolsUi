@@ -15,10 +15,12 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-type StockSyncService struct{}
+type StockSyncService struct {
+	baostockURL string
+}
 
-func NewStockSyncService() *StockSyncService {
-	return &StockSyncService{}
+func NewStockSyncService(baostockURL string) *StockSyncService {
+	return &StockSyncService{baostockURL: baostockURL}
 }
 
 // SyncAll 全量同步
@@ -41,117 +43,115 @@ func (s *StockSyncService) SyncAll() error {
 func (s *StockSyncService) SyncStockList() error {
 	log.Println("[StockSync] 同步股票列表...")
 
-	pageSize := 500
-	page := 1
-	totalCount := 0
+	// 1. 获取所有股票列表 (需要传入交易日参数)
+	today := time.Now().Format("2006-01-02")
+	stockListURL := fmt.Sprintf("%s/query_all_stock?day=%s", s.baostockURL, today)
+	body, err := s.httpGetWithDelay(stockListURL)
+	if err != nil {
+		return fmt.Errorf("获取股票列表失败: %v", err)
+	}
 
-	for {
-		// 东方财富行情接口，包含行业和股本
-		url := fmt.Sprintf("https://push2.eastmoney.com/api/qt/clist/get?cb=jQuery&pn=%d&pz=%d&po=1&np=1&ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&fid=f3&fs=m:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23,m:0+t:81+s:2048&fields=f12,f14,f13,f100,f20,f21",
-			page, pageSize)
+	log.Printf("[StockSync] 股票列表响应长度: %d", len(body))
 
-		body, err := s.httpGetWithDelay(url)
-		if err != nil {
-			return err
-		}
+	var stockListResp struct {
+		Ok    bool `json:"ok"`
+		Data  struct {
+			Total int `json:"total"`
+			Items []struct {
+				Code        string `json:"code"`
+				CodeName    string `json:"code_name"`
+				TradeStatus string `json:"trade_status"`
+			} `json:"items"`
+		} `json:"data"`
+	}
 
-		jsonStr := s.stripJSONP(string(body))
+	if err := json.Unmarshal(body, &stockListResp); err != nil {
+		log.Printf("[StockSync] 解析股票列表失败, 响应前200字符: %s", string(body[:min(len(body), 200)]))
+		return fmt.Errorf("解析股票列表失败: %v", err)
+	}
 
-		var resp struct {
-			Data struct {
+	log.Printf("[StockSync] 股票列表解析结果: Ok=%v, Total=%d, Items数量=%d", stockListResp.Ok, stockListResp.Data.Total, len(stockListResp.Data.Items))
+
+	if !stockListResp.Ok {
+		return fmt.Errorf("获取股票列表失败")
+	}
+
+	// 2. 获取行业信息 (失败不影响股票列表同步)
+	industryMap := make(map[string]string)
+	industryURL := fmt.Sprintf("%s/query_stock_industry", s.baostockURL)
+	industryBody, err := s.httpGetWithDelay(industryURL)
+	if err != nil {
+		log.Printf("[StockSync] 获取行业信息失败: %v, 将跳过行业信息", err)
+	} else {
+		var industryResp struct {
+			Ok    bool `json:"ok"`
+			Data  struct {
 				Total int `json:"total"`
-				Diff  []struct {
-					Code       string  `json:"f12"`
-					Name       string  `json:"f14"`
-					Market     int     `json:"f13"`
-					Industry   string  `json:"f100"`
-					TotalShare float64 `json:"f20"`
-					FloatShare float64 `json:"f21"`
-				} `json:"diff"`
+				Items []struct {
+					Code       string `json:"code"`
+					Industry   string `json:"industry"`
+					IndustryCN string `json:"industryClassification"`
+				} `json:"items"`
 			} `json:"data"`
 		}
 
-		if err := json.Unmarshal([]byte(jsonStr), &resp); err != nil {
-			log.Printf("[StockSync] 解析失败, jsonStr长度: %d, 错误: %v", len(jsonStr), err)
-			if len(jsonStr) > 100 {
-				log.Printf("[StockSync] jsonStr前100字符: %s", jsonStr[:100])
+		if err := json.Unmarshal(industryBody, &industryResp); err == nil && industryResp.Ok {
+			for _, item := range industryResp.Data.Items {
+				if item.Code != "" && item.Industry != "" {
+					industryMap[item.Code] = item.Industry
+				}
 			}
-			return fmt.Errorf("解析股票列表失败: %v", err)
+			log.Printf("[StockSync] 获取行业信息成功: %d 条", len(industryMap))
 		}
-
-		if len(resp.Data.Diff) == 0 {
-			break
-		}
-
-		for i, item := range resp.Data.Diff {
-			if item.Code == "" {
-				continue
-			}
-
-			if i == 0 {
-				log.Printf("[StockSync] 第一个股票: Code=%s, Name=%s, Industry=%s", item.Code, item.Name, item.Industry)
-			}
-
-			market := "SZ"
-			if item.Market == 1 {
-				market = "SH"
-			}
-
-			stock := model.StockInfo{
-				Code:   item.Code,
-				Name:   item.Name,
-				Market: market,
-			}
-
-			if item.Industry != "" && item.Industry != "-" {
-				stock.Industry = item.Industry
-			}
-
-			// f20/f21 是市值(元)，转为万股需要除以股价，但这里没股价
-			// 直接存原始值，在查询时用市值
-			if item.TotalShare > 0 {
-				totalShare := item.TotalShare / 10000
-				stock.TotalShare = &totalShare
-			}
-			if item.FloatShare > 0 {
-				floatShare := item.FloatShare / 10000
-				stock.FloatShare = &floatShare
-			}
-
-			stock.IsST = strings.Contains(item.Name, "ST")
-			stock.IsActive = true
-
-			// f20/f21 是市值(元)
-			if item.TotalShare > 0 {
-				stock.TotalMarketCap = &item.TotalShare
-			}
-			if item.FloatShare > 0 {
-				stock.FloatMarketCap = &item.FloatShare
-			}
-
-			DB.Clauses(clause.OnConflict{
-				Columns:   []clause.Column{{Name: "code"}},
-				DoUpdates: clause.AssignmentColumns([]string{"name", "market", "industry", "is_st", "total_share", "float_share", "total_market_cap", "float_market_cap"}),
-			}).Create(&stock)
-			totalCount++
-		}
-
-		log.Printf("[StockSync] 已同步 %d/%d 只股票", totalCount, resp.Data.Total)
-		log.Printf("[StockSync] 当前页: %d, 返回数量: %d, body长度: %d", page, len(resp.Data.Diff), len(body))
-
-		if len(resp.Data.Diff) == 0 {
-			log.Printf("[StockSync] 无数据返回，停止同步")
-			break
-		}
-		if len(resp.Data.Diff) < pageSize {
-			log.Printf("[StockSync] 返回数量小于分页大小，停止同步")
-			break
-		}
-		page++
-		time.Sleep(200 * time.Millisecond)
 	}
 
-	log.Printf("[StockSync] 同步股票列表完成: %d 只", totalCount)
+	// 3. 处理每只股票
+	totalCount := 0
+	skipCount := 0
+	for _, item := range stockListResp.Data.Items {
+		if item.Code == "" {
+			skipCount++
+			continue
+		}
+
+		// 解析市场代码 (sh.600000 -> SH, sz.000001 -> SZ)
+		market := "SZ"
+		if len(item.Code) > 3 && item.Code[:3] == "sh." {
+			market = "SH"
+		}
+
+		// 提取纯数字代码
+		code := item.Code
+		if idx := strings.Index(code, "."); idx >= 0 {
+			code = code[idx+1:]
+		}
+
+		stock := model.StockInfo{
+			Code:   code,
+			Name:   item.CodeName,
+			Market: market,
+		}
+
+		// 设置行业信息
+		if industry, ok := industryMap[item.Code]; ok && industry != "" {
+			stock.Industry = industry
+		}
+
+		stock.IsST = strings.Contains(item.CodeName, "ST")
+		stock.IsActive = item.TradeStatus == "1"
+
+		result := DB.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "code"}},
+			DoUpdates: clause.AssignmentColumns([]string{"name", "market", "industry", "is_st", "is_active"}),
+		}).Create(&stock)
+		if result.Error != nil {
+			log.Printf("[StockSync] 写入股票 %s 失败: %v", code, result.Error)
+		} else {
+			totalCount++
+		}
+	}
+
+	log.Printf("[StockSync] 同步股票列表完成: %d 只 (跳过 %d 只)", totalCount, skipCount)
 	return nil
 }
 
@@ -181,42 +181,62 @@ func (s *StockSyncService) SyncDailyQuotes() error {
 
 // SyncSingleStockDaily 同步单只股票日K线
 func (s *StockSyncService) SyncSingleStockDaily(code string) error {
-	url := fmt.Sprintf("https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=%s.%s&fields1=f1,f2,f3,f4,f5,f6&fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61&klt=101&fqt=1&end=20500101&lmt=30",
-		s.getSecId(code), code)
+	// 转换代码格式: 600000 -> sh.600000
+	baostockCode := s.convertToBaostockCode(code)
+
+	// 获取最近30个交易日的K线数据
+	endDate := time.Now().Format("2006-01-02")
+	startDate := time.Now().AddDate(0, 0, -45).Format("2006-01-02") // 多取一些天数确保有30个交易日
+
+	url := fmt.Sprintf("%s/query_history_k_data_plus?code=%s&fields=date,open,high,low,close,volume,amount,turn,pctChg&start_date=%s&end_date=%s&frequency=d&adjustflag=3",
+		s.baostockURL, baostockCode, startDate, endDate)
 
 	body, err := s.httpGetWithDelay(url)
 	if err != nil {
-		return err
+		return fmt.Errorf("获取K线数据失败: %v", err)
 	}
 
-	jsonStr := s.stripJSONP(string(body))
-
 	var resp struct {
+		Ok   bool `json:"ok"`
 		Data struct {
-			Klines []string `json:"klines"`
+			Total int `json:"total"`
+			Items []struct {
+				Date   string `json:"date"`
+				Open   string `json:"open"`
+				High   string `json:"high"`
+				Low    string `json:"low"`
+				Close  string `json:"close"`
+				Volume string `json:"volume"`
+				Amount string `json:"amount"`
+				Turn   string `json:"turn"`
+				PctChg string `json:"pctChg"`
+			} `json:"items"`
 		} `json:"data"`
 	}
 
-	if err := json.Unmarshal([]byte(jsonStr), &resp); err != nil {
+	if err := json.Unmarshal(body, &resp); err != nil {
 		return fmt.Errorf("解析K线数据失败: %v", err)
 	}
 
-	for _, line := range resp.Data.Klines {
-		parts := s.splitKline(line)
-		if len(parts) < 11 {
+	if !resp.Ok {
+		return fmt.Errorf("获取K线数据失败")
+	}
+
+	count := 0
+	for _, item := range resp.Data.Items {
+		if item.Date == "" {
 			continue
 		}
 
-		tradeDate, _ := time.Parse("2006-01-02", parts[0])
-		open, _ := strconv.ParseFloat(parts[1], 64)
-		close, _ := strconv.ParseFloat(parts[2], 64)
-		high, _ := strconv.ParseFloat(parts[3], 64)
-		low, _ := strconv.ParseFloat(parts[4], 64)
-		volume, _ := strconv.ParseFloat(parts[5], 64)
-		amount, _ := strconv.ParseFloat(parts[6], 64)
-		amplitude, _ := strconv.ParseFloat(parts[7], 64)
-		changePct, _ := strconv.ParseFloat(parts[8], 64)
-		turnoverRate, _ := strconv.ParseFloat(parts[10], 64)
+		tradeDate, _ := time.Parse("2006-01-02", item.Date)
+		open, _ := strconv.ParseFloat(item.Open, 64)
+		close, _ := strconv.ParseFloat(item.Close, 64)
+		high, _ := strconv.ParseFloat(item.High, 64)
+		low, _ := strconv.ParseFloat(item.Low, 64)
+		volume, _ := strconv.ParseFloat(item.Volume, 64)
+		amount, _ := strconv.ParseFloat(item.Amount, 64)
+		turnoverRate, _ := strconv.ParseFloat(item.Turn, 64)
+		changePct, _ := strconv.ParseFloat(item.PctChg, 64)
 
 		daily := model.StockDaily{
 			Code:         code,
@@ -227,108 +247,185 @@ func (s *StockSyncService) SyncSingleStockDaily(code string) error {
 			Low:          &low,
 			Volume:       &volume,
 			Amount:       &amount,
-			Amplitude:    &amplitude,
 			ChangePct:    &changePct,
 			TurnoverRate: &turnoverRate,
 		}
 
 		DB.Clauses(clause.OnConflict{
 			Columns:   []clause.Column{{Name: "code"}, {Name: "trade_date"}},
-			DoUpdates: clause.AssignmentColumns([]string{"open", "high", "low", "close", "volume", "amount", "turnover_rate", "change_pct", "amplitude"}),
+			DoUpdates: clause.AssignmentColumns([]string{"open", "high", "low", "close", "volume", "amount", "turnover_rate", "change_pct"}),
 		}).Create(&daily)
+		count++
 	}
 
+	log.Printf("[StockSync] 同步 %s K线数据: %d 条", code, count)
 	return nil
 }
 
 // SyncFinanceData 同步财务数据
 func (s *StockSyncService) SyncFinanceData(code string) error {
-	// 使用东方财富财务数据接口
-	url := fmt.Sprintf("https://datacenter-web.eastmoney.com/api/data/v1/get?reportName=RPT_F10_FINANCE_MAINFINADATA&columns=ALL&filter=(SECURITY_CODE%%3D%%22%s%%22)&pageSize=4&sortColumns=REPORT_DATE&sortTypes=-1",
-		code)
+	baostockCode := s.convertToBaostockCode(code)
 
-	body, err := s.httpGetWithDelay(url)
-	if err != nil {
-		return err
-	}
+	// 获取最近4个季度的财务数据
+	currentYear := time.Now().Year()
+	financeData := make(map[string]*model.StockFinance)
 
-	var resp struct {
-		Result struct {
-			Data []struct {
-				ReportDate       string  `json:"REPORT_DATE"`
-				EPSJB            float64 `json:"EPSJB"`
-				EPSKCJB          float64 `json:"EPSKCJB"`
-				BPS              float64 `json:"BPS"`
-				ROEJQ            float64 `json:"ROEJQ"`
-				RevenueYoy       float64 `json:"TOTALOPERATEREVETZ"`
-				NetProfitYoy     float64 `json:"PARENTNETPROFITTZ"`
-				GrossProfitRatio float64 `json:"XSMLL"`
-				NetProfitRatio   float64 `json:"XSJLL"`
-				TotalShare       float64 `json:"TOTAL_SHARE"`
-				FreeShare        float64 `json:"A_FREE_SHARE"`
-				Revenue          float64 `json:"TOTALOPERATEREVE"`
-				NetProfit        float64 `json:"PARENTNETPROFIT"`
-				DebtRatio        float64 `json:"ZCFZL"`
-				CurrentRatio     float64 `json:"LD"`
-				QuickRatio       float64 `json:"SD"`
-				OcfPerShare      float64 `json:"MGJYXJJE"`
-			} `json:"data"`
-		} `json:"result"`
-	}
+	// 获取盈利能力数据
+	for year := currentYear; year >= currentYear-1; year-- {
+		for quarter := 4; quarter >= 1; quarter-- {
+			url := fmt.Sprintf("%s/query_profit_data?code=%s&year=%d&quarter=%d",
+				s.baostockURL, baostockCode, year, quarter)
 
-	if err := json.Unmarshal(body, &resp); err != nil {
-		return err
-	}
+			body, err := s.httpGetWithDelay(url)
+			if err != nil {
+				log.Printf("[StockSync] 获取 %s 盈利数据失败: %v", code, err)
+				continue
+			}
 
-	// 用最新的财务数据更新股本
-	if len(resp.Result.Data) > 0 {
-		latest := resp.Result.Data[0]
-		if latest.TotalShare > 0 {
-			totalShare := latest.TotalShare / 10000 // 转为万股
-			DB.Model(&model.StockInfo{}).Where("code = ?", code).Update("total_share", totalShare)
+			var resp struct {
+				Ok   bool `json:"ok"`
+				Data struct {
+					Total int `json:"total"`
+					Items []struct {
+						Code        string `json:"code"`
+						StatDate    string `json:"statDate"`
+						RoeAvg      string `json:"roeAvg"`
+						NpMargin    string `json:"npMargin"`
+						GpMargin    string `json:"gpMargin"`
+						NetProfit   string `json:"netProfit"`
+						EpsTTM      string `json:"epsTTM"`
+						MBRevenue   string `json:"MBRevenue"`
+						TotalShare  string `json:"totalShare"`
+						LiqaShare   string `json:"liqaShare"`
+					} `json:"items"`
+				} `json:"data"`
+			}
+
+			if err := json.Unmarshal(body, &resp); err != nil {
+				continue
+			}
+
+			if !resp.Ok || resp.Data.Total == 0 {
+				continue
+			}
+
+			for _, item := range resp.Data.Items {
+				if item.StatDate == "" {
+					continue
+				}
+
+				reportDate, _ := time.Parse("2006-01-02", item.StatDate)
+				key := fmt.Sprintf("%s_%s", code, item.StatDate)
+
+				if _, exists := financeData[key]; !exists {
+					financeData[key] = &model.StockFinance{
+						Code:       code,
+						ReportDate: reportDate,
+					}
+				}
+
+				roe, _ := strconv.ParseFloat(item.RoeAvg, 64)
+				grossMargin, _ := strconv.ParseFloat(item.GpMargin, 64)
+				netMargin, _ := strconv.ParseFloat(item.NpMargin, 64)
+				eps, _ := strconv.ParseFloat(item.EpsTTM, 64)
+				revenue, _ := strconv.ParseFloat(item.MBRevenue, 64)
+				netProfit, _ := strconv.ParseFloat(item.NetProfit, 64)
+				totalShare, _ := strconv.ParseFloat(item.TotalShare, 64)
+				floatShare, _ := strconv.ParseFloat(item.LiqaShare, 64)
+
+				financeData[key].Roe = &roe
+				financeData[key].GrossMargin = &grossMargin
+				financeData[key].NetMargin = &netMargin
+				financeData[key].Eps = &eps
+				revenueInWan := revenue / 10000
+				financeData[key].Revenue = &revenueInWan
+				netProfitInWan := netProfit / 10000
+				financeData[key].NetProfit = &netProfitInWan
+
+				// 更新股本信息
+				if totalShare > 0 {
+					totalShareInWan := totalShare / 10000
+					DB.Model(&model.StockInfo{}).Where("code = ?", code).Update("total_share", totalShareInWan)
+				}
+				if floatShare > 0 {
+					floatShareInWan := floatShare / 10000
+					DB.Model(&model.StockInfo{}).Where("code = ?", code).Update("float_share", floatShareInWan)
+				}
+			}
 		}
-		if latest.FreeShare > 0 {
-			floatShare := latest.FreeShare / 10000
-			DB.Model(&model.StockInfo{}).Where("code = ?", code).Update("float_share", floatShare)
+	}
+
+	// 获取偿债能力数据
+	for year := currentYear; year >= currentYear-1; year-- {
+		for quarter := 4; quarter >= 1; quarter-- {
+			url := fmt.Sprintf("%s/query_balance_data?code=%s&year=%d&quarter=%d",
+				s.baostockURL, baostockCode, year, quarter)
+
+			body, err := s.httpGetWithDelay(url)
+			if err != nil {
+				continue
+			}
+
+			var resp struct {
+				Ok   bool `json:"ok"`
+				Data struct {
+					Total int `json:"total"`
+					Items []struct {
+						Code             string `json:"code"`
+						StatDate         string `json:"statDate"`
+						CurrentRatio     string `json:"currentRatio"`
+						QuickRatio       string `json:"quickRatio"`
+						CashRatio        string `json:"cashRatio"`
+						YOYLiability     string `json:"yoyLiability"`
+						LiabilityToAsset string `json:"liabilityToAsset"`
+						AssetToEquity    string `json:"assetToEquity"`
+					} `json:"items"`
+				} `json:"data"`
+			}
+
+			if err := json.Unmarshal(body, &resp); err != nil {
+				continue
+			}
+
+			if !resp.Ok || resp.Data.Total == 0 {
+				continue
+			}
+
+			for _, item := range resp.Data.Items {
+				if item.StatDate == "" {
+					continue
+				}
+
+				key := fmt.Sprintf("%s_%s", code, item.StatDate)
+				if _, exists := financeData[key]; !exists {
+					continue
+				}
+
+				currentRatio, _ := strconv.ParseFloat(item.CurrentRatio, 64)
+				quickRatio, _ := strconv.ParseFloat(item.QuickRatio, 64)
+				debtRatio, _ := strconv.ParseFloat(item.LiabilityToAsset, 64)
+
+				financeData[key].CurrentRatio = &currentRatio
+				financeData[key].QuickRatio = &quickRatio
+				financeData[key].DebtRatio = &debtRatio
+			}
 		}
 	}
 
-	for _, item := range resp.Result.Data {
-		reportDate, _ := time.Parse("2006-01-02", item.ReportDate[:10])
-
-		revenue := item.Revenue / 10000 // 转为万元
-		netProfit := item.NetProfit / 10000
-
-		finance := model.StockFinance{
-			Code:         code,
-			ReportDate:   reportDate,
-			Eps:          &item.EPSJB,
-			EpsDeducted:  &item.EPSKCJB,
-			Bps:          &item.BPS,
-			Roe:          &item.ROEJQ,
-			RevenueYoy:   &item.RevenueYoy,
-			NetProfitYoy: &item.NetProfitYoy,
-			GrossMargin:  &item.GrossProfitRatio,
-			NetMargin:    &item.NetProfitRatio,
-			Revenue:      &revenue,
-			NetProfit:    &netProfit,
-			DebtRatio:    &item.DebtRatio,
-			CurrentRatio: &item.CurrentRatio,
-			QuickRatio:   &item.QuickRatio,
-			OcfPerShare:  &item.OcfPerShare,
-		}
-
-		// UPSERT
+	// 保存到数据库
+	for _, finance := range financeData {
 		DB.Clauses(clause.OnConflict{
 			Columns:   []clause.Column{{Name: "code"}, {Name: "report_date"}},
-			DoUpdates: clause.AssignmentColumns([]string{"roe", "gross_margin", "net_margin", "revenue_yoy", "net_profit_yoy", "eps", "bps", "eps_deducted", "revenue", "net_profit", "debt_ratio", "current_ratio", "quick_ratio", "ocf_per_share"}),
-		}).Create(&finance)
+			DoUpdates: clause.AssignmentColumns([]string{"roe", "gross_margin", "net_margin", "eps", "revenue", "net_profit", "debt_ratio", "current_ratio", "quick_ratio"}),
+		}).Create(finance)
 	}
 
+	log.Printf("[StockSync] 同步 %s 财务数据: %d 条", code, len(financeData))
 	return nil
 }
 
 // SyncConcepts 同步概念板块
+// 注意: baostock 没有概念板块接口，此处保留东方财富API实现
 func (s *StockSyncService) SyncConcepts() error {
 	log.Println("[StockSync] 同步概念板块...")
 
@@ -402,7 +499,19 @@ func (s *StockSyncService) getSecId(code string) string {
 	return "0"
 }
 
+// convertToBaostockCode 将纯数字代码转换为baostock格式 (600000 -> sh.600000)
+func (s *StockSyncService) convertToBaostockCode(code string) string {
+	if len(code) == 6 {
+		if code[:1] == "6" {
+			return "sh." + code
+		}
+		return "sz." + code
+	}
+	return "sz." + code
+}
+
 // FetchRealtimeKline 获取实时K线数据
+// 注意: baostock 不提供实时数据，此处保留东方财富API实现
 func (s *StockSyncService) FetchRealtimeKline(code string) ([]map[string]interface{}, error) {
 	url := fmt.Sprintf("https://push2his.eastmoney.com/api/qt/stock/kline/get?cb=jQuery&secid=%s.%s&fields1=f1,f2,f3,f4,f5,f6&fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61&klt=101&fqt=1&end=20500101&lmt=120",
 		s.getSecId(code), code)
@@ -452,6 +561,7 @@ func (s *StockSyncService) FetchRealtimeKline(code string) ([]map[string]interfa
 }
 
 // FetchRealtimeQuote 获取实时行情
+// 注意: baostock 不提供实时数据，此处保留东方财富API实现
 func (s *StockSyncService) FetchRealtimeQuote(code string) (map[string]interface{}, error) {
 	url := fmt.Sprintf("https://push2.eastmoney.com/api/qt/stock/get?cb=jQuery&secid=%s.%s&fields=f43,f44,f45,f46,f47,f48,f50,f51,f52,f55,f57,f58,f60,f71,f116,f117,f162,f167,f168,f169,f170,f171,f292",
 		s.getSecId(code), code)

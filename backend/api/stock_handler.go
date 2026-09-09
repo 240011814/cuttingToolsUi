@@ -15,8 +15,8 @@ type StockHandler struct {
 	syncService *service.StockSyncService
 }
 
-func NewStockHandler(svc *service.StockService) *StockHandler {
-	return &StockHandler{svc: svc, syncService: service.NewStockSyncService()}
+func NewStockHandler(svc *service.StockService, baostockURL string) *StockHandler {
+	return &StockHandler{svc: svc, syncService: service.NewStockSyncService(baostockURL)}
 }
 
 // HandleScreen 股票筛选
