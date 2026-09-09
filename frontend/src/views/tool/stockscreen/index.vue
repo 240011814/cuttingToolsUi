@@ -2,6 +2,7 @@
 import { ref, reactive, onMounted, h } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMessage, NButton } from 'naive-ui'
+import { useAuth } from '@/hooks/business/auth'
 import {
   stockScreen,
   stockIndustries,
@@ -19,6 +20,7 @@ defineOptions({ name: 'ToolStockscreen' })
 
 const router = useRouter()
 const message = useMessage()
+const { hasAuth } = useAuth()
 
 const loading = ref(false)
 const results = ref<Api.Stock.ScreenResult[]>([])
@@ -122,8 +124,18 @@ const columns = [
   { title: '行业', key: 'industry', width: 80 },
   { title: '操作', key: 'actions', width: 100, fixed: 'right' as const,
     render: (row: Api.Stock.ScreenResult) => h('div', { class: 'flex gap-1' }, [
-      h(NButton, { size: 'tiny', text: true, onClick: () => goToDetail(row.code) }, { default: () => '详情' }),
-      h(NButton, { size: 'tiny', text: true, onClick: () => handleAddWatchlist(row.code) }, { default: () => '加自选' })
+      h(NButton, { 
+        size: 'tiny', 
+        text: true, 
+        disabled: !hasAuth('stock:menu:view'),
+        onClick: () => goToDetail(row.code) 
+      }, { default: () => '详情' }),
+      h(NButton, { 
+        size: 'tiny', 
+        text: true, 
+        disabled: !hasAuth('stock:watchlist:edit'),
+        onClick: () => handleAddWatchlist(row.code) 
+      }, { default: () => '加自选' })
     ])
   }
 ]
@@ -440,11 +452,11 @@ onMounted(async () => {
       <!-- 操作按钮 -->
       <div class="space-y-2">
         <NButton type="primary" block :loading="loading" @click="doScreen">开始筛选</NButton>
-        <NButton block @click="handleSaveFilter">保存筛选条件</NButton>
+        <NButton v-if="hasAuth('stock:screen:save')" block @click="handleSaveFilter">保存筛选条件</NButton>
       </div>
 
       <!-- 数据同步 -->
-      <div class="mt-4 pt-4 border-t border-gray-200">
+      <div v-if="hasAuth('stock:sync:execute')" class="mt-4 pt-4 border-t border-gray-200">
         <h3 class="text-sm font-bold mb-2">数据同步</h3>
         <div class="space-y-2">
           <NButton size="small" block :loading="syncLoading" @click="handleSyncAll">同步股票列表</NButton>
