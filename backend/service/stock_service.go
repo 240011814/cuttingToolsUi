@@ -119,6 +119,11 @@ func (s *StockService) Screen(req model.StockScreenRequest) (*model.StockScreenR
 		Roe            *float64 `gorm:"column:roe"`
 		RevenueYoy     *float64 `gorm:"column:revenue_yoy"`
 		NetProfitYoy   *float64 `gorm:"column:net_profit_yoy"`
+		GrossMargin    *float64 `gorm:"column:gross_margin"`
+		NetMargin      *float64 `gorm:"column:net_margin"`
+		DebtRatio      *float64 `gorm:"column:debt_ratio"`
+		CurrentRatio   *float64 `gorm:"column:current_ratio"`
+		QuickRatio     *float64 `gorm:"column:quick_ratio"`
 	}
 
 	if err := query.Offset(offset).Limit(req.PageSize).Find(&results).Error; err != nil {
@@ -146,6 +151,11 @@ func (s *StockService) Screen(req model.StockScreenRequest) (*model.StockScreenR
 			Roe:            r.Roe,
 			RevenueYoy:     r.RevenueYoy,
 			NetProfitYoy:   r.NetProfitYoy,
+			GrossMargin:    r.GrossMargin,
+			NetMargin:      r.NetMargin,
+			DebtRatio:      r.DebtRatio,
+			CurrentRatio:   r.CurrentRatio,
+			QuickRatio:     r.QuickRatio,
 		})
 	}
 
@@ -325,6 +335,7 @@ func (s *StockService) GetDetail(code string) (*model.StockScreenResult, error) 
 		NetMargin      *float64 `gorm:"column:net_margin"`
 		DebtRatio      *float64 `gorm:"column:debt_ratio"`
 		CurrentRatio   *float64 `gorm:"column:current_ratio"`
+		QuickRatio     *float64 `gorm:"column:quick_ratio"`
 	}
 
 	err := DB.Table("stock_info AS si").
@@ -373,6 +384,7 @@ func (s *StockService) GetDetail(code string) (*model.StockScreenResult, error) 
 		NetMargin:      result.NetMargin,
 		DebtRatio:      result.DebtRatio,
 		CurrentRatio:   result.CurrentRatio,
+		QuickRatio:     result.QuickRatio,
 	}
 
 	// 补充概念

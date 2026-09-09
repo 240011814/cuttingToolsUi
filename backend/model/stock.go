@@ -170,6 +170,7 @@ type StockScreenResult struct {
 	NetMargin      *float64 `json:"netMargin"`
 	DebtRatio      *float64 `json:"debtRatio"`
 	CurrentRatio   *float64 `json:"currentRatio"`
+	QuickRatio     *float64 `json:"quickRatio"`
 	Change5d       *float64 `json:"change5d"`
 	Change20d      *float64 `json:"change20d"`
 	Ma5            *float64 `json:"ma5"`

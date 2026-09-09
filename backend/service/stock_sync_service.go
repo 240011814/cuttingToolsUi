@@ -72,6 +72,10 @@ func (s *StockSyncService) SyncStockList() error {
 		}
 
 		if err := json.Unmarshal([]byte(jsonStr), &resp); err != nil {
+			log.Printf("[StockSync] 解析失败, jsonStr长度: %d, 错误: %v", len(jsonStr), err)
+			if len(jsonStr) > 100 {
+				log.Printf("[StockSync] jsonStr前100字符: %s", jsonStr[:100])
+			}
 			return fmt.Errorf("解析股票列表失败: %v", err)
 		}
 
@@ -79,9 +83,13 @@ func (s *StockSyncService) SyncStockList() error {
 			break
 		}
 
-		for _, item := range resp.Data.Diff {
+		for i, item := range resp.Data.Diff {
 			if item.Code == "" {
 				continue
+			}
+
+			if i == 0 {
+				log.Printf("[StockSync] 第一个股票: Code=%s, Name=%s, Industry=%s", item.Code, item.Name, item.Industry)
 			}
 
 			market := "SZ"
@@ -129,8 +137,14 @@ func (s *StockSyncService) SyncStockList() error {
 		}
 
 		log.Printf("[StockSync] 已同步 %d/%d 只股票", totalCount, resp.Data.Total)
+		log.Printf("[StockSync] 当前页: %d, 返回数量: %d, body长度: %d", page, len(resp.Data.Diff), len(body))
 
+		if len(resp.Data.Diff) == 0 {
+			log.Printf("[StockSync] 无数据返回，停止同步")
+			break
+		}
 		if len(resp.Data.Diff) < pageSize {
+			log.Printf("[StockSync] 返回数量小于分页大小，停止同步")
 			break
 		}
 		page++
@@ -167,7 +181,7 @@ func (s *StockSyncService) SyncDailyQuotes() error {
 
 // SyncSingleStockDaily 同步单只股票日K线
 func (s *StockSyncService) SyncSingleStockDaily(code string) error {
-	url := fmt.Sprintf("https://push2his.eastmoney.com/api/qt/stock/kline/get?cb=jQuery&secid=%s.%s&fields1=f1,f2,f3,f4,f5,f6&fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61&klt=101&fqt=1&end=20500101&lmt=30",
+	url := fmt.Sprintf("https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=%s.%s&fields1=f1,f2,f3,f4,f5,f6&fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61&klt=101&fqt=1&end=20500101&lmt=30",
 		s.getSecId(code), code)
 
 	body, err := s.httpGetWithDelay(url)
@@ -504,10 +518,13 @@ func (s *StockSyncService) FetchRealtimeQuote(code string) (map[string]interface
 // stripJSONP 去掉 JSONP 包装
 func (s *StockSyncService) stripJSONP(data string) string {
 	if len(data) > 0 {
-		start := strings.Index(data, "(")
-		end := strings.LastIndex(data, ")")
-		if start >= 0 && end > start {
-			return data[start+1 : end]
+		// 检查是否是JSONP格式 (jQuery({...}))
+		if strings.HasPrefix(data, "jQuery") || strings.HasPrefix(data, "jsonp") {
+			start := strings.Index(data, "(")
+			end := strings.LastIndex(data, ")")
+			if start >= 0 && end > start {
+				return data[start+1 : end]
+			}
 		}
 	}
 	return data
@@ -554,7 +571,7 @@ func (s *StockSyncService) httpGet(url string) ([]byte, error) {
 			return nil, err
 		}
 		req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-		req.Header.Set("Accept", "application/json, text/plain, */*")
+		req.Header.Set("Accept", "application/json, text/plain, */*; q=0.01")
 		req.Header.Set("Referer", "https://quote.eastmoney.com/")
 		req.Header.Set("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8")
 		req.Header.Set("Connection", "keep-alive")
