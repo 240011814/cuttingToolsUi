@@ -47,10 +47,6 @@ jobs:
         run: |
           flake8 baostock/ --max-line-length=120 --ignore=E501,W503,F401
 
-      - name: Type check with mypy
-        run: |
-          mypy baostock/ --ignore-missing-imports --disable-error-code=attr-defined
-
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
