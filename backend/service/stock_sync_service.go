@@ -559,10 +559,13 @@ func (s *StockSyncService) httpGet(url string) ([]byte, error) {
 		client := &http.Client{
 			Timeout: 30 * time.Second,
 			Transport: &http.Transport{
-				TLSClientConfig:     &tls.Config{InsecureSkipVerify: true},
-				MaxIdleConns:        10,
-				IdleConnTimeout:     30 * time.Second,
-				TLSHandshakeTimeout: 10 * time.Second,
+				TLSClientConfig:       &tls.Config{InsecureSkipVerify: true},
+				MaxIdleConns:          10,
+				IdleConnTimeout:       30 * time.Second,
+				TLSHandshakeTimeout:   10 * time.Second,
+				ResponseHeaderTimeout: 20 * time.Second,
+				DisableCompression:    false,
+				ForceAttemptHTTP2:     false,
 			},
 		}
 
@@ -572,21 +575,35 @@ func (s *StockSyncService) httpGet(url string) ([]byte, error) {
 		}
 		req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
 		req.Header.Set("Accept", "application/json, text/plain, */*; q=0.01")
-		req.Header.Set("Referer", "https://quote.eastmoney.com/")
 		req.Header.Set("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8")
+		req.Header.Set("Accept-Encoding", "gzip, deflate, br")
 		req.Header.Set("Connection", "keep-alive")
+		req.Header.Set("Referer", "https://quote.eastmoney.com/")
+		req.Header.Set("Sec-Fetch-Dest", "empty")
+		req.Header.Set("Sec-Fetch-Mode", "cors")
+		req.Header.Set("Sec-Fetch-Site", "same-site")
 
 		resp, err := client.Do(req)
 		if err != nil {
+			log.Printf("[StockSync] 请求失败: %v", err)
 			lastErr = err
 			continue
 		}
+
+		log.Printf("[StockSync] 响应状态码: %d, ContentLength: %d", resp.StatusCode, resp.ContentLength)
 
 		data, err := io.ReadAll(resp.Body)
 		resp.Body.Close()
 
 		if err != nil {
+			log.Printf("[StockSync] 读取响应失败: %v", err)
 			lastErr = err
+			continue
+		}
+
+		if resp.StatusCode != 200 {
+			log.Printf("[StockSync] 非200状态码: %d, 响应: %s", resp.StatusCode, string(data[:min(len(data), 200)]))
+			lastErr = fmt.Errorf("HTTP状态码: %d", resp.StatusCode)
 			continue
 		}
 		return data, nil
