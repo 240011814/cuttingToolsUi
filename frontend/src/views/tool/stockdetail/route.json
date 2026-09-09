@@ -1,0 +1,9 @@
+{
+  "meta": {
+    "title": "tool_stockdetail",
+    "i18nKey": "route.tool_stockdetail",
+    "icon": "mdi:chart-box-outline",
+    "order": 12,
+    "hideInMenu": true
+  }
+}

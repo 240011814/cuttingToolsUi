@@ -261,6 +261,8 @@ const local: App.I18n.Schema = {
     "system_model-scenario": "Models & Scenarios",
     tool: "Tools",
     tool_calendar: "Calendar",
+    tool_stockscreen: "Stock Screener",
+    tool_stockdetail: "Stock Detail",
     user: "User",
     user_profile: "Profile",
     share: "Shared Conversation",

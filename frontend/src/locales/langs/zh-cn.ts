@@ -257,6 +257,8 @@ const local: App.I18n.Schema = {
     "system_model-scenario": "模型和场景",
     tool: "工具",
     tool_calendar: "日历备忘",
+    tool_stockscreen: "股票筛选",
+    tool_stockdetail: "个股详情",
     user: "用户",
     user_profile: "个人中心",
     share: "分享对话",

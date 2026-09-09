@@ -44,5 +44,7 @@ export const views: Record<LastLevelRouteKey, RouteComponent | (() => Promise<Ro
   system_permission: () => import("@/views/system/permission/index.vue"),
   system_user: () => import("@/views/system/user/index.vue"),
   tool_calendar: () => import("@/views/tool/calendar/index.vue"),
+  tool_stockdetail: () => import("@/views/tool/stockdetail/index.vue"),
+  tool_stockscreen: () => import("@/views/tool/stockscreen/index.vue"),
   user_profile: () => import("@/views/user/profile/index.vue"),
 };

@@ -110,6 +110,9 @@ func main() {
 	errorBookService := service.NewErrorBookService()
 	errorBookHandler := api.NewErrorBookHandler(errorBookService)
 
+	stockService := service.NewStockService()
+	stockHandler := api.NewStockHandler(stockService)
+
 	r.GET("/api/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"status":  "ok",
@@ -281,6 +284,33 @@ func main() {
 			errorBookGroup.GET("/stats", errorBookHandler.HandleGetErrorBookStats)
 			errorBookGroup.PUT("/:id", api.RequirePermission("ai:error-book:edit"), errorBookHandler.HandleUpdateErrorBook)
 			errorBookGroup.DELETE("/:id", api.RequirePermission("ai:error-book:delete"), errorBookHandler.HandleDeleteErrorBook)
+		}
+
+		// Stock APIs
+		stockGroup := apiGroup.Group("/stock")
+		stockGroup.Use(api.RequirePermission("stock:menu:view"))
+		{
+			stockGroup.POST("/screen", api.RequirePermission("stock:screen:view"), stockHandler.HandleScreen)
+			stockGroup.GET("/industries", stockHandler.HandleGetIndustries)
+			stockGroup.GET("/concepts", stockHandler.HandleGetConcepts)
+			stockGroup.GET("/:code", stockHandler.HandleGetDetail)
+			stockGroup.GET("/:code/kline", stockHandler.HandleGetKline)
+
+			// 筛选条件管理
+			stockGroup.POST("/filters", api.RequirePermission("stock:screen:save"), stockHandler.HandleSaveFilterCondition)
+			stockGroup.GET("/filters", stockHandler.HandleListFilterConditions)
+			stockGroup.DELETE("/filters/:id", stockHandler.HandleDeleteFilterCondition)
+
+			// 自选股管理
+			stockGroup.POST("/watchlist", api.RequirePermission("stock:watchlist:edit"), stockHandler.HandleAddWatchlist)
+			stockGroup.GET("/watchlist", api.RequirePermission("stock:watchlist:view"), stockHandler.HandleListWatchlist)
+			stockGroup.DELETE("/watchlist/:id", api.RequirePermission("stock:watchlist:edit"), stockHandler.HandleDeleteWatchlist)
+
+			// 数据同步(管理员)
+			stockGroup.POST("/sync/stock-list", api.RequirePermission("stock:sync:execute"), stockHandler.HandleSyncStockList)
+			stockGroup.POST("/sync/daily-quotes", api.RequirePermission("stock:sync:execute"), stockHandler.HandleSyncDailyQuotes)
+			stockGroup.POST("/sync/finance", api.RequirePermission("stock:sync:execute"), stockHandler.HandleSyncFinanceData)
+			stockGroup.POST("/sync/concepts", api.RequirePermission("stock:sync:execute"), stockHandler.HandleSyncConcepts)
 		}
 
 		// Lottery Admin APIs (需要登录+权限)

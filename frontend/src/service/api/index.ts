@@ -14,3 +14,4 @@ export * from './model-scenario';
 export * from './course';
 export * from './error-book';
 export * from './reminder';
+export * from './stock';

@@ -393,6 +393,27 @@ export const generatedRoutes: GeneratedRoute[] = [
           icon: 'mdi:calendar-month-outline',
           order: 10
         }
+      },
+      {
+        name: 'tool_stockdetail',
+        path: '/tool/stockdetail',
+        component: 'view.tool_stockdetail',
+        meta: {
+          title: 'tool_stockdetail',
+          i18nKey: 'route.tool_stockdetail',
+          hideInMenu: true,
+          activeMenu: 'tool_stockscreen'
+        }
+      },
+      {
+        name: 'tool_stockscreen',
+        path: '/tool/stockscreen',
+        component: 'view.tool_stockscreen',
+        meta: {
+          title: 'tool_stockscreen',
+          i18nKey: 'route.tool_stockscreen',
+          icon: 'mdi:chart-line'
+        }
       }
     ]
   },
