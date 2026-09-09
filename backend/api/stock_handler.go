@@ -246,6 +246,40 @@ func (h *StockHandler) HandleSyncFinanceData(c *gin.Context) {
 	SendSuccess(c, true)
 }
 
+// HandleRealtimeKline 获取实时K线数据（直接调第三方API）
+func (h *StockHandler) HandleRealtimeKline(c *gin.Context) {
+	code := c.Param("code")
+	if code == "" {
+		SendError(c, "400", "股票代码不能为空")
+		return
+	}
+
+	data, err := h.syncService.FetchRealtimeKline(code)
+	if err != nil {
+		SendError(c, "500", "获取数据失败: "+err.Error())
+		return
+	}
+
+	SendSuccess(c, data)
+}
+
+// HandleRealtimeQuote 获取实时行情（直接调第三方API）
+func (h *StockHandler) HandleRealtimeQuote(c *gin.Context) {
+	code := c.Param("code")
+	if code == "" {
+		SendError(c, "400", "股票代码不能为空")
+		return
+	}
+
+	data, err := h.syncService.FetchRealtimeQuote(code)
+	if err != nil {
+		SendError(c, "500", "获取数据失败: "+err.Error())
+		return
+	}
+
+	SendSuccess(c, data)
+}
+
 // HandleSyncConcepts 同步概念板块
 func (h *StockHandler) HandleSyncConcepts(c *gin.Context) {
 	go func() {

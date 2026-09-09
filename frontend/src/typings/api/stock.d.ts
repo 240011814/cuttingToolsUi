@@ -35,6 +35,11 @@ declare namespace Api {
       roe: number | null
       revenueYoy: number | null
       netProfitYoy: number | null
+      grossMargin: number | null
+      netMargin: number | null
+      debtRatio: number | null
+      currentRatio: number | null
+      quickRatio: number | null
       change5d: number | null
       change20d: number | null
       ma5: number | null

@@ -243,12 +243,21 @@ func (s *StockSyncService) SyncFinanceData(code string) error {
 			Data []struct {
 				ReportDate       string  `json:"REPORT_DATE"`
 				EPSJB            float64 `json:"EPSJB"`
+				EPSKCJB          float64 `json:"EPSKCJB"`
 				BPS              float64 `json:"BPS"`
 				ROEJQ            float64 `json:"ROEJQ"`
 				RevenueYoy       float64 `json:"TOTALOPERATEREVETZ"`
 				NetProfitYoy     float64 `json:"PARENTNETPROFITTZ"`
 				GrossProfitRatio float64 `json:"XSMLL"`
 				NetProfitRatio   float64 `json:"XSJLL"`
+				TotalShare       float64 `json:"TOTAL_SHARE"`
+				FreeShare        float64 `json:"A_FREE_SHARE"`
+				Revenue          float64 `json:"TOTALOPERATEREVE"`
+				NetProfit        float64 `json:"PARENTNETPROFIT"`
+				DebtRatio        float64 `json:"ZCFZL"`
+				CurrentRatio     float64 `json:"LD"`
+				QuickRatio       float64 `json:"SD"`
+				OcfPerShare      float64 `json:"MGJYXJJE"`
 			} `json:"data"`
 		} `json:"result"`
 	}
@@ -257,25 +266,48 @@ func (s *StockSyncService) SyncFinanceData(code string) error {
 		return err
 	}
 
+	// 用最新的财务数据更新股本
+	if len(resp.Result.Data) > 0 {
+		latest := resp.Result.Data[0]
+		if latest.TotalShare > 0 {
+			totalShare := latest.TotalShare / 10000 // 转为万股
+			DB.Model(&model.StockInfo{}).Where("code = ?", code).Update("total_share", totalShare)
+		}
+		if latest.FreeShare > 0 {
+			floatShare := latest.FreeShare / 10000
+			DB.Model(&model.StockInfo{}).Where("code = ?", code).Update("float_share", floatShare)
+		}
+	}
+
 	for _, item := range resp.Result.Data {
 		reportDate, _ := time.Parse("2006-01-02", item.ReportDate[:10])
+
+		revenue := item.Revenue / 10000 // 转为万元
+		netProfit := item.NetProfit / 10000
 
 		finance := model.StockFinance{
 			Code:         code,
 			ReportDate:   reportDate,
 			Eps:          &item.EPSJB,
+			EpsDeducted:  &item.EPSKCJB,
 			Bps:          &item.BPS,
 			Roe:          &item.ROEJQ,
 			RevenueYoy:   &item.RevenueYoy,
 			NetProfitYoy: &item.NetProfitYoy,
 			GrossMargin:  &item.GrossProfitRatio,
 			NetMargin:    &item.NetProfitRatio,
+			Revenue:      &revenue,
+			NetProfit:    &netProfit,
+			DebtRatio:    &item.DebtRatio,
+			CurrentRatio: &item.CurrentRatio,
+			QuickRatio:   &item.QuickRatio,
+			OcfPerShare:  &item.OcfPerShare,
 		}
 
 		// UPSERT
 		DB.Clauses(clause.OnConflict{
 			Columns:   []clause.Column{{Name: "code"}, {Name: "report_date"}},
-			DoUpdates: clause.AssignmentColumns([]string{"roe", "gross_margin", "net_margin", "revenue_yoy", "net_profit_yoy", "eps", "bps"}),
+			DoUpdates: clause.AssignmentColumns([]string{"roe", "gross_margin", "net_margin", "revenue_yoy", "net_profit_yoy", "eps", "bps", "eps_deducted", "revenue", "net_profit", "debt_ratio", "current_ratio", "quick_ratio", "ocf_per_share"}),
 		}).Create(&finance)
 	}
 
@@ -356,6 +388,119 @@ func (s *StockSyncService) getSecId(code string) string {
 	return "0"
 }
 
+// FetchRealtimeKline 获取实时K线数据
+func (s *StockSyncService) FetchRealtimeKline(code string) ([]map[string]interface{}, error) {
+	url := fmt.Sprintf("https://push2his.eastmoney.com/api/qt/stock/kline/get?cb=jQuery&secid=%s.%s&fields1=f1,f2,f3,f4,f5,f6&fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61&klt=101&fqt=1&end=20500101&lmt=120",
+		s.getSecId(code), code)
+
+	body, err := s.httpGetWithDelay(url)
+	if err != nil {
+		return nil, err
+	}
+
+	jsonStr := s.stripJSONP(string(body))
+
+	var resp struct {
+		Data struct {
+			Name   string   `json:"name"`
+			Code   string   `json:"code"`
+			Klines []string `json:"klines"`
+		} `json:"data"`
+	}
+
+	if err := json.Unmarshal([]byte(jsonStr), &resp); err != nil {
+		return nil, fmt.Errorf("解析K线数据失败: %v", err)
+	}
+
+	var result []map[string]interface{}
+	for _, line := range resp.Data.Klines {
+		parts := s.splitKline(line)
+		if len(parts) < 11 {
+			continue
+		}
+		item := map[string]interface{}{
+			"date":        parts[0],
+			"open":        parts[1],
+			"close":       parts[2],
+			"high":        parts[3],
+			"low":         parts[4],
+			"volume":      parts[5],
+			"amount":      parts[6],
+			"amplitude":   parts[7],
+			"changePct":   parts[8],
+			"changeAmt":   parts[9],
+			"turnoverRate": parts[10],
+		}
+		result = append(result, item)
+	}
+
+	return result, nil
+}
+
+// FetchRealtimeQuote 获取实时行情
+func (s *StockSyncService) FetchRealtimeQuote(code string) (map[string]interface{}, error) {
+	url := fmt.Sprintf("https://push2.eastmoney.com/api/qt/stock/get?cb=jQuery&secid=%s.%s&fields=f43,f44,f45,f46,f47,f48,f50,f51,f52,f55,f57,f58,f60,f71,f116,f117,f162,f167,f168,f169,f170,f171,f292",
+		s.getSecId(code), code)
+
+	body, err := s.httpGetWithDelay(url)
+	if err != nil {
+		return nil, err
+	}
+
+	jsonStr := s.stripJSONP(string(body))
+
+	var resp struct {
+		Data struct {
+			Name       string  `json:"f58"`
+			Code       string  `json:"f57"`
+			Price      float64 `json:"f43"`
+			Open       float64 `json:"f46"`
+			High       float64 `json:"f44"`
+			Low        float64 `json:"f45"`
+			PreClose   float64 `json:"f60"`
+			Volume     float64 `json:"f47"`
+			Amount     float64 `json:"f48"`
+			ChangePct  float64 `json:"f170"`
+			ChangeAmt  float64 `json:"f169"`
+			TurnoverRate float64 `json:"f168"`
+			PeTtm      float64 `json:"f162"`
+			Pb         float64 `json:"f167"`
+			TotalCap   float64 `json:"f116"`
+			FloatCap   float64 `json:"f117"`
+			High52W    float64 `json:"f51"`
+			Low52W     float64 `json:"f52"`
+		} `json:"data"`
+	}
+
+	if err := json.Unmarshal([]byte(jsonStr), &resp); err != nil {
+		return nil, fmt.Errorf("解析行情数据失败: %v", err)
+	}
+
+	d := resp.Data
+	result := map[string]interface{}{
+		"name":         d.Name,
+		"code":         d.Code,
+		"price":        d.Price / 100,
+		"open":         d.Open / 100,
+		"high":         d.High / 100,
+		"low":          d.Low / 100,
+		"preClose":     d.PreClose / 100,
+		"volume":       d.Volume,
+		"amount":       d.Amount,
+		"changePct":    d.ChangePct / 100,
+		"changeAmt":    d.ChangeAmt / 100,
+		"turnoverRate": d.TurnoverRate / 100,
+		"peTtm":        d.PeTtm / 100,
+		"pb":           d.Pb / 100,
+		"totalCap":     d.TotalCap / 100000000,
+		"floatCap":     d.FloatCap / 100000000,
+		"high52W":      d.High52W / 100,
+		"low52W":       d.Low52W / 100,
+	}
+
+	return result, nil
+}
+
 // stripJSONP 去掉 JSONP 包装
 func (s *StockSyncService) stripJSONP(data string) string {
 	if len(data) > 0 {
@@ -427,14 +572,6 @@ func (s *StockSyncService) httpGet(url string) ([]byte, error) {
 			lastErr = err
 			continue
 		}
-
-		// 调试：打印前200个字符
-		if len(data) > 200 {
-			log.Printf("[StockSync] 响应前200字符: %s", string(data[:200]))
-		} else {
-			log.Printf("[StockSync] 响应内容: %s", string(data))
-		}
-
 		return data, nil
 	}
 
@@ -444,6 +581,7 @@ func (s *StockSyncService) httpGet(url string) ([]byte, error) {
 // httpGetWithDelay 带延迟的HTTP请求
 func (s *StockSyncService) httpGetWithDelay(url string) ([]byte, error) {
 	data, err := s.httpGet(url)
+	log.Printf("[StockSync] 请求URL: %s, 响应长度: %d, 错误: %v", url, len(data), err)
 	if err == nil {
 		time.Sleep(80 * time.Millisecond)
 	}

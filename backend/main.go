@@ -295,6 +295,8 @@ func main() {
 			stockGroup.GET("/concepts", stockHandler.HandleGetConcepts)
 			stockGroup.GET("/:code", stockHandler.HandleGetDetail)
 			stockGroup.GET("/:code/kline", stockHandler.HandleGetKline)
+			stockGroup.GET("/:code/realtime-kline", stockHandler.HandleRealtimeKline)
+			stockGroup.GET("/:code/realtime-quote", stockHandler.HandleRealtimeQuote)
 
 			// 筛选条件管理
 			stockGroup.POST("/filters", api.RequirePermission("stock:screen:save"), stockHandler.HandleSaveFilterCondition)

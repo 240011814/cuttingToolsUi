@@ -2,7 +2,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { stockDetail, stockKline, addWatchlist, syncSingleStock } from '@/service/api'
-import { useMessage, NButton, NDataTable, NTag, NSpin } from 'naive-ui'
+import { useMessage, NButton, NDataTable, NTag, NSpin, NTabs, NTabPane } from 'naive-ui'
 
 defineOptions({ name: 'ToolStockdetail' })
 
@@ -13,11 +13,19 @@ const message = useMessage()
 const code = computed(() => {
   const c = route.query.code
   if (!c) return ''
-  return Array.isArray(c) ? (c[0] || '') : c
+  return Array.isArray(c) ? c[0] || '' : c
 })
 const detail = ref<Api.Stock.ScreenResult | null>(null)
 const klineData = ref<Api.Stock.KlineData[]>([])
 const loading = ref(false)
+const activeTab = ref('local')
+
+// 东方财富行情iframe地址
+const realtimeUrl = computed(() => {
+  if (!code.value) return ''
+  const market = code.value.startsWith('6') ? 'sh' : 'sz'
+  return `https://quote.eastmoney.com/${market}${code.value}.html`
+})
 
 async function loadDetail() {
   if (!code.value) {
@@ -95,19 +103,14 @@ const financeItems = computed(() => {
     { label: 'PB', value: d.pb?.toFixed(2) || '-', tip: '公式: 股价/每股净资产。<1破净，1-2低估，>3高估' },
     { label: 'ROE', value: d.roe?.toFixed(2) ? `${d.roe.toFixed(2)}%` : '-', tip: '公式: 净利润/净资产×100%。>15%优秀，10-15%良好，<10%一般' },
     { label: '营收增长', value: d.revenueYoy?.toFixed(2) ? `${d.revenueYoy.toFixed(2)}%` : '-', tip: '公式: (本期营收-去年同期营收)/去年同期营收×100%。>20%高增长' },
-    { label: '净利润增长', value: d.netProfitYoy?.toFixed(2) ? `${d.netProfitYoy.toFixed(2)}%` : '-', tip: '公式: (本期净利润-去年同期净利润)/去年同期净利润×100%' }
+    { label: '净利润增长', value: d.netProfitYoy?.toFixed(2) ? `${d.netProfitYoy.toFixed(2)}%` : '-', tip: '公式: (本期净利润-去年同期净利润)/去年同期净利润×100%' },
+    { label: '毛利率', value: d.grossMargin?.toFixed(2) ? `${d.grossMargin.toFixed(2)}%` : '-', tip: '公式: (营业收入-营业成本)/营业收入×100%' },
+    { label: '净利率', value: d.netMargin?.toFixed(2) ? `${d.netMargin.toFixed(2)}%` : '-', tip: '公式: 净利润/营业收入×100%' },
+    { label: '资产负债率', value: d.debtRatio?.toFixed(2) ? `${d.debtRatio.toFixed(2)}%` : '-', tip: '公式: 总负债/总资产×100%。<50%低风险，50-70%正常，>70%高风险' },
+    { label: '流动比率', value: d.currentRatio?.toFixed(2) || '-', tip: '公式: 流动资产/流动负债。>2优秀，1-2正常，<1有风险' },
+    { label: '速动比率', value: d.quickRatio?.toFixed(2) || '-', tip: '公式: (流动资产-存货)/流动负债。>1优秀，0.5-1正常' }
   ]
 })
-
-const indicatorTips = [
-  { name: 'PE(TTM) 市盈率', formula: '股价 / 最近四个季度每股收益之和', desc: '衡量股票估值水平。PE<20低估，20-30合理，>30高估，负值表示亏损' },
-  { name: 'PB 市净率', formula: '股价 / 每股净资产', desc: 'PB<1破净，1-2低估，>3高估' },
-  { name: 'ROE 净资产收益率', formula: '净利润 / 净资产 × 100%', desc: 'ROE>15%优秀，10-15%良好，<10%一般' },
-  { name: '换手率', formula: '成交量 / 流通股本 × 100%', desc: '<3%冷门，3-7%正常，7-10%活跃，>10%非常活跃' },
-  { name: '总市值', formula: '股价 × 总股本', desc: '<50亿小盘，50-200亿中盘，200-1000亿大盘，>1000亿超大盘' },
-  { name: '营收同比增长率', formula: '(本期营收-去年同期营收) / 去年同期营收 × 100%', desc: '>20%高增长，0-20%稳定增长，<0%负增长' },
-  { name: '涨跌幅', formula: '(当前价-昨收价) / 昨收价 × 100%', desc: '反映当日价格相对前一交易日的变动幅度' }
-]
 
 onMounted(() => {
   loadDetail()
@@ -151,65 +154,82 @@ onMounted(() => {
           </div>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <!-- 基本信息 -->
-          <div class="p-4 bg-white rounded-lg shadow">
-            <h2 class="text-lg font-bold mb-3">基本信息</h2>
-            <div class="grid grid-cols-2 gap-2">
-              <div v-for="item in infoItems" :key="item.label" class="flex justify-between items-center">
-                <span class="text-gray-500">{{ item.label }}</span>
-                <span class="font-medium flex items-center gap-1">
-                  {{ item.value }}
-                  <span v-if="item.tip" class="text-gray-400 cursor-help" :title="item.tip">?</span>
-                </span>
+        <NTabs v-model:value="activeTab" type="line" animated>
+          <!-- 本地数据Tab -->
+          <NTabPane name="local" tab="本地数据">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <!-- 基本信息 -->
+              <div class="p-4 bg-white rounded-lg shadow">
+                <h2 class="text-lg font-bold mb-3">基本信息</h2>
+                <div class="grid grid-cols-2 gap-2">
+                  <div v-for="item in infoItems" :key="item.label" class="flex justify-between items-center">
+                    <span class="text-gray-500">{{ item.label }}</span>
+                    <span class="font-medium flex items-center gap-1">
+                      {{ item.value }}
+                      <span v-if="item.tip" class="text-gray-400 cursor-help" :title="item.tip">?</span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 财务指标 -->
+              <div class="p-4 bg-white rounded-lg shadow">
+                <h2 class="text-lg font-bold mb-3">财务指标</h2>
+                <div class="grid grid-cols-2 gap-2">
+                  <div v-for="item in financeItems" :key="item.label" class="flex justify-between items-center">
+                    <span class="text-gray-500">{{ item.label }}</span>
+                    <span class="font-medium flex items-center gap-1">
+                      {{ item.value }}
+                      <span v-if="item.tip" class="text-gray-400 cursor-help" :title="item.tip">?</span>
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
 
-          <!-- 财务指标 -->
-          <div class="p-4 bg-white rounded-lg shadow">
-            <h2 class="text-lg font-bold mb-3">财务指标</h2>
-            <div class="grid grid-cols-2 gap-2">
-              <div v-for="item in financeItems" :key="item.label" class="flex justify-between items-center">
-                <span class="text-gray-500">{{ item.label }}</span>
-                <span class="font-medium flex items-center gap-1">
-                  {{ item.value }}
-                  <span v-if="item.tip" class="text-gray-400 cursor-help" :title="item.tip">?</span>
-                </span>
+            <!-- 概念板块 -->
+            <div v-if="detail.concepts && detail.concepts.length > 0" class="mt-4 p-4 bg-white rounded-lg shadow">
+              <h2 class="text-lg font-bold mb-3">概念板块</h2>
+              <div class="flex flex-wrap gap-2">
+                <NTag v-for="concept in detail.concepts" :key="concept" type="info" size="small">
+                  {{ concept }}
+                </NTag>
               </div>
             </div>
-          </div>
-        </div>
 
-        <!-- 概念板块 -->
-        <div v-if="detail.concepts && detail.concepts.length > 0" class="mt-4 p-4 bg-white rounded-lg shadow">
-          <h2 class="text-lg font-bold mb-3">概念板块</h2>
-          <div class="flex flex-wrap gap-2">
-            <NTag v-for="concept in detail.concepts" :key="concept" type="info" size="small">
-              {{ concept }}
-            </NTag>
-          </div>
-        </div>
+            <!-- K线数据预览 -->
+            <div class="mt-4 p-4 bg-white rounded-lg shadow">
+              <h2 class="text-lg font-bold mb-3">近期行情 (最近10日)</h2>
+              <NDataTable
+                :columns="[
+                  { title: '日期', key: 'date', width: 100 },
+                  { title: '开盘', key: 'open', width: 80, render: (row: Api.Stock.KlineData) => row.open?.toFixed(2) || '-' },
+                  { title: '最高', key: 'high', width: 80, render: (row: Api.Stock.KlineData) => row.high?.toFixed(2) || '-' },
+                  { title: '最低', key: 'low', width: 80, render: (row: Api.Stock.KlineData) => row.low?.toFixed(2) || '-' },
+                  { title: '收盘', key: 'close', width: 80, render: (row: Api.Stock.KlineData) => row.close?.toFixed(2) || '-' },
+                  { title: '涨跌%', key: 'changePct', width: 80, render: (row: Api.Stock.KlineData) => row.changePct !== null ? `${row.changePct >= 0 ? '+' : ''}${row.changePct.toFixed(2)}%` : '-' },
+                  { title: '成交量', key: 'volume', width: 100, render: (row: Api.Stock.KlineData) => row.volume ? `${(row.volume / 10000).toFixed(2)}万手` : '-' }
+                ]"
+                :data="klineData.slice(-10)"
+                :bordered="false"
+                size="small"
+                striped
+              />
+            </div>
+          </NTabPane>
 
-        <!-- K线数据预览 -->
-        <div class="mt-4 p-4 bg-white rounded-lg shadow">
-          <h2 class="text-lg font-bold mb-3">近期行情 (最近10日)</h2>
-          <NDataTable
-            :columns="[
-              { title: '日期', key: 'date', width: 100 },
-              { title: '开盘', key: 'open', width: 80, render: (row: Api.Stock.KlineData) => row.open?.toFixed(2) || '-' },
-              { title: '最高', key: 'high', width: 80, render: (row: Api.Stock.KlineData) => row.high?.toFixed(2) || '-' },
-              { title: '最低', key: 'low', width: 80, render: (row: Api.Stock.KlineData) => row.low?.toFixed(2) || '-' },
-              { title: '收盘', key: 'close', width: 80, render: (row: Api.Stock.KlineData) => row.close?.toFixed(2) || '-' },
-              { title: '涨跌%', key: 'changePct', width: 80, render: (row: Api.Stock.KlineData) => row.changePct !== null ? `${row.changePct >= 0 ? '+' : ''}${row.changePct.toFixed(2)}%` : '-' },
-              { title: '成交量', key: 'volume', width: 100, render: (row: Api.Stock.KlineData) => row.volume ? `${(row.volume / 10000).toFixed(2)}万手` : '-' }
-            ]"
-            :data="klineData.slice(-10)"
-            :bordered="false"
-            size="small"
-            striped
-          />
-        </div>
+          <!-- 实时行情Tab -->
+          <NTabPane name="realtime" tab="实时行情">
+            <div class="bg-white rounded-lg shadow overflow-hidden" style="height: calc(100vh - 280px)">
+              <iframe
+                v-if="realtimeUrl"
+                :src="realtimeUrl"
+                class="w-full h-full border-0"
+                loading="lazy"
+              />
+            </div>
+          </NTabPane>
+        </NTabs>
       </template>
     </NSpin>
   </div>

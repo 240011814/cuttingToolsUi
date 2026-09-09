@@ -37,7 +37,8 @@ func (s *StockService) Screen(req model.StockScreenRequest) (*model.StockScreenR
 			     ELSE NULL END AS float_market_cap,
 			CASE WHEN sf.eps != 0 THEN ROUND(sd.close / sf.eps, 2) ELSE NULL END AS pe_ttm,
 			CASE WHEN sf.bps != 0 THEN ROUND(sd.close / sf.bps, 2) ELSE NULL END AS pb,
-			sf.roe, sf.revenue_yoy, sf.net_profit_yoy`).
+			sf.roe, sf.revenue_yoy, sf.net_profit_yoy,
+			sf.gross_margin, sf.net_margin, sf.debt_ratio, sf.current_ratio, sf.quick_ratio`).
 		Joins(`LEFT JOIN stock_daily AS sd ON sd.code = si.code AND sd.trade_date = (
 			SELECT MAX(trade_date) FROM stock_daily WHERE code = si.code
 		)`).
@@ -320,6 +321,10 @@ func (s *StockService) GetDetail(code string) (*model.StockScreenResult, error) 
 		Roe            *float64 `gorm:"column:roe"`
 		RevenueYoy     *float64 `gorm:"column:revenue_yoy"`
 		NetProfitYoy   *float64 `gorm:"column:net_profit_yoy"`
+		GrossMargin    *float64 `gorm:"column:gross_margin"`
+		NetMargin      *float64 `gorm:"column:net_margin"`
+		DebtRatio      *float64 `gorm:"column:debt_ratio"`
+		CurrentRatio   *float64 `gorm:"column:current_ratio"`
 	}
 
 	err := DB.Table("stock_info AS si").
@@ -333,7 +338,8 @@ func (s *StockService) GetDetail(code string) (*model.StockScreenResult, error) 
 			     ELSE NULL END AS float_market_cap,
 			CASE WHEN sf.eps != 0 THEN ROUND(sd.close / sf.eps, 2) ELSE NULL END AS pe_ttm,
 			CASE WHEN sf.bps != 0 THEN ROUND(sd.close / sf.bps, 2) ELSE NULL END AS pb,
-			sf.roe, sf.revenue_yoy, sf.net_profit_yoy`).
+			sf.roe, sf.revenue_yoy, sf.net_profit_yoy,
+			sf.gross_margin, sf.net_margin, sf.debt_ratio, sf.current_ratio, sf.quick_ratio`).
 		Joins(`LEFT JOIN stock_daily AS sd ON sd.code = si.code AND sd.trade_date = (
 			SELECT MAX(trade_date) FROM stock_daily WHERE code = si.code
 		)`).
@@ -363,6 +369,10 @@ func (s *StockService) GetDetail(code string) (*model.StockScreenResult, error) 
 		Roe:            result.Roe,
 		RevenueYoy:     result.RevenueYoy,
 		NetProfitYoy:   result.NetProfitYoy,
+		GrossMargin:    result.GrossMargin,
+		NetMargin:      result.NetMargin,
+		DebtRatio:      result.DebtRatio,
+		CurrentRatio:   result.CurrentRatio,
 	}
 
 	// 补充概念
