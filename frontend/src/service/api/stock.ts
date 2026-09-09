@@ -124,3 +124,12 @@ export function syncConcepts() {
     method: 'post'
   })
 }
+
+/** 同步单只股票(行情+财务) */
+export function syncSingleStock(code: string) {
+  return request<boolean>({
+    url: '/api/stock/sync/single',
+    method: 'post',
+    params: { code }
+  })
+}

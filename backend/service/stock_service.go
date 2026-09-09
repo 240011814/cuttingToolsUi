@@ -29,9 +29,15 @@ func (s *StockService) Screen(req model.StockScreenRequest) (*model.StockScreenR
 	query := DB.Table("stock_info AS si").
 		Select(`si.code, si.name, si.market, si.industry,
 			sd.close AS price, sd.change_pct AS change_pct, sd.turnover_rate, sd.amount,
-			ROUND(sd.close * si.total_share / 10000, 2) AS market_cap,
-			ROUND(sd.close * si.float_share / 10000, 2) AS float_market_cap,
-			sf.pe_ttm, sf.pb, sf.roe, sf.revenue_yoy, sf.net_profit_yoy`).
+			CASE WHEN si.total_share > 0 THEN ROUND(sd.close * si.total_share / 10000, 2)
+			     WHEN si.total_market_cap > 0 THEN ROUND(si.total_market_cap / 100000000, 2)
+			     ELSE NULL END AS market_cap,
+			CASE WHEN si.float_share > 0 THEN ROUND(sd.close * si.float_share / 10000, 2)
+			     WHEN si.float_market_cap > 0 THEN ROUND(si.float_market_cap / 100000000, 2)
+			     ELSE NULL END AS float_market_cap,
+			CASE WHEN sf.eps != 0 THEN ROUND(sd.close / sf.eps, 2) ELSE NULL END AS pe_ttm,
+			CASE WHEN sf.bps != 0 THEN ROUND(sd.close / sf.bps, 2) ELSE NULL END AS pb,
+			sf.roe, sf.revenue_yoy, sf.net_profit_yoy`).
 		Joins(`LEFT JOIN stock_daily AS sd ON sd.code = si.code AND sd.trade_date = (
 			SELECT MAX(trade_date) FROM stock_daily WHERE code = si.code
 		)`).
@@ -319,9 +325,15 @@ func (s *StockService) GetDetail(code string) (*model.StockScreenResult, error) 
 	err := DB.Table("stock_info AS si").
 		Select(`si.code, si.name, si.market, si.industry,
 			sd.close AS price, sd.change_pct, sd.turnover_rate, sd.amount,
-			ROUND(sd.close * si.total_share / 10000, 2) AS market_cap,
-			ROUND(sd.close * si.float_share / 10000, 2) AS float_market_cap,
-			sf.pe_ttm, sf.pb, sf.roe, sf.revenue_yoy, sf.net_profit_yoy`).
+			CASE WHEN si.total_share > 0 THEN ROUND(sd.close * si.total_share / 10000, 2)
+			     WHEN si.total_market_cap > 0 THEN ROUND(si.total_market_cap / 100000000, 2)
+			     ELSE NULL END AS market_cap,
+			CASE WHEN si.float_share > 0 THEN ROUND(sd.close * si.float_share / 10000, 2)
+			     WHEN si.float_market_cap > 0 THEN ROUND(si.float_market_cap / 100000000, 2)
+			     ELSE NULL END AS float_market_cap,
+			CASE WHEN sf.eps != 0 THEN ROUND(sd.close / sf.eps, 2) ELSE NULL END AS pe_ttm,
+			CASE WHEN sf.bps != 0 THEN ROUND(sd.close / sf.bps, 2) ELSE NULL END AS pb,
+			sf.roe, sf.revenue_yoy, sf.net_profit_yoy`).
 		Joins(`LEFT JOIN stock_daily AS sd ON sd.code = si.code AND sd.trade_date = (
 			SELECT MAX(trade_date) FROM stock_daily WHERE code = si.code
 		)`).

@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { stockDetail, stockKline, addWatchlist } from '@/service/api'
-import { useMessage } from 'naive-ui'
+import { stockDetail, stockKline, addWatchlist, syncSingleStock } from '@/service/api'
+import { useMessage, NButton, NDataTable, NTag, NSpin } from 'naive-ui'
 
 defineOptions({ name: 'ToolStockdetail' })
 
@@ -49,6 +49,20 @@ async function handleAddWatchlist() {
     message.success('已添加到自选股')
   } catch (e: any) {
     message.error(e.message || '添加失败')
+  }
+}
+
+const syncLoading = ref(false)
+async function handleSync() {
+  syncLoading.value = true
+  try {
+    await syncSingleStock(code.value)
+    message.success('同步成功')
+    loadDetail()
+  } catch (e: any) {
+    message.error(e.message || '同步失败')
+  } finally {
+    syncLoading.value = false
   }
 }
 
@@ -105,10 +119,16 @@ onMounted(() => {
     <!-- 顶部导航 -->
     <div class="flex items-center justify-between mb-4">
       <NButton @click="goBack">
-        <template #icon><span class="i-material-icons-arrow-back" /></template>
+        <template #icon><span class="i-mdi:arrow-left" /></template>
         返回筛选
       </NButton>
-      <NButton type="primary" @click="handleAddWatchlist">加自选</NButton>
+      <div class="flex gap-2">
+        <NButton :loading="syncLoading" @click="handleSync">
+          <template #icon><span class="i-mdi:refresh" /></template>
+          同步最新
+        </NButton>
+        <NButton type="primary" @click="handleAddWatchlist">加自选</NButton>
+      </div>
     </div>
 
     <NSpin :show="loading">

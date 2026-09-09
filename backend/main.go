@@ -309,7 +309,7 @@ func main() {
 			// 数据同步(管理员)
 			stockGroup.POST("/sync/stock-list", api.RequirePermission("stock:sync:execute"), stockHandler.HandleSyncStockList)
 			stockGroup.POST("/sync/daily-quotes", api.RequirePermission("stock:sync:execute"), stockHandler.HandleSyncDailyQuotes)
-			stockGroup.POST("/sync/finance", api.RequirePermission("stock:sync:execute"), stockHandler.HandleSyncFinanceData)
+			stockGroup.POST("/sync/single", api.RequirePermission("stock:sync:execute"), stockHandler.HandleSyncSingleStock)
 			stockGroup.POST("/sync/concepts", api.RequirePermission("stock:sync:execute"), stockHandler.HandleSyncConcepts)
 		}
 

@@ -6,19 +6,21 @@ import (
 
 // StockInfo 股票基础信息
 type StockInfo struct {
-	ID         uint       `gorm:"primaryKey;autoIncrement" json:"id"`
-	Code       string     `gorm:"size:10;not null;uniqueIndex" json:"code"`
-	Name       string     `gorm:"size:50;not null" json:"name"`
-	Market     string     `gorm:"size:10;default:SZ" json:"market"`
-	Industry   string     `gorm:"size:50" json:"industry"`
-	Area       string     `gorm:"size:50" json:"area"`
-	ListDate   *time.Time `json:"listDate"`
-	IsST       bool       `gorm:"default:false" json:"isSt"`
-	IsActive   bool       `gorm:"default:true" json:"isActive"`
-	TotalShare *float64   `json:"totalShare"`
-	FloatShare *float64   `json:"floatShare"`
-	CreatedAt  time.Time  `json:"createdAt"`
-	UpdatedAt  time.Time  `json:"updatedAt"`
+	ID              uint       `gorm:"primaryKey;autoIncrement" json:"id"`
+	Code            string     `gorm:"size:10;not null;uniqueIndex" json:"code"`
+	Name            string     `gorm:"size:50;not null" json:"name"`
+	Market          string     `gorm:"size:10;default:SZ" json:"market"`
+	Industry        string     `gorm:"size:50" json:"industry"`
+	Area            string     `gorm:"size:50" json:"area"`
+	ListDate        *time.Time `json:"listDate"`
+	IsST            bool       `gorm:"default:false" json:"isSt"`
+	IsActive        bool       `gorm:"default:true" json:"isActive"`
+	TotalShare      *float64   `json:"totalShare"`
+	FloatShare      *float64   `json:"floatShare"`
+	TotalMarketCap  *float64   `json:"totalMarketCap"`
+	FloatMarketCap  *float64   `json:"floatMarketCap"`
+	CreatedAt       time.Time  `json:"createdAt"`
+	UpdatedAt       time.Time  `json:"updatedAt"`
 }
 
 func (StockInfo) TableName() string {

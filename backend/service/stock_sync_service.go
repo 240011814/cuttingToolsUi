@@ -2,6 +2,7 @@ package service
 
 import (
 	"backend/model"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -10,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"gorm.io/gorm/clause"
 )
 
 type StockSyncService struct{}
@@ -43,48 +46,46 @@ func (s *StockSyncService) SyncStockList() error {
 	totalCount := 0
 
 	for {
-		// 使用东方财富另一个接口
-		url := fmt.Sprintf("https://datacenter-web.eastmoney.com/api/data/v1/get?sortColumns=SECURITY_CODE&sortTypes=1&pageSize=%d&pageNumber=%d&reportName=RPT_LICO_FN_CPD&columns=ALL",
-			pageSize, page)
+		// 东方财富行情接口，包含行业和股本
+		url := fmt.Sprintf("https://push2.eastmoney.com/api/qt/clist/get?cb=jQuery&pn=%d&pz=%d&po=1&np=1&ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&fid=f3&fs=m:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23,m:0+t:81+s:2048&fields=f12,f14,f13,f100,f20,f21",
+			page, pageSize)
 
-		body, err := s.httpGet(url)
+		body, err := s.httpGetWithDelay(url)
 		if err != nil {
 			return err
 		}
 
+		jsonStr := s.stripJSONP(string(body))
+
 		var resp struct {
-			Result struct {
-				Count int `json:"count"`
-				Data  []struct {
-					Code       string  `json:"SECURITY_CODE"`
-					Name       string  `json:"SECURITY_NAME_ABBR"`
-					MarketCode string  `json:"TRADE_MARKET_CODE"`
-					MarketCap  float64 `json:"TOTAL_MARKET_CAP"`
-					FreeCap    float64 `json:"FREE_CAP"`
-				} `json:"data"`
-			} `json:"result"`
-			Message string `json:"message"`
+			Data struct {
+				Total int `json:"total"`
+				Diff  []struct {
+					Code       string  `json:"f12"`
+					Name       string  `json:"f14"`
+					Market     int     `json:"f13"`
+					Industry   string  `json:"f100"`
+					TotalShare float64 `json:"f20"`
+					FloatShare float64 `json:"f21"`
+				} `json:"diff"`
+			} `json:"data"`
 		}
 
-		if err := json.Unmarshal(body, &resp); err != nil {
+		if err := json.Unmarshal([]byte(jsonStr), &resp); err != nil {
 			return fmt.Errorf("解析股票列表失败: %v", err)
 		}
 
-		if resp.Message != "" && resp.Message != "ok" {
-			return fmt.Errorf("API错误: %s", resp.Message)
-		}
-
-		if len(resp.Result.Data) == 0 {
+		if len(resp.Data.Diff) == 0 {
 			break
 		}
 
-		for _, item := range resp.Result.Data {
+		for _, item := range resp.Data.Diff {
 			if item.Code == "" {
 				continue
 			}
 
 			market := "SZ"
-			if item.MarketCode == "069001001001" || strings.HasPrefix(item.Code, "6") {
+			if item.Market == 1 {
 				market = "SH"
 			}
 
@@ -94,37 +95,42 @@ func (s *StockSyncService) SyncStockList() error {
 				Market: market,
 			}
 
-			if item.MarketCap > 0 {
-				totalShare := item.MarketCap / 10000
+			if item.Industry != "" && item.Industry != "-" {
+				stock.Industry = item.Industry
+			}
+
+			// f20/f21 是市值(元)，转为万股需要除以股价，但这里没股价
+			// 直接存原始值，在查询时用市值
+			if item.TotalShare > 0 {
+				totalShare := item.TotalShare / 10000
 				stock.TotalShare = &totalShare
 			}
-			if item.FreeCap > 0 {
-				floatShare := item.FreeCap / 10000
+			if item.FloatShare > 0 {
+				floatShare := item.FloatShare / 10000
 				stock.FloatShare = &floatShare
 			}
 
 			stock.IsST = strings.Contains(item.Name, "ST")
 			stock.IsActive = true
 
-			var existing model.StockInfo
-			result := DB.Where("code = ?", item.Code).First(&existing)
-			if result.Error == nil {
-				DB.Model(&existing).Updates(map[string]interface{}{
-					"name":        stock.Name,
-					"market":      stock.Market,
-					"is_st":       stock.IsST,
-					"total_share": stock.TotalShare,
-					"float_share": stock.FloatShare,
-				})
-			} else {
-				DB.Create(&stock)
+			// f20/f21 是市值(元)
+			if item.TotalShare > 0 {
+				stock.TotalMarketCap = &item.TotalShare
 			}
+			if item.FloatShare > 0 {
+				stock.FloatMarketCap = &item.FloatShare
+			}
+
+			DB.Clauses(clause.OnConflict{
+				Columns:   []clause.Column{{Name: "code"}},
+				DoUpdates: clause.AssignmentColumns([]string{"name", "market", "industry", "is_st", "total_share", "float_share", "total_market_cap", "float_market_cap"}),
+			}).Create(&stock)
 			totalCount++
 		}
 
-		log.Printf("[StockSync] 已同步 %d/%d 只股票", totalCount, resp.Result.Count)
+		log.Printf("[StockSync] 已同步 %d/%d 只股票", totalCount, resp.Data.Total)
 
-		if len(resp.Result.Data) < pageSize {
+		if len(resp.Data.Diff) < pageSize {
 			break
 		}
 		page++
@@ -144,7 +150,7 @@ func (s *StockSyncService) SyncDailyQuotes() error {
 
 	count := 0
 	for _, stock := range stocks {
-		if err := s.syncSingleStockDaily(stock.Code); err != nil {
+		if err := s.SyncSingleStockDaily(stock.Code); err != nil {
 			log.Printf("[StockSync] 同步 %s 失败: %v", stock.Code, err)
 			continue
 		}
@@ -159,18 +165,16 @@ func (s *StockSyncService) SyncDailyQuotes() error {
 	return nil
 }
 
-// syncSingleStockDaily 同步单只股票日K线
-func (s *StockSyncService) syncSingleStockDaily(code string) error {
-	// 东方财富日K接口
+// SyncSingleStockDaily 同步单只股票日K线
+func (s *StockSyncService) SyncSingleStockDaily(code string) error {
 	url := fmt.Sprintf("https://push2his.eastmoney.com/api/qt/stock/kline/get?cb=jQuery&secid=%s.%s&fields1=f1,f2,f3,f4,f5,f6&fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61&klt=101&fqt=1&end=20500101&lmt=30",
 		s.getSecId(code), code)
 
-	body, err := s.httpGet(url)
+	body, err := s.httpGetWithDelay(url)
 	if err != nil {
 		return err
 	}
 
-	// 去掉 JSONP 包装
 	jsonStr := s.stripJSONP(string(body))
 
 	var resp struct {
@@ -184,7 +188,6 @@ func (s *StockSyncService) syncSingleStockDaily(code string) error {
 	}
 
 	for _, line := range resp.Data.Klines {
-		// 格式: 日期,开盘,收盘,最高,最低,成交量,成交额,振幅,涨跌幅,涨跌额,换手率
 		parts := s.splitKline(line)
 		if len(parts) < 11 {
 			continue
@@ -215,24 +218,10 @@ func (s *StockSyncService) syncSingleStockDaily(code string) error {
 			TurnoverRate: &turnoverRate,
 		}
 
-		// UPSERT
-		var existing model.StockDaily
-		result := DB.Where("code = ? AND trade_date = ?", code, tradeDate).First(&existing)
-		if result.Error == nil {
-			DB.Model(&existing).Updates(map[string]interface{}{
-				"open":          daily.Open,
-				"close":         daily.Close,
-				"high":          daily.High,
-				"low":           daily.Low,
-				"volume":        daily.Volume,
-				"amount":        daily.Amount,
-				"amplitude":     daily.Amplitude,
-				"change_pct":    daily.ChangePct,
-				"turnover_rate": daily.TurnoverRate,
-			})
-		} else {
-			DB.Create(&daily)
-		}
+		DB.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "code"}, {Name: "trade_date"}},
+			DoUpdates: clause.AssignmentColumns([]string{"open", "high", "low", "close", "volume", "amount", "turnover_rate", "change_pct", "amplitude"}),
+		}).Create(&daily)
 	}
 
 	return nil
@@ -240,72 +229,54 @@ func (s *StockSyncService) syncSingleStockDaily(code string) error {
 
 // SyncFinanceData 同步财务数据
 func (s *StockSyncService) SyncFinanceData(code string) error {
-	url := fmt.Sprintf("https://emweb.securities.eastmoney.com/PC_HSF10/NewFinanceAnalysis/ZYZBAjaxNew?type=0&code=%s.%s", s.getSecId(code), code)
+	// 使用东方财富财务数据接口
+	url := fmt.Sprintf("https://datacenter-web.eastmoney.com/api/data/v1/get?reportName=RPT_F10_FINANCE_MAINFINADATA&columns=ALL&filter=(SECURITY_CODE%%3D%%22%s%%22)&pageSize=4&sortColumns=REPORT_DATE&sortTypes=-1",
+		code)
 
-	body, err := s.httpGet(url)
+	body, err := s.httpGetWithDelay(url)
 	if err != nil {
 		return err
 	}
 
 	var resp struct {
-		Data []struct {
-			Date       string  `json:"date"`
-			JBMGSY     float64 `json:"jbmgsy"`     // 每股收益
-			XSMGSY     float64 `json:"xsmgsy"`     // 每股净资产
-			ZYYSZSR    float64 `json:"zyysnzsr"`   // 营收
-			YYZSR_TBZZ float64 `json:"yyzsr_tbzz"` // 营收同比增长
-			JLR        float64 `json:"jlr"`        // 净利润
-			JLR_TBZZ   float64 `json:"jlr_tbzz"`   // 净利润同比增长
-			ROEJQ      float64 `json:"roejq"`      // ROE
-			MLL        float64 `json:"mll"`        // 毛利率
-			JLL        float64 `json:"jll"`        // 净利率
-		} `json:"data"`
+		Result struct {
+			Data []struct {
+				ReportDate       string  `json:"REPORT_DATE"`
+				EPSJB            float64 `json:"EPSJB"`
+				BPS              float64 `json:"BPS"`
+				ROEJQ            float64 `json:"ROEJQ"`
+				RevenueYoy       float64 `json:"TOTALOPERATEREVETZ"`
+				NetProfitYoy     float64 `json:"PARENTNETPROFITTZ"`
+				GrossProfitRatio float64 `json:"XSMLL"`
+				NetProfitRatio   float64 `json:"XSJLL"`
+			} `json:"data"`
+		} `json:"result"`
 	}
 
 	if err := json.Unmarshal(body, &resp); err != nil {
 		return err
 	}
 
-	for _, item := range resp.Data {
-		reportDate, _ := time.Parse("2006-12-31", item.Date)
-		if reportDate.IsZero() {
-			reportDate, _ = time.Parse("2006-09-30", item.Date)
-		}
-		if reportDate.IsZero() {
-			reportDate, _ = time.Parse("2006-06-30", item.Date)
-		}
-		if reportDate.IsZero() {
-			reportDate, _ = time.Parse("2006-03-31", item.Date)
-		}
+	for _, item := range resp.Result.Data {
+		reportDate, _ := time.Parse("2006-01-02", item.ReportDate[:10])
 
 		finance := model.StockFinance{
 			Code:         code,
 			ReportDate:   reportDate,
-			Eps:          &item.JBMGSY,
-			Bps:          &item.XSMGSY,
-			RevenueYoy:   &item.YYZSR_TBZZ,
-			NetProfitYoy: &item.JLR_TBZZ,
+			Eps:          &item.EPSJB,
+			Bps:          &item.BPS,
 			Roe:          &item.ROEJQ,
-			GrossMargin:  &item.MLL,
-			NetMargin:    &item.JLL,
+			RevenueYoy:   &item.RevenueYoy,
+			NetProfitYoy: &item.NetProfitYoy,
+			GrossMargin:  &item.GrossProfitRatio,
+			NetMargin:    &item.NetProfitRatio,
 		}
 
 		// UPSERT
-		var existing model.StockFinance
-		result := DB.Where("code = ? AND report_date = ?", code, reportDate).First(&existing)
-		if result.Error == nil {
-			DB.Model(&existing).Updates(map[string]interface{}{
-				"eps":            finance.Eps,
-				"bps":            finance.Bps,
-				"revenue_yoy":    finance.RevenueYoy,
-				"net_profit_yoy": finance.NetProfitYoy,
-				"roe":            finance.Roe,
-				"gross_margin":   finance.GrossMargin,
-				"net_margin":     finance.NetMargin,
-			})
-		} else {
-			DB.Create(&finance)
-		}
+		DB.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "code"}, {Name: "report_date"}},
+			DoUpdates: clause.AssignmentColumns([]string{"roe", "gross_margin", "net_margin", "revenue_yoy", "net_profit_yoy", "eps", "bps"}),
+		}).Create(&finance)
 	}
 
 	return nil
@@ -317,7 +288,7 @@ func (s *StockSyncService) SyncConcepts() error {
 
 	// 获取概念列表
 	url := "https://push2.eastmoney.com/api/qt/clist/get?pn=1&pz=500&po=1&np=1&ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&fid=f3&fs=m:90+t:3+f:!50&fields=f12,f14"
-	body, err := s.httpGet(url)
+	body, err := s.httpGetWithDelay(url)
 	if err != nil {
 		return err
 	}
@@ -342,7 +313,7 @@ func (s *StockSyncService) SyncConcepts() error {
 		// 获取概念成分股
 		stockUrl := fmt.Sprintf("https://push2.eastmoney.com/api/qt/clist/get?pn=1&pz=2000&po=1&np=1&ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&fid=f3&fs=b:BK%s+f:!50&fields=f12,f14",
 			concept.Code)
-		stockBody, err := s.httpGet(stockUrl)
+		stockBody, err := s.httpGetWithDelay(stockUrl)
 		if err != nil {
 			continue
 		}
@@ -417,12 +388,20 @@ func (s *StockSyncService) splitKline(line string) []string {
 
 // httpGet 发送HTTP GET请求
 func (s *StockSyncService) httpGet(url string) ([]byte, error) {
-	client := &http.Client{Timeout: 30 * time.Second}
-
 	var lastErr error
 	for retry := 0; retry < 3; retry++ {
 		if retry > 0 {
 			time.Sleep(time.Duration(retry) * time.Second)
+		}
+
+		client := &http.Client{
+			Timeout: 30 * time.Second,
+			Transport: &http.Transport{
+				TLSClientConfig:     &tls.Config{InsecureSkipVerify: true},
+				MaxIdleConns:        10,
+				IdleConnTimeout:     30 * time.Second,
+				TLSHandshakeTimeout: 10 * time.Second,
+			},
 		}
 
 		req, err := http.NewRequest("GET", url, nil)
@@ -433,15 +412,17 @@ func (s *StockSyncService) httpGet(url string) ([]byte, error) {
 		req.Header.Set("Accept", "application/json, text/plain, */*")
 		req.Header.Set("Referer", "https://quote.eastmoney.com/")
 		req.Header.Set("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8")
+		req.Header.Set("Connection", "keep-alive")
 
 		resp, err := client.Do(req)
 		if err != nil {
 			lastErr = err
 			continue
 		}
-		defer resp.Body.Close()
 
 		data, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+
 		if err != nil {
 			lastErr = err
 			continue
@@ -458,4 +439,13 @@ func (s *StockSyncService) httpGet(url string) ([]byte, error) {
 	}
 
 	return nil, fmt.Errorf("请求失败(重试3次): %v", lastErr)
+}
+
+// httpGetWithDelay 带延迟的HTTP请求
+func (s *StockSyncService) httpGetWithDelay(url string) ([]byte, error) {
+	data, err := s.httpGet(url)
+	if err == nil {
+		time.Sleep(80 * time.Millisecond)
+	}
+	return data, err
 }

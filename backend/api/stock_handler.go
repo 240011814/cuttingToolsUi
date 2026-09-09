@@ -5,6 +5,7 @@ import (
 	"backend/service"
 	"log"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -199,11 +200,31 @@ func (h *StockHandler) HandleSyncStockList(c *gin.Context) {
 	SendSuccess(c, true)
 }
 
-// HandleSyncDailyQuotes 同步行情数据
+// HandleSyncDailyQuotes 同步行情数据(全量)
 func (h *StockHandler) HandleSyncDailyQuotes(c *gin.Context) {
 	go func() {
 		if err := h.syncService.SyncDailyQuotes(); err != nil {
 			log.Printf("同步行情数据失败: %v", err)
+		}
+	}()
+	SendSuccess(c, true)
+}
+
+// HandleSyncSingleStock 同步单只股票行情+财务
+func (h *StockHandler) HandleSyncSingleStock(c *gin.Context) {
+	code := c.Query("code")
+	if code == "" {
+		SendError(c, "400", "股票代码不能为空")
+		return
+	}
+
+	go func() {
+		if err := h.syncService.SyncSingleStockDaily(code); err != nil {
+			log.Printf("同步 %s 行情失败: %v", code, err)
+		}
+		time.Sleep(80 * time.Millisecond)
+		if err := h.syncService.SyncFinanceData(code); err != nil {
+			log.Printf("同步 %s 财务失败: %v", code, err)
 		}
 	}()
 	SendSuccess(c, true)
