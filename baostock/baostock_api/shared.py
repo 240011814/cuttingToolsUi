@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 try:
-    import baostock as bs
+    import baostock as bs  # noqa: F401
 except ModuleNotFoundError as error:
     raise SystemExit(
         "Missing Python dependency 'baostock'. "
