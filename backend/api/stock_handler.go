@@ -53,6 +53,26 @@ func (h *StockHandler) HandleGetDetail(c *gin.Context) {
 	SendSuccess(c, result)
 }
 
+// HandleGetFinanceHistory 历史财务数据
+func (h *StockHandler) HandleGetFinanceHistory(c *gin.Context) {
+	code := c.Param("code")
+	if code == "" {
+		SendError(c, "400", "股票代码不能为空")
+		return
+	}
+
+	limitStr := c.DefaultQuery("limit", "8")
+	limit, _ := strconv.Atoi(limitStr)
+
+	result, err := h.svc.GetFinanceHistory(code, limit)
+	if err != nil {
+		SendError(c, "500", "获取财务历史失败: "+err.Error())
+		return
+	}
+
+	SendSuccess(c, result)
+}
+
 // HandleGetKline K线数据
 func (h *StockHandler) HandleGetKline(c *gin.Context) {
 	code := c.Param("code")

@@ -295,6 +295,7 @@ func main() {
 			stockGroup.GET("/concepts", stockHandler.HandleGetConcepts)
 			stockGroup.GET("/:code", stockHandler.HandleGetDetail)
 			stockGroup.GET("/:code/kline", stockHandler.HandleGetKline)
+			stockGroup.GET("/:code/finance-history", stockHandler.HandleGetFinanceHistory)
 			stockGroup.GET("/:code/realtime-kline", stockHandler.HandleRealtimeKline)
 			stockGroup.GET("/:code/realtime-quote", stockHandler.HandleRealtimeQuote)
 

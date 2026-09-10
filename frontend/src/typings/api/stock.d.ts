@@ -74,6 +74,23 @@ declare namespace Api {
       ma20: number | null
     }
 
+    interface FinanceHistory {
+      code: string
+      reportDate: string
+      roe: number | null
+      grossMargin: number | null
+      netMargin: number | null
+      revenue: number | null
+      revenueYoy: number | null
+      netProfit: number | null
+      netProfitYoy: number | null
+      eps: number | null
+      bps: number | null
+      debtRatio: number | null
+      currentRatio: number | null
+      quickRatio: number | null
+    }
+
     interface FilterConditionSave {
       id: number
       userId: number

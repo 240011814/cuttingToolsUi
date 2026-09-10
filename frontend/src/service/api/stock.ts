@@ -26,6 +26,15 @@ export function stockKline(code: string, params?: { period?: string; count?: num
   })
 }
 
+/** 历史财务数据 */
+export function stockFinanceHistory(code: string, params?: { limit?: number }) {
+  return request<Api.Stock.FinanceHistory[]>({
+    url: `/api/stock/${code}/finance-history`,
+    method: 'get',
+    params
+  })
+}
+
 /** 行业列表 */
 export function stockIndustries() {
   return request<string[]>({

@@ -395,6 +395,24 @@ func (s *StockService) GetDetail(code string) (*model.StockScreenResult, error) 
 	return detail, nil
 }
 
+// GetFinanceHistory 获取历史财务数据
+func (s *StockService) GetFinanceHistory(code string, limit int) ([]model.StockFinance, error) {
+	if limit <= 0 || limit > 20 {
+		limit = 8
+	}
+
+	var finances []model.StockFinance
+	err := DB.Where("code = ?", code).
+		Order("report_date DESC").
+		Limit(limit).
+		Find(&finances).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return finances, nil
+}
+
 // GetKline 获取K线数据
 func (s *StockService) GetKline(code string, period string, count int) ([]map[string]interface{}, error) {
 	if count <= 0 || count > 500 {

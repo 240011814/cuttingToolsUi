@@ -84,21 +84,20 @@ func (s *StockSyncService) SyncStockList() error {
 		log.Printf("[StockSync] 获取行业信息失败: %v, 将跳过行业信息", err)
 	} else {
 		var industryResp struct {
-			Ok    bool `json:"ok"`
-			Data  struct {
-				Total int `json:"total"`
-				Items []struct {
-					Code       string `json:"code"`
-					Industry   string `json:"industry"`
-					IndustryCN string `json:"industryClassification"`
-				} `json:"items"`
+			Ok   bool `json:"ok"`
+			Data struct {
+				Total  int `json:"total"`
+				Fields []string `json:"fields"`
+				Items  []map[string]string `json:"items"`
 			} `json:"data"`
 		}
 
 		if err := json.Unmarshal(industryBody, &industryResp); err == nil && industryResp.Ok {
 			for _, item := range industryResp.Data.Items {
-				if item.Code != "" && item.Industry != "" {
-					industryMap[item.Code] = item.Industry
+				code := item["code"]
+				industry := item["industry"]
+				if code != "" && industry != "" {
+					industryMap[code] = industry
 				}
 			}
 			log.Printf("[StockSync] 获取行业信息成功: %d 条", len(industryMap))
@@ -397,6 +396,7 @@ func (s *StockSyncService) SyncFinanceData(code string) error {
 				}
 
 				key := fmt.Sprintf("%s_%s", code, item.StatDate)
+
 				if _, exists := financeData[key]; !exists {
 					continue
 				}
@@ -663,17 +663,17 @@ func (s *StockSyncService) httpGet(url string) ([]byte, error) {
 	var lastErr error
 	for retry := 0; retry < 3; retry++ {
 		if retry > 0 {
-			time.Sleep(time.Duration(retry) * time.Second)
+			time.Sleep(time.Duration(retry) * 2 * time.Second)
 		}
 
 		client := &http.Client{
-			Timeout: 30 * time.Second,
+			Timeout: 120 * time.Second,
 			Transport: &http.Transport{
 				TLSClientConfig:       &tls.Config{InsecureSkipVerify: true},
 				MaxIdleConns:          10,
-				IdleConnTimeout:       30 * time.Second,
-				TLSHandshakeTimeout:   10 * time.Second,
-				ResponseHeaderTimeout: 20 * time.Second,
+				IdleConnTimeout:       60 * time.Second,
+				TLSHandshakeTimeout:   30 * time.Second,
+				ResponseHeaderTimeout: 90 * time.Second,
 				DisableCompression:    false,
 				ForceAttemptHTTP2:     false,
 			},

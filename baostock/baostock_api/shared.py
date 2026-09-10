@@ -22,7 +22,7 @@ except ModuleNotFoundError as error:
 
 HOST = os.environ.get("BAOSTOCK_API_HOST", "127.0.0.1")
 PORT = int(os.environ.get("BAOSTOCK_API_PORT", "3002"))
-DAILY_LIMIT = int(os.environ.get("BAOSTOCK_API_DAILY_LIMIT", "100000"))
+DAILY_LIMIT = int(os.environ.get("BAOSTOCK_API_DAILY_LIMIT", "50000"))
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 USAGE_FILE = DATA_DIR / "usage.json"
 
