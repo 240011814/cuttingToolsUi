@@ -51,30 +51,41 @@ func (StockDaily) TableName() string {
 
 // StockFinance 股票财务数据
 type StockFinance struct {
-	ID             uint       `gorm:"primaryKey;autoIncrement" json:"id"`
-	Code           string     `gorm:"size:10;not null" json:"code"`
-	ReportDate     time.Time  `gorm:"not null" json:"reportDate"`
-	ReportType     string     `gorm:"size:20" json:"reportType"`
-	PeTtm          *float64   `json:"peTtm"`
-	Pb             *float64   `json:"pb"`
-	PsTtm          *float64   `json:"psTtm"`
-	Roe            *float64   `json:"roe"`
-	Roa            *float64   `json:"roa"`
-	GrossMargin    *float64   `json:"grossMargin"`
-	NetMargin      *float64   `json:"netMargin"`
-	Revenue        *float64   `json:"revenue"`
-	RevenueYoy     *float64   `json:"revenueYoy"`
-	NetProfit      *float64   `json:"netProfit"`
-	NetProfitYoy   *float64   `json:"netProfitYoy"`
-	DebtRatio      *float64   `json:"debtRatio"`
-	CurrentRatio   *float64   `json:"currentRatio"`
-	QuickRatio     *float64   `json:"quickRatio"`
-	Eps            *float64   `json:"eps"`
-	EpsDeducted    *float64   `json:"epsDeducted"`
-	Bps            *float64   `json:"bps"`
-	OcfPerShare    *float64   `json:"ocfPerShare"`
-	CreatedAt      time.Time  `json:"createdAt"`
-	UpdatedAt      time.Time  `json:"updatedAt"`
+	ID             uint     `gorm:"primaryKey;autoIncrement" json:"id"`
+	Code           string   `gorm:"size:10;not null" json:"code"`
+	ReportDate     time.Time `gorm:"not null" json:"reportDate"`
+	ReportType     string   `gorm:"size:20" json:"reportType"`
+	PeTtm          *float64 `json:"peTtm"`
+	Pb             *float64 `json:"pb"`
+	PsTtm          *float64 `json:"psTtm"`
+	Roe            *float64 `json:"roe"`
+	Roa            *float64 `json:"roa"`
+	GrossMargin    *float64 `json:"grossMargin"`
+	NetMargin      *float64 `json:"netMargin"`
+	Revenue        *float64 `json:"revenue"`
+	RevenueYoy     *float64 `json:"revenueYoy"`
+	NetProfit      *float64 `json:"netProfit"`
+	NetProfitYoy   *float64 `json:"netProfitYoy"`
+	DebtRatio      *float64 `json:"debtRatio"`
+	CurrentRatio   *float64 `json:"currentRatio"`
+	QuickRatio     *float64 `json:"quickRatio"`
+	CashRatio      *float64 `json:"cashRatio"`
+	NrTurnRatio    *float64 `json:"nrTurnRatio"`
+	InvTurnRatio   *float64 `json:"invTurnRatio"`
+	CaTurnRatio    *float64 `json:"caTurnRatio"`
+	AssetTurnRatio *float64 `json:"assetTurnRatio"`
+	YoyEquity      *float64 `json:"yoyEquity"`
+	YoyAsset       *float64 `json:"yoyAsset"`
+	YoyEps         *float64 `json:"yoyEps"`
+	CfoToOr        *float64 `json:"cfoToOr"`
+	CfoToNp        *float64 `json:"cfoToNp"`
+	Eps            *float64 `json:"eps"`
+	EpsDeducted    *float64 `json:"epsDeducted"`
+	Bps            *float64 `json:"bps"`
+	OcfPerShare    *float64 `json:"ocfPerShare"`
+	FinanceSources string   `gorm:"size:8;not null;default:''" json:"financeSources"`
+	CreatedAt      time.Time `json:"createdAt"`
+	UpdatedAt      time.Time `json:"updatedAt"`
 }
 
 func (StockFinance) TableName() string {
@@ -172,6 +183,12 @@ type StockScreenResult struct {
 	DebtRatio      *float64 `json:"debtRatio"`
 	CurrentRatio   *float64 `json:"currentRatio"`
 	QuickRatio     *float64 `json:"quickRatio"`
+	CashRatio      *float64 `json:"cashRatio"`
+	NrTurnRatio    *float64 `json:"nrTurnRatio"`
+	InvTurnRatio   *float64 `json:"invTurnRatio"`
+	YoyEquity      *float64 `json:"yoyEquity"`
+	YoyAsset       *float64 `json:"yoyAsset"`
+	CfoToOr        *float64 `json:"cfoToOr"`
 	Change5d       *float64 `json:"change5d"`
 	Change20d      *float64 `json:"change20d"`
 	Ma5            *float64 `json:"ma5"`

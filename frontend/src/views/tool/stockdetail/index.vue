@@ -23,6 +23,12 @@ const loading = ref(false)
 const activeTab = ref('local')
 const financeViewMode = ref('chart')
 const klineViewMode = ref('chart')
+const klinePeriod = ref<'daily' | 'weekly' | 'monthly'>('daily')
+const klineEmpty = ref(false)
+const klineLoading = ref(false)
+const financeRange = ref<'recent' | 'all'>('recent')
+const financeLoading = ref(false)
+const financeChartGroup = ref<'profit' | 'growth' | 'operation' | 'solvency'>('profit')
 
 const chartRef = ref<HTMLElement | null>(null)
 let chartInstance: echarts.ECharts | null = null
@@ -43,10 +49,10 @@ async function loadDetail() {
   }
   loading.value = true
   try {
-    const [detailRes, klineRes, financeRes] = await Promise.all([
+    const [detailRes, klineRes] = await Promise.all([
       stockDetail(code.value),
-      stockKline(code.value, { period: 'daily', count: 120 }),
-      stockFinanceHistory(code.value, { limit: 8 })
+      stockKline(code.value, { period: klinePeriod.value, count: 120 }),
+      loadFinance()
     ])
     if (detailRes.data) {
       detail.value = detailRes.data
@@ -54,15 +60,57 @@ async function loadDetail() {
     if (klineRes.data) {
       klineData.value = klineRes.data
     }
-    if (financeRes.data) {
-      financeHistory.value = financeRes.data
-    }
   } catch (e: any) {
     message.error(e.message || '加载失败')
   } finally {
     loading.value = false
   }
 }
+
+let financeReqSeq = 0
+async function loadFinance() {
+  const seq = ++financeReqSeq
+  financeLoading.value = true
+  try {
+    const res = await stockFinanceHistory(code.value, { limit: financeRange.value === 'all' ? 0 : 16 })
+    if (seq !== financeReqSeq) return
+    financeHistory.value = res.data || []
+  } catch (e: any) {
+    if (seq !== financeReqSeq) return
+    message.error(e.message || '财务数据加载失败')
+  } finally {
+    if (seq === financeReqSeq) {
+      financeLoading.value = false
+    }
+  }
+}
+
+watch(financeRange, () => {
+  loadFinance()
+})
+
+let klineReqSeq = 0
+async function loadKline() {
+  const seq = ++klineReqSeq
+  klineLoading.value = true
+  try {
+    const res = await stockKline(code.value, { period: klinePeriod.value, count: 120 })
+    if (seq !== klineReqSeq) return
+    klineData.value = res.data || []
+    klineEmpty.value = !res.data || res.data.length === 0
+  } catch (e: any) {
+    if (seq !== klineReqSeq) return
+    message.error(e.message || 'K线数据加载失败')
+  } finally {
+    if (seq === klineReqSeq) {
+      klineLoading.value = false
+    }
+  }
+}
+
+watch(klinePeriod, () => {
+  loadKline()
+})
 
 async function handleAddWatchlist() {
   try {
@@ -170,20 +218,74 @@ const financeItems = computed(() => {
     { label: '净利率', value: d.netMargin?.toFixed(2) ? `${d.netMargin.toFixed(2)}%` : '-', tip: '公式: 净利润/营业收入×100%' },
     { label: '资产负债率', value: d.debtRatio?.toFixed(2) ? `${d.debtRatio.toFixed(2)}%` : '-', tip: '公式: 总负债/总资产×100%。<50%低风险，50-70%正常，>70%高风险' },
     { label: '流动比率', value: d.currentRatio?.toFixed(2) || '-', tip: '公式: 流动资产/流动负债。>2优秀，1-2正常，<1有风险' },
-    { label: '速动比率', value: d.quickRatio?.toFixed(2) || '-', tip: '公式: (流动资产-存货)/流动负债。>1优秀，0.5-1正常' }
+    { label: '速动比率', value: d.quickRatio?.toFixed(2) || '-', tip: '公式: (流动资产-存货)/流动负债。>1优秀，0.5-1正常' },
+    { label: '现金比率', value: d.cashRatio?.toFixed(2) || '-', tip: '公式: (货币资金+交易性金融资产)/流动负债。>0.5充裕，0.2-0.5正常，<0.2偏紧' },
+    { label: '应收周转率', value: d.nrTurnRatio?.toFixed(2) || '-', tip: '公式: 营业收入/应收账款。越高回款越快；金融股无此指标' },
+    { label: '存货周转率', value: d.invTurnRatio?.toFixed(2) || '-', tip: '公式: 营业成本/存货。越高存货消化越快' },
+    { label: '净资产同比', value: d.yoyEquity !== null ? `${d.yoyEquity >= 0 ? '+' : ''}${d.yoyEquity.toFixed(2)}%` : '-', tip: '净资产较上年同期增速，反映内生积累能力' },
+    { label: '总资产同比', value: d.yoyAsset !== null ? `${d.yoyAsset >= 0 ? '+' : ''}${d.yoyAsset.toFixed(2)}%` : '-', tip: '总资产较上年同期增速，反映扩张速度' },
+    { label: '现金流/营收', value: d.cfoToOr?.toFixed(2) || '-', tip: '公式: 经营现金流净额/营业收入。>0.2较好，持续为负需警惕' }
   ]
 })
+
+// 财务图表指标分组
+const financeChartGroups: Record<string, { name: string; unit: string; series: { key: keyof Api.Stock.FinanceHistory; name: string; color: string }[] }> = {
+  profit: {
+    name: '盈利',
+    unit: '%',
+    series: [
+      { key: 'roe', name: 'ROE%', color: '#1890ff' },
+      { key: 'grossMargin', name: '毛利率%', color: '#52c41a' },
+      { key: 'netMargin', name: '净利率%', color: '#faad14' },
+      { key: 'debtRatio', name: '资产负债率%', color: '#f5222d' }
+    ]
+  },
+  growth: {
+    name: '成长',
+    unit: '%',
+    series: [
+      { key: 'revenueYoy', name: '营收同比%', color: '#1890ff' },
+      { key: 'netProfitYoy', name: '净利润同比%', color: '#52c41a' },
+      { key: 'yoyEquity', name: '净资产同比%', color: '#faad14' },
+      { key: 'yoyAsset', name: '总资产同比%', color: '#f5222d' },
+      { key: 'yoyEps', name: 'EPS同比%', color: '#722ed1' }
+    ]
+  },
+  operation: {
+    name: '营运',
+    unit: '次',
+    series: [
+      { key: 'nrTurnRatio', name: '应收周转', color: '#1890ff' },
+      { key: 'invTurnRatio', name: '存货周转', color: '#52c41a' },
+      { key: 'caTurnRatio', name: '流动资产周转', color: '#faad14' },
+      { key: 'assetTurnRatio', name: '总资产周转', color: '#f5222d' }
+    ]
+  },
+  solvency: {
+    name: '偿债与现金流',
+    unit: '%/倍',
+    series: [
+      { key: 'debtRatio', name: '资产负债率%', color: '#f5222d' },
+      { key: 'currentRatio', name: '流动比率', color: '#1890ff' },
+      { key: 'quickRatio', name: '速动比率', color: '#52c41a' },
+      { key: 'cashRatio', name: '现金比率', color: '#faad14' },
+      { key: 'cfoToOr', name: '现金流/营收', color: '#722ed1' },
+      { key: 'cfoToNp', name: '现金流/净利', color: '#13c2c2' }
+    ]
+  }
+}
 
 function getChartOption() {
   const data = [...financeHistory.value].reverse()
   const dates = data.map(d => d.reportDate?.slice(0, 10) || '')
+  const group = financeChartGroups[financeChartGroup.value] || financeChartGroups.profit
   return {
     tooltip: {
       trigger: 'axis',
       axisPointer: { type: 'shadow' }
     },
     legend: {
-      data: ['ROE%', '毛利率%', '净利率%', '资产负债率%'],
+      data: group.series.map(s => s.name),
       top: 0,
       textStyle: { fontSize: 12 }
     },
@@ -196,45 +298,22 @@ function getChartOption() {
     yAxis: [
       {
         type: 'value',
-        name: '%',
+        name: group.unit,
         axisLabel: { fontSize: 11 }
       }
     ],
-    series: [
-      {
-        name: 'ROE%',
-        type: 'line',
-        data: data.map(d => d.roe),
-        smooth: true,
-        itemStyle: { color: '#1890ff' }
-      },
-      {
-        name: '毛利率%',
-        type: 'line',
-        data: data.map(d => d.grossMargin),
-        smooth: true,
-        itemStyle: { color: '#52c41a' }
-      },
-      {
-        name: '净利率%',
-        type: 'line',
-        data: data.map(d => d.netMargin),
-        smooth: true,
-        itemStyle: { color: '#faad14' }
-      },
-      {
-        name: '资产负债率%',
-        type: 'line',
-        data: data.map(d => d.debtRatio),
-        smooth: true,
-        itemStyle: { color: '#f5222d' }
-      }
-    ]
+    series: group.series.map(s => ({
+      name: s.name,
+      type: 'line',
+      data: data.map(d => d[s.key] as number | null),
+      smooth: true,
+      itemStyle: { color: s.color }
+    }))
   }
 }
 
 function getKlineChartOption() {
-  const data = [...klineData.value].slice(-10)
+  const data = [...klineData.value]
   const dates = data.map(d => d.date || '')
   return {
     tooltip: {
@@ -290,18 +369,22 @@ function getKlineChartOption() {
 
 function renderChart() {
   if (!chartRef.value || financeHistory.value.length === 0) return
-  if (!chartInstance) {
+  // 区块因 v-if 重建后 DOM 会更换, 实例绑定的旧 DOM 已分离, 需要重新初始化
+  if (!chartInstance || chartInstance.getDom() !== chartRef.value) {
+    chartInstance?.dispose()
     chartInstance = echarts.init(chartRef.value)
   }
-  chartInstance.setOption(getChartOption())
+  // notMerge 完全替换, 避免分组切换时新旧 series 合并残留
+  chartInstance.setOption(getChartOption(), { notMerge: true })
 }
 
 function renderKlineChart() {
   if (!klineChartRef.value || klineData.value.length === 0) return
-  if (!klineChartInstance) {
+  if (!klineChartInstance || klineChartInstance.getDom() !== klineChartRef.value) {
+    klineChartInstance?.dispose()
     klineChartInstance = echarts.init(klineChartRef.value)
   }
-  klineChartInstance.setOption(getKlineChartOption())
+  klineChartInstance.setOption(getKlineChartOption(), { notMerge: true })
 }
 
 watch(financeViewMode, (val) => {
@@ -320,6 +403,24 @@ watch(financeHistory, () => {
   if (financeViewMode.value === 'chart') {
     nextTick(() => renderChart())
   }
+})
+
+watch(financeChartGroup, () => {
+  if (financeViewMode.value === 'chart') {
+    nextTick(() => renderChart())
+  }
+})
+
+// detail 加载完成后整个内容区块才挂载, 若数据先于 detail 到位需要补一次图表渲染
+watch(detail, () => {
+  nextTick(() => {
+    if (financeHistory.value.length > 0 && financeViewMode.value === 'chart') {
+      renderChart()
+    }
+    if (klineData.value.length > 0 && klineViewMode.value === 'chart') {
+      renderKlineChart()
+    }
+  })
 })
 
 watch(klineData, () => {
@@ -428,72 +529,119 @@ onUnmounted(() => {
               </div>
             </div>
 
-            <!-- K线数据预览 -->
-            <div v-if="klineData.length > 0" class="mt-4 p-4 bg-white rounded-lg shadow">
-              <div class="flex items-center justify-between mb-3">
-                <h2 class="text-lg font-bold">近期行情 (最近10日)</h2>
-                <NTabs v-model:value="klineViewMode" type="segment" size="small" style="width: 160px">
-                  <NTabPane name="chart" tab="图表" />
-                  <NTabPane name="table" tab="表格" />
-                </NTabs>
+            <!-- K线数据 -->
+            <div v-if="klineData.length > 0 || klineEmpty" class="mt-4 p-4 bg-white rounded-lg shadow">
+              <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+                <h2 class="text-lg font-bold">K线走势 (共{{ klineData.length }}条)</h2>
+                <div class="flex items-center gap-2">
+                  <NTabs v-model:value="klinePeriod" type="segment" size="small" style="width: 200px">
+                    <NTabPane name="daily" tab="日K" />
+                    <NTabPane name="weekly" tab="周K" />
+                    <NTabPane name="monthly" tab="月K" />
+                  </NTabs>
+                  <NTabs v-model:value="klineViewMode" type="segment" size="small" style="width: 160px">
+                    <NTabPane name="chart" tab="图表" />
+                    <NTabPane name="table" tab="表格" />
+                  </NTabs>
+                </div>
               </div>
 
-              <!-- 图表模式 -->
-              <div v-show="klineViewMode === 'chart'" ref="klineChartRef" style="width: 100%; height: 320px" />
+              <NSpin :show="klineLoading">
+                <div v-if="klineData.length === 0" class="py-10 text-center text-gray-400">
+                  <div class="text-14px">该周期暂无数据</div>
+                  <div class="text-12px mt-1">请先同步该股票的K线数据</div>
+                </div>
+                <template v-else>
+                  <!-- 图表模式 -->
+                  <div v-show="klineViewMode === 'chart'" ref="klineChartRef" style="width: 100%; height: 380px" />
 
-              <!-- 表格模式 -->
-              <NDataTable
-                v-show="klineViewMode === 'table'"
-                :columns="[
-                  { title: '日期', key: 'date', width: 100 },
-                  { title: '开盘', key: 'open', width: 80, render: (row: Api.Stock.KlineData) => row.open?.toFixed(2) || '-' },
-                  { title: '最高', key: 'high', width: 80, render: (row: Api.Stock.KlineData) => row.high?.toFixed(2) || '-' },
-                  { title: '最低', key: 'low', width: 80, render: (row: Api.Stock.KlineData) => row.low?.toFixed(2) || '-' },
-                  { title: '收盘', key: 'close', width: 80, render: (row: Api.Stock.KlineData) => row.close?.toFixed(2) || '-' },
-                  { title: '涨跌%', key: 'changePct', width: 80, render: (row: Api.Stock.KlineData) => row.changePct !== null ? `${row.changePct >= 0 ? '+' : ''}${row.changePct.toFixed(2)}%` : '-' },
-                  { title: '成交量', key: 'volume', width: 100, render: (row: Api.Stock.KlineData) => row.volume ? `${(row.volume / 10000).toFixed(2)}万手` : '-' }
-                ]"
-                :data="klineData.slice(-10)"
-                :bordered="false"
-                size="small"
-                striped
-              />
+                  <!-- 表格模式 -->
+                  <NDataTable
+                    v-show="klineViewMode === 'table'"
+                    :columns="[
+                      { title: '日期', key: 'date', width: 100 },
+                      { title: '开盘', key: 'open', width: 80, render: (row: Api.Stock.KlineData) => row.open?.toFixed(2) || '-' },
+                      { title: '最高', key: 'high', width: 80, render: (row: Api.Stock.KlineData) => row.high?.toFixed(2) || '-' },
+                      { title: '最低', key: 'low', width: 80, render: (row: Api.Stock.KlineData) => row.low?.toFixed(2) || '-' },
+                      { title: '收盘', key: 'close', width: 80, render: (row: Api.Stock.KlineData) => row.close?.toFixed(2) || '-' },
+                      { title: '涨跌%', key: 'changePct', width: 80, render: (row: Api.Stock.KlineData) => row.changePct !== null ? `${row.changePct >= 0 ? '+' : ''}${row.changePct.toFixed(2)}%` : '-' },
+                      { title: '成交量', key: 'volume', width: 100, render: (row: Api.Stock.KlineData) => row.volume ? `${(row.volume / 10000).toFixed(2)}万手` : '-' }
+                    ]"
+                    :data="klineData.slice(-20)"
+                    :bordered="false"
+                    size="small"
+                    striped
+                  />
+                  <div v-if="klineData.length > 20 && klineViewMode === 'table'" class="mt-2 text-12px text-gray-400 text-center">
+                    仅显示最近20条, 图表模式可查看全部 {{ klineData.length }} 条
+                  </div>
+                </template>
+              </NSpin>
             </div>
 
             <!-- 历史财务数据 -->
             <div v-if="financeHistory.length > 0" class="mt-4 p-4 bg-white rounded-lg shadow">
-              <div class="flex items-center justify-between mb-3">
-                <h2 class="text-lg font-bold">历史财务数据</h2>
-                <NTabs v-model:value="financeViewMode" type="segment" size="small" style="width: 160px">
-                  <NTabPane name="chart" tab="图表" />
-                  <NTabPane name="table" tab="表格" />
-                </NTabs>
+              <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+                <h2 class="text-lg font-bold">历史财务数据 (共{{ financeHistory.length }}期)</h2>
+                <div class="flex items-center gap-2">
+                  <NTabs v-model:value="financeRange" type="segment" size="small" style="width: 200px">
+                    <NTabPane name="recent" tab="近16期" />
+                    <NTabPane name="all" tab="全部" />
+                  </NTabs>
+                  <NTabs v-model:value="financeViewMode" type="segment" size="small" style="width: 160px">
+                    <NTabPane name="chart" tab="图表" />
+                    <NTabPane name="table" tab="表格" />
+                  </NTabs>
+                </div>
               </div>
 
-              <!-- 图表模式 -->
-              <div v-show="financeViewMode === 'chart'" ref="chartRef" style="width: 100%; height: 320px" />
+              <NSpin :show="financeLoading">
+                <!-- 指标分组切换(图表模式) -->
+                <div v-if="financeViewMode === 'chart'" class="mb-3">
+                  <NTabs v-model:value="financeChartGroup" type="segment" size="small">
+                    <NTabPane name="profit" tab="盈利" />
+                    <NTabPane name="growth" tab="成长" />
+                    <NTabPane name="operation" tab="营运" />
+                    <NTabPane name="solvency" tab="偿债与现金流" />
+                  </NTabs>
+                </div>
+                <!-- 图表模式 -->
+                <div v-show="financeViewMode === 'chart'" ref="chartRef" style="width: 100%; height: 380px" />
 
-              <!-- 表格模式 -->
-              <NDataTable
-                v-show="financeViewMode === 'table'"
-                :columns="[
-                  { title: '报告期', key: 'reportDate', width: 100, render: (row: Api.Stock.FinanceHistory) => row.reportDate?.slice(0, 10) || '-' },
-                  { title: 'ROE%', key: 'roe', width: 70, render: (row: Api.Stock.FinanceHistory) => row.roe?.toFixed(2) || '-' },
-                  { title: '毛利率%', key: 'grossMargin', width: 70, render: (row: Api.Stock.FinanceHistory) => row.grossMargin?.toFixed(2) || '-' },
-                  { title: '净利率%', key: 'netMargin', width: 70, render: (row: Api.Stock.FinanceHistory) => row.netMargin?.toFixed(2) || '-' },
-                  { title: '营收(万)', key: 'revenue', width: 80, render: (row: Api.Stock.FinanceHistory) => row.revenue?.toFixed(0) || '-' },
-                  { title: '净利润(万)', key: 'netProfit', width: 80, render: (row: Api.Stock.FinanceHistory) => row.netProfit?.toFixed(0) || '-' },
-                  { title: 'EPS', key: 'eps', width: 60, render: (row: Api.Stock.FinanceHistory) => row.eps?.toFixed(3) || '-' },
-                  { title: '资产负债率%', key: 'debtRatio', width: 80, render: (row: Api.Stock.FinanceHistory) => row.debtRatio?.toFixed(2) || '-' },
-                  { title: '流动比率', key: 'currentRatio', width: 70, render: (row: Api.Stock.FinanceHistory) => row.currentRatio?.toFixed(2) || '-' },
-                  { title: '速动比率', key: 'quickRatio', width: 70, render: (row: Api.Stock.FinanceHistory) => row.quickRatio?.toFixed(2) || '-' }
-                ]"
-                :data="financeHistory"
-                :bordered="false"
-                size="small"
-                striped
-                :scroll-x="900"
-              />
+                <!-- 表格模式 -->
+                <NDataTable
+                  v-show="financeViewMode === 'table'"
+                  :columns="[
+                    { title: '报告期', key: 'reportDate', width: 100, fixed: 'left' as const, render: (row: Api.Stock.FinanceHistory) => row.reportDate?.slice(0, 10) || '-' },
+                    { title: 'ROE%', key: 'roe', width: 70, render: (row: Api.Stock.FinanceHistory) => row.roe?.toFixed(2) || '-' },
+                    { title: '毛利率%', key: 'grossMargin', width: 70, render: (row: Api.Stock.FinanceHistory) => row.grossMargin?.toFixed(2) || '-' },
+                    { title: '净利率%', key: 'netMargin', width: 70, render: (row: Api.Stock.FinanceHistory) => row.netMargin?.toFixed(2) || '-' },
+                    { title: '营收(万)', key: 'revenue', width: 80, render: (row: Api.Stock.FinanceHistory) => row.revenue?.toFixed(0) || '-' },
+                    { title: '营收同比%', key: 'revenueYoy', width: 80, render: (row: Api.Stock.FinanceHistory) => row.revenueYoy !== null ? `${row.revenueYoy >= 0 ? '+' : ''}${row.revenueYoy.toFixed(2)}%` : '-' },
+                    { title: '净利润(万)', key: 'netProfit', width: 80, render: (row: Api.Stock.FinanceHistory) => row.netProfit?.toFixed(0) || '-' },
+                    { title: '净利同比%', key: 'netProfitYoy', width: 80, render: (row: Api.Stock.FinanceHistory) => row.netProfitYoy !== null ? `${row.netProfitYoy >= 0 ? '+' : ''}${row.netProfitYoy.toFixed(2)}%` : '-' },
+                    { title: 'EPS', key: 'eps', width: 60, render: (row: Api.Stock.FinanceHistory) => row.eps?.toFixed(3) || '-' },
+                    { title: '净资产同比%', key: 'yoyEquity', width: 80, render: (row: Api.Stock.FinanceHistory) => row.yoyEquity !== null ? `${row.yoyEquity >= 0 ? '+' : ''}${row.yoyEquity.toFixed(2)}%` : '-' },
+                    { title: '总资产同比%', key: 'yoyAsset', width: 80, render: (row: Api.Stock.FinanceHistory) => row.yoyAsset !== null ? `${row.yoyAsset >= 0 ? '+' : ''}${row.yoyAsset.toFixed(2)}%` : '-' },
+                    { title: 'EPS同比%', key: 'yoyEps', width: 80, render: (row: Api.Stock.FinanceHistory) => row.yoyEps !== null ? `${row.yoyEps >= 0 ? '+' : ''}${row.yoyEps.toFixed(2)}%` : '-' },
+                    { title: '资产负债率%', key: 'debtRatio', width: 80, render: (row: Api.Stock.FinanceHistory) => row.debtRatio?.toFixed(2) || '-' },
+                    { title: '流动比率', key: 'currentRatio', width: 70, render: (row: Api.Stock.FinanceHistory) => row.currentRatio?.toFixed(2) || '-' },
+                    { title: '速动比率', key: 'quickRatio', width: 70, render: (row: Api.Stock.FinanceHistory) => row.quickRatio?.toFixed(2) || '-' },
+                    { title: '现金比率', key: 'cashRatio', width: 70, render: (row: Api.Stock.FinanceHistory) => row.cashRatio?.toFixed(2) || '-' },
+                    { title: '应收周转', key: 'nrTurnRatio', width: 70, render: (row: Api.Stock.FinanceHistory) => row.nrTurnRatio?.toFixed(2) || '-' },
+                    { title: '存货周转', key: 'invTurnRatio', width: 70, render: (row: Api.Stock.FinanceHistory) => row.invTurnRatio?.toFixed(2) || '-' },
+                    { title: '流动资产周转', key: 'caTurnRatio', width: 80, render: (row: Api.Stock.FinanceHistory) => row.caTurnRatio?.toFixed(2) || '-' },
+                    { title: '总资产周转', key: 'assetTurnRatio', width: 80, render: (row: Api.Stock.FinanceHistory) => row.assetTurnRatio?.toFixed(2) || '-' },
+                    { title: '现金流/营收', key: 'cfoToOr', width: 80, render: (row: Api.Stock.FinanceHistory) => row.cfoToOr?.toFixed(2) || '-' },
+                    { title: '现金流/净利', key: 'cfoToNp', width: 80, render: (row: Api.Stock.FinanceHistory) => row.cfoToNp?.toFixed(2) || '-' }
+                  ]"
+                  :data="financeHistory"
+                  :bordered="false"
+                  size="small"
+                  striped
+                  :scroll-x="2100"
+                />
+              </NSpin>
             </div>
           </NTabPane>
 

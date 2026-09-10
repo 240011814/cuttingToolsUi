@@ -96,3 +96,7 @@ frontend/
 ## 开发经验
 
 MySQL 不支持在一个查询中执行多条 SQL 语句。需要将建表语句拆分成独立的 -- +goose StatementBegin 块
+
+- baostock 代理 (baostock/): 底层 socket 无超时, 服务端偶发卡顿会永久阻塞并占住全局锁导致连锁超时, 已通过 `socket.setdefaulttimeout(60)` 兜底; 登录会话已做复用 (shared.py 包装 login/logout), 查询异常时 force_disconnect 强制重连
+- baostock 周线/月线只返回已完成周期 (周线日期=周最后交易日, 月线=月末交易日), 当前周期不出 K 线; 股票代码与指数代码有重叠 (如 sz.000003 退市股 vs sh.000003 上证B指), 必须结合市场标识区分, 指数走 query_history_index_k_data_plus
+- baostock 财务数据从 2007Q1 开始; 每日调用限额默认 5 万次 (BAOSTOCK_API_DAILY_LIMIT), 同步必须增量+串行, 429 限额错误不要重试

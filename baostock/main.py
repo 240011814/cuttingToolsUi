@@ -1,6 +1,7 @@
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
+import time
 from urllib.parse import parse_qs, urlparse
 
 from baostock_api import (
@@ -36,6 +37,7 @@ from baostock_api.shared import (
     DAILY_LIMIT,
     HOST,
     PORT,
+    force_disconnect,
     json_response,
     make_error_payload,
     usage_counter,
@@ -105,6 +107,7 @@ class BaostockApiHandler(BaseHTTPRequestHandler):
             )
             return
 
+        started = time.monotonic()
         try:
             if parsed.path == "/query_all_stock":
                 payload = query_all_stock_endpoint.execute(
@@ -210,12 +213,18 @@ class BaostockApiHandler(BaseHTTPRequestHandler):
             )
             return
         except Exception as error:
+            # 查询异常后会话状态不可信, 强制断开, 下一个请求重新登录
+            force_disconnect()
             json_response(
                 self,
                 HTTPStatus.BAD_GATEWAY,
                 make_error_payload(str(error), "baostock_query_failed", usage),
             )
             return
+        finally:
+            elapsed = time.monotonic() - started
+            if elapsed > 3:
+                print(f"[baostock-api] SLOW {parsed.path}?{parsed.query} took {elapsed:.1f}s")
 
         json_response(
             self,

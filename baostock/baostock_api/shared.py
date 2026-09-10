@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import socket
 import threading
 from dataclasses import asdict, dataclass
 from datetime import date
@@ -9,6 +10,10 @@ from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 from typing import Any
+
+# baostock 底层 socket 无超时, 服务端偶发卡顿会永久阻塞并占住全局锁, 导致所有请求连锁超时;
+# 统一加 60s 超时兜底, 把挂死变成可重试的错误
+socket.setdefaulttimeout(60)
 
 try:
     import baostock as bs  # noqa: F401
@@ -22,7 +27,7 @@ except ModuleNotFoundError as error:
 
 HOST = os.environ.get("BAOSTOCK_API_HOST", "127.0.0.1")
 PORT = int(os.environ.get("BAOSTOCK_API_PORT", "3002"))
-DAILY_LIMIT = int(os.environ.get("BAOSTOCK_API_DAILY_LIMIT", "50000"))
+DAILY_LIMIT = int(os.environ.get("BAOSTOCK_API_DAILY_LIMIT", "45000"))
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 USAGE_FILE = DATA_DIR / "usage.json"
 
@@ -119,6 +124,49 @@ class UsageCounter:
 
 usage_counter = UsageCounter(USAGE_FILE, DAILY_LIMIT)
 baostock_lock = threading.Lock()
+
+# --- baostock 会话保持 ---
+# endpoints 每个请求都 login/logout, 两次网络握手既慢又容易触发服务端卡顿;
+# 包装 login/logout: 已登录时 login 复用会话, logout 不再真正登出, 查询异常时强制断开重连
+_real_login = bs.login
+_real_logout = bs.logout
+_session_lock = threading.Lock()
+_logged_in = False
+_login_result: Any = None
+
+
+def _patched_login() -> Any:
+    global _logged_in, _login_result
+    with _session_lock:
+        if _logged_in:
+            return _login_result
+        result = _real_login()
+        if result.error_code == "0":
+            _logged_in = True
+            _login_result = result
+        return result
+
+
+def _patched_logout() -> None:
+    # endpoint 在 finally 中调用, 会话保持模式下不真正登出
+    pass
+
+
+def force_disconnect() -> None:
+    """查询异常后调用: 强制断开会话, 下一个请求重新登录"""
+    global _logged_in, _login_result
+    with _session_lock:
+        if _logged_in:
+            try:
+                _real_logout()
+            except Exception:
+                pass
+        _logged_in = False
+        _login_result = None
+
+
+bs.login = _patched_login
+bs.logout = _patched_logout
 
 
 def json_response(

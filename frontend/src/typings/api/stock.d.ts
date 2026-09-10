@@ -40,6 +40,12 @@ declare namespace Api {
       debtRatio: number | null
       currentRatio: number | null
       quickRatio: number | null
+      cashRatio: number | null
+      nrTurnRatio: number | null
+      invTurnRatio: number | null
+      yoyEquity: number | null
+      yoyAsset: number | null
+      cfoToOr: number | null
       change5d: number | null
       change20d: number | null
       ma5: number | null
@@ -89,6 +95,16 @@ declare namespace Api {
       debtRatio: number | null
       currentRatio: number | null
       quickRatio: number | null
+      cashRatio: number | null
+      nrTurnRatio: number | null
+      invTurnRatio: number | null
+      caTurnRatio: number | null
+      assetTurnRatio: number | null
+      yoyEquity: number | null
+      yoyAsset: number | null
+      yoyEps: number | null
+      cfoToOr: number | null
+      cfoToNp: number | null
     }
 
     interface FilterConditionSave {

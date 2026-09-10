@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
@@ -113,15 +114,15 @@ func (s *StockSyncService) setProgress(done, total int) {
 	s.mu.Unlock()
 }
 
-// fetchLatestTradeDay 查询最近一个交易日 (1次API调用)
-func (s *StockSyncService) fetchLatestTradeDay() (string, error) {
+// fetchRecentTradeDays 查询最近的交易日列表(从新到旧, 1次API调用)
+func (s *StockSyncService) fetchRecentTradeDays(limit int) ([]string, error) {
 	end := time.Now()
 	start := end.AddDate(0, 0, -30)
 	url := fmt.Sprintf("%s/query_trade_dates?start_date=%s&end_date=%s",
 		s.baostockURL, start.Format("2006-01-02"), end.Format("2006-01-02"))
 	body, err := s.httpGetWithDelay(url)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	var resp struct {
@@ -131,29 +132,43 @@ func (s *StockSyncService) fetchLatestTradeDay() (string, error) {
 		} `json:"data"`
 	}
 	if err := json.Unmarshal(body, &resp); err != nil {
-		return "", fmt.Errorf("解析交易日数据失败: %v", err)
+		return nil, fmt.Errorf("解析交易日数据失败: %v", err)
 	}
 	if !resp.Ok {
-		return "", fmt.Errorf("查询交易日失败")
+		return nil, fmt.Errorf("查询交易日失败")
 	}
 
-	for i := len(resp.Data.Items) - 1; i >= 0; i-- {
+	days := make([]string, 0, limit)
+	for i := len(resp.Data.Items) - 1; i >= 0 && len(days) < limit; i-- {
 		if resp.Data.Items[i]["is_trading_day"] == "1" {
-			return resp.Data.Items[i]["calendar_date"], nil
+			days = append(days, resp.Data.Items[i]["calendar_date"])
 		}
 	}
-	return "", fmt.Errorf("近30天无交易日数据")
+	if len(days) == 0 {
+		return nil, fmt.Errorf("近30天无交易日数据")
+	}
+	return days, nil
 }
 
-// SyncStockList 同步股票列表 (API调用: 交易日1次 + 股票列表1次 + 行业1次)
+// fetchLatestTradeDay 查询最近一个交易日
+func (s *StockSyncService) fetchLatestTradeDay() (string, error) {
+	days, err := s.fetchRecentTradeDays(1)
+	if err != nil {
+		return "", err
+	}
+	return days[0], nil
+}
+
+// SyncStockList 同步股票列表 (API调用: 交易日1次 + 股票列表1~2次 + 行业1次)
 func (s *StockSyncService) SyncStockList() error {
 	log.Println("[StockSync] 同步股票列表...")
 
-	// 1. 先查最近交易日, query_all_stock 需要传交易日, 非交易日会返回空
-	tradeDay, err := s.fetchLatestTradeDay()
+	// 1. 先查最近交易日列表; query_all_stock 需要传交易日, 且当日数据约17:30后才发布,
+	// 当天为交易日但数据未发布时列表为空, 需要回退到上一交易日
+	tradeDays, err := s.fetchRecentTradeDays(5)
 	if err != nil {
-		log.Printf("[StockSync] 查询交易日失败, 将逐日回退尝试: %v", err)
-		tradeDay = ""
+		log.Printf("[StockSync] 查询交易日失败, 将按自然日回退尝试: %v", err)
+		tradeDays = nil
 	}
 
 	// 2. 获取所有股票列表
@@ -162,9 +177,11 @@ func (s *StockSyncService) SyncStockList() error {
 		CodeName    string `json:"code_name"`
 		TradeStatus string `json:"trade_status"`
 	}
-	for i := 0; i < 12; i++ {
-		day := tradeDay
-		if day == "" {
+	for i := 0; i < 15 && len(items) == 0; i++ {
+		day := ""
+		if i < len(tradeDays) {
+			day = tradeDays[i]
+		} else {
 			day = time.Now().AddDate(0, 0, -i).Format("2006-01-02")
 		}
 		stockListURL := fmt.Sprintf("%s/query_all_stock?day=%s", s.baostockURL, day)
@@ -188,13 +205,10 @@ func (s *StockSyncService) SyncStockList() error {
 		}
 		if resp.Ok && len(resp.Data.Items) > 0 {
 			items = resp.Data.Items
+			log.Printf("[StockSync] 股票列表取自 %s", day)
 			break
 		}
-		if tradeDay != "" {
-			// 交易日查出来仍为空, 说明是代理异常, 继续回退无意义
-			break
-		}
-		log.Printf("[StockSync] %s 无股票数据, 尝试前一交易日", day)
+		log.Printf("[StockSync] %s 无股票列表数据, 尝试前一交易日", day)
 	}
 	if len(items) == 0 {
 		return fmt.Errorf("未获取到股票列表数据")
@@ -560,7 +574,21 @@ func (s *StockSyncService) SyncSingleStockDaily(code, market string, starts map[
 	return total, nil
 }
 
-// SyncFinanceData 同步单只股票财务数据(2007Q1起全部历史, 按库中已有报告期增量), 返回本次同步的报告期条数
+// financeEndpoints baostock 五类季频财务数据来源: DB字段更新列与接口一一对应
+var financeEndpoints = []struct {
+	Code    string   // 来源标记: P盈利 G成长 O营运 C现金流 B偿债
+	Path    string   // 代理接口路径
+	Columns []string // 该来源覆盖的 DB 更新列
+}{
+	{"P", "query_profit_data", []string{"roe", "gross_margin", "net_margin", "eps", "revenue", "net_profit"}},
+	{"G", "query_growth_data", []string{"net_profit_yoy", "yoy_equity", "yoy_asset", "yoy_eps"}},
+	{"O", "query_operation_data", []string{"nr_turn_ratio", "inv_turn_ratio", "ca_turn_ratio", "asset_turn_ratio"}},
+	{"C", "query_cash_flow_data", []string{"cfo_to_or", "cfo_to_np"}},
+	{"B", "query_balance_data", []string{"current_ratio", "quick_ratio", "debt_ratio", "cash_ratio"}},
+}
+
+// SyncFinanceData 同步单只股票财务数据(2007Q1起全部历史)
+// 先批量查本地(finance_sources 标记各报告期已同步的来源), 只对缺失的报告期和来源调用接口(单季度调用)
 func (s *StockSyncService) SyncFinanceData(code, market string) (int, error) {
 	if isBJCode(code) {
 		return 0, fmt.Errorf("北交所股票 %s 暂不支持同步(baostock 无该市场数据)", code)
@@ -572,118 +600,51 @@ func (s *StockSyncService) SyncFinanceData(code, market string) (int, error) {
 	}
 	baostockCode := s.convertToBaostockCode(code, market)
 
-	// 库中已有报告期(按年季度), 增量同步时跳过; 缺偿债数据的报告期需补拉
+	// 1. 批量查本地: 已有报告期、各报告期已同步的数据来源、已入库营收
 	type storedRow struct {
-		ReportDate time.Time `gorm:"column:report_date"`
-		DebtRatio  *float64  `gorm:"column:debt_ratio"`
+		ReportDate     time.Time `gorm:"column:report_date"`
+		Revenue        *float64  `gorm:"column:revenue"`
+		FinanceSources string    `gorm:"column:finance_sources"`
 	}
 	var stored []storedRow
-	if err := DB.Select("report_date, debt_ratio").Where("code = ?", code).Find(&stored).Error; err != nil {
+	if err := DB.Model(&model.StockFinance{}).Select("report_date, revenue, finance_sources").Where("code = ?", code).Find(&stored).Error; err != nil {
 		return 0, fmt.Errorf("查询已有财务数据失败: %v", err)
 	}
 	quarterOf := func(t time.Time) [2]int {
 		return [2]int{t.Year(), (int(t.Month()) + 2) / 3}
 	}
-	storedQuarters := make(map[[2]int]bool, len(stored))
-	storedMissingDebt := make(map[[2]int]time.Time)
+	// 兼容旧数据: 无来源标记的行视为已有利润+偿债(旧逻辑只同步这两类)
+	storedSources := make(map[[2]int]string, len(stored))
+	dateByQuarter := make(map[[2]int]time.Time, len(stored))
+	revenueByQuarter := make(map[[2]int]float64, len(stored))
 	for _, r := range stored {
 		pair := quarterOf(r.ReportDate)
-		storedQuarters[pair] = true
-		if r.DebtRatio == nil {
-			storedMissingDebt[pair] = r.ReportDate
+		src := r.FinanceSources
+		if src == "" {
+			src = "PB"
+		}
+		storedSources[pair] = src
+		dateByQuarter[pair] = r.ReportDate
+		if r.Revenue != nil {
+			revenueByQuarter[pair] = *r.Revenue
 		}
 	}
 
 	currentYear := time.Now().Year()
 	currentQuarter := (int(time.Now().Month()) + 2) / 3
 	const financeStartYear = 2007
-	const maxConsecutiveEmpty = 8 // 连续8个季度无数据视为早于上市/数据起点, 提前结束
+	const maxConsecutiveEmpty = 8
+	const maxConsecutiveErrors = 5
 
-	financeData := make(map[string]*model.StockFinance)
-	newQuarters := make(map[[2]int]bool)
-	var totalShareVal, floatShareVal float64
-	var shareDate time.Time
-
-	// 1. 盈利能力数据: 当前季度向前追溯到2007Q1, 跳过库中已有的报告期
-	emptyStreak := 0
+	// 2. 计算各季度缺失的数据来源(从新到旧排列)
+	type quarterRef struct{ y, q int }
+	missing := make(map[string][]quarterRef, len(financeEndpoints))
 	for y, q := currentYear, currentQuarter; y >= financeStartYear; {
-		if emptyStreak >= maxConsecutiveEmpty {
-			break
-		}
 		pair := [2]int{y, q}
-		if storedQuarters[pair] {
-			// 库中已有该报告期, 增量跳过, 且重置连续空窗计数
-			emptyStreak = 0
-		} else {
-			url := fmt.Sprintf("%s/query_profit_data?code=%s&year=%d&quarter=%d",
-				s.baostockURL, baostockCode, y, q)
-			body, err := s.httpGetWithDelay(url)
-			if err != nil {
-				log.Printf("[StockSync] 获取 %s %d年Q%d 盈利数据失败: %v", code, y, q, err)
-				emptyStreak++
-			} else {
-				var resp struct {
-					Ok   bool `json:"ok"`
-					Data struct {
-						Items []struct {
-							StatDate   string `json:"statDate"`
-							RoeAvg     string `json:"roeAvg"`
-							NpMargin   string `json:"npMargin"`
-							GpMargin   string `json:"gpMargin"`
-							NetProfit  string `json:"netProfit"`
-							EpsTTM     string `json:"epsTTM"`
-							MBRevenue  string `json:"MBRevenue"`
-							TotalShare string `json:"totalShare"`
-							LiqaShare  string `json:"liqaShare"`
-						} `json:"items"`
-					} `json:"data"`
-				}
-				if err := json.Unmarshal(body, &resp); err != nil || !resp.Ok || len(resp.Data.Items) == 0 {
-					emptyStreak++
-				} else {
-					emptyStreak = 0
-					newQuarters[pair] = true
-					for _, item := range resp.Data.Items {
-						if item.StatDate == "" {
-							continue
-						}
-						reportDate, err := time.Parse("2006-01-02", item.StatDate)
-						if err != nil {
-							continue
-						}
-
-						f, exists := financeData[item.StatDate]
-						if !exists {
-							f = &model.StockFinance{Code: code, ReportDate: reportDate}
-							financeData[item.StatDate] = f
-						}
-
-						f.Roe = parseFloatPtr(item.RoeAvg)
-						f.GrossMargin = parseFloatPtr(item.GpMargin)
-						f.NetMargin = parseFloatPtr(item.NpMargin)
-						f.Eps = parseFloatPtr(item.EpsTTM)
-						if v := parseFloatPtr(item.MBRevenue); v != nil {
-							revenue := *v / 10000
-							f.Revenue = &revenue
-						}
-						if v := parseFloatPtr(item.NetProfit); v != nil {
-							netProfit := *v / 10000
-							f.NetProfit = &netProfit
-						}
-
-						// 股本取最新报告期的数据
-						if reportDate.After(shareDate) {
-							if ts := parseFloatPtr(item.TotalShare); ts != nil && *ts > 0 {
-								totalShareVal = *ts
-								shareDate = reportDate
-							}
-							if fs := parseFloatPtr(item.LiqaShare); fs != nil && *fs > 0 {
-								floatShareVal = *fs
-								shareDate = reportDate
-							}
-						}
-					}
-				}
+		have := storedSources[pair]
+		for _, ep := range financeEndpoints {
+			if !strings.Contains(have, ep.Code) {
+				missing[ep.Code] = append(missing[ep.Code], quarterRef{y, q})
 			}
 		}
 		if q == 1 {
@@ -694,77 +655,154 @@ func (s *StockSyncService) SyncFinanceData(code, market string) (int, error) {
 		}
 	}
 
-	// 2. 偿债能力数据: 本次新拉取的报告期 + 库中缺偿债数据的报告期
-	balanceTargets := make(map[[2]int]bool, len(newQuarters)+len(storedMissingDebt))
-	for pair := range newQuarters {
-		balanceTargets[pair] = true
-	}
-	for pair := range storedMissingDebt {
-		balanceTargets[pair] = true
-	}
-	for pair := range balanceTargets {
-		url := fmt.Sprintf("%s/query_balance_data?code=%s&year=%d&quarter=%d",
-			s.baostockURL, baostockCode, pair[0], pair[1])
+	financeData := make(map[string]*model.StockFinance)
+	touchedSources := make(map[string]string) // statDate -> 本次已同步来源
+	touchedDates := make(map[string]time.Time)
+	var totalShareVal, floatShareVal float64
+	var shareDate time.Time
+	var abortErr error
 
-		body, err := s.httpGetWithDelay(url)
-		if err != nil {
-			log.Printf("[StockSync] 获取 %s %d年Q%d 偿债数据失败: %v", code, pair[0], pair[1], err)
+	getFinanceRow := func(statDate string, reportDate time.Time) *model.StockFinance {
+		f, exists := financeData[statDate]
+		if !exists {
+			f = &model.StockFinance{Code: code, ReportDate: reportDate}
+			financeData[statDate] = f
+		}
+		return f
+	}
+
+	// 3. 逐来源补缺, 每个来源只请求缺失的报告期
+	// 注意区分: 连续空季度=数据自然终点(正常结束), 连续请求失败=服务异常(报错中止)
+	for _, ep := range financeEndpoints {
+		if abortErr != nil {
+			break
+		}
+		pending := missing[ep.Code]
+		if len(pending) == 0 {
 			continue
 		}
-
-		var resp struct {
-			Ok   bool `json:"ok"`
-			Data struct {
-				Items []struct {
-					StatDate         string `json:"statDate"`
-					CurrentRatio     string `json:"currentRatio"`
-					QuickRatio       string `json:"quickRatio"`
-					LiabilityToAsset string `json:"liabilityToAsset"`
-				} `json:"items"`
-			} `json:"data"`
-		}
-		if err := json.Unmarshal(body, &resp); err != nil || !resp.Ok {
-			continue
-		}
-
-		for _, item := range resp.Data.Items {
-			if f, ok := financeData[item.StatDate]; ok {
-				f.CurrentRatio = parseFloatPtr(item.CurrentRatio)
-				f.QuickRatio = parseFloatPtr(item.QuickRatio)
-				f.DebtRatio = parseFloatPtr(item.LiabilityToAsset)
-				continue
+		emptyStreak := 0
+		errStreak := 0
+		var epStatDates []string
+		for _, qr := range pending {
+			if emptyStreak >= maxConsecutiveEmpty || errStreak >= maxConsecutiveErrors {
+				break
 			}
-			// 补齐库中已有报告期缺失的偿债字段
-			d, err := time.Parse("2006-01-02", item.StatDate)
+			url := fmt.Sprintf("%s/%s?code=%s&year=%d&quarter=%d",
+				s.baostockURL, ep.Path, baostockCode, qr.y, qr.q)
+			body, err := s.httpGetWithDelay(url)
 			if err != nil {
+				log.Printf("[StockSync] 获取 %s %d年Q%d %s数据失败: %v", code, qr.y, qr.q, ep.Code, err)
+				errStreak++
+				if errStreak >= maxConsecutiveErrors {
+					abortErr = fmt.Errorf("baostock 服务连续异常, 财务同步中止")
+					break
+				}
 				continue
 			}
-			if rdate, ok := storedMissingDebt[quarterOf(d)]; ok {
-				DB.Clauses(clause.OnConflict{
-					Columns:   []clause.Column{{Name: "code"}, {Name: "report_date"}},
-					DoUpdates: clause.AssignmentColumns([]string{"current_ratio", "quick_ratio", "debt_ratio"}),
-				}).Create(&model.StockFinance{
-					Code:         code,
-					ReportDate:   rdate,
-					CurrentRatio: parseFloatPtr(item.CurrentRatio),
-					QuickRatio:   parseFloatPtr(item.QuickRatio),
-					DebtRatio:    parseFloatPtr(item.LiabilityToAsset),
-				})
+			errStreak = 0
+
+			var resp struct {
+				Ok   bool `json:"ok"`
+				Data struct {
+					Items []map[string]string `json:"items"`
+				} `json:"data"`
+			}
+			if err := json.Unmarshal(body, &resp); err != nil || !resp.Ok || len(resp.Data.Items) == 0 {
+				emptyStreak++
+				continue
+			}
+			emptyStreak = 0
+
+			for _, item := range resp.Data.Items {
+				statDate := item["statDate"]
+				if statDate == "" {
+					continue
+				}
+				reportDate, err := time.Parse("2006-01-02", statDate)
+				if err != nil {
+					continue
+				}
+				f := getFinanceRow(statDate, reportDate)
+				switch ep.Code {
+				case "P":
+					f.Roe = parseFloatPtr(item["roeAvg"])
+					f.GrossMargin = parseFloatPtr(item["gpMargin"])
+					f.NetMargin = parseFloatPtr(item["npMargin"])
+					f.Eps = parseFloatPtr(item["epsTTM"])
+					if v := parseFloatPtr(item["MBRevenue"]); v != nil {
+						revenue := *v / 10000
+						f.Revenue = &revenue
+					}
+					if v := parseFloatPtr(item["netProfit"]); v != nil {
+						netProfit := *v / 10000
+						f.NetProfit = &netProfit
+					}
+					// 股本取最新报告期的数据
+					if reportDate.After(shareDate) {
+						if ts := parseFloatPtr(item["totalShare"]); ts != nil && *ts > 0 {
+							totalShareVal = *ts
+							shareDate = reportDate
+						}
+						if fs := parseFloatPtr(item["liqaShare"]); fs != nil && *fs > 0 {
+							floatShareVal = *fs
+							shareDate = reportDate
+						}
+					}
+				case "G":
+					// baostock 返回小数(0.047=4.7%), 统一转成百分比存储, 与营收同比口径一致
+					if v := parseFloatPtr(item["YOYNI"]); v != nil {
+						yoy := *v * 100
+						f.NetProfitYoy = &yoy
+					}
+					if v := parseFloatPtr(item["YOYEquity"]); v != nil {
+						yoy := *v * 100
+						f.YoyEquity = &yoy
+					}
+					if v := parseFloatPtr(item["YOYAsset"]); v != nil {
+						yoy := *v * 100
+						f.YoyAsset = &yoy
+					}
+					if v := parseFloatPtr(item["YOYEPSBasic"]); v != nil {
+						yoy := *v * 100
+						f.YoyEps = &yoy
+					}
+				case "O":
+					f.NrTurnRatio = parseFloatPtr(item["NRTurnRatio"])
+					f.InvTurnRatio = parseFloatPtr(item["INVTurnRatio"])
+					f.CaTurnRatio = parseFloatPtr(item["CATurnRatio"])
+					f.AssetTurnRatio = parseFloatPtr(item["AssetTurnRatio"])
+				case "C":
+					f.CfoToOr = parseFloatPtr(item["CFOToOR"])
+					f.CfoToNp = parseFloatPtr(item["CFOToNP"])
+				case "B":
+					f.CurrentRatio = parseFloatPtr(item["currentRatio"])
+					f.QuickRatio = parseFloatPtr(item["quickRatio"])
+					f.DebtRatio = parseFloatPtr(item["liabilityToAsset"])
+					f.CashRatio = parseFloatPtr(item["cashRatio"])
+				}
+				touchedSources[statDate] += ep.Code
+				touchedDates[statDate] = reportDate
+				dateByQuarter[quarterOf(reportDate)] = reportDate
+				if f.Revenue != nil {
+					revenueByQuarter[quarterOf(reportDate)] = *f.Revenue
+				}
+				epStatDates = append(epStatDates, statDate)
 			}
 		}
-	}
 
-	// 3. 批量保存
-	if len(financeData) > 0 {
-		list := make([]*model.StockFinance, 0, len(financeData))
-		for _, f := range financeData {
-			list = append(list, f)
-		}
-		if err := DB.Clauses(clause.OnConflict{
-			Columns:   []clause.Column{{Name: "code"}, {Name: "report_date"}},
-			DoUpdates: clause.AssignmentColumns([]string{"roe", "gross_margin", "net_margin", "eps", "revenue", "net_profit", "debt_ratio", "current_ratio", "quick_ratio"}),
-		}).Create(&list).Error; err != nil {
-			return 0, fmt.Errorf("写入 %s 财务数据失败: %v", code, err)
+		// 该来源按自有字段批量入库, 避免覆盖其他来源已写入的字段
+		if len(epStatDates) > 0 {
+			list := make([]*model.StockFinance, 0, len(epStatDates))
+			for _, sd := range epStatDates {
+				list = append(list, financeData[sd])
+			}
+			if err := DB.Clauses(clause.OnConflict{
+				Columns:   []clause.Column{{Name: "code"}, {Name: "report_date"}},
+				DoUpdates: clause.AssignmentColumns(ep.Columns),
+			}).Create(&list).Error; err != nil {
+				return 0, fmt.Errorf("写入 %s %s 财务数据失败: %v", code, ep.Code, err)
+			}
 		}
 	}
 
@@ -782,8 +820,51 @@ func (s *StockSyncService) SyncFinanceData(code, market string) (int, error) {
 		}
 	}
 
-	log.Printf("[StockSync] 同步 %s 财务数据: %d 条", code, len(financeData))
-	return len(financeData), nil
+	// 5. 计算营收同比增长: (本期营收-上年同期营收)/|上年同期营收|*100 (口径与baostock成长数据一致)
+	revenueYoyRows := make([]*model.StockFinance, 0)
+	for pair, rev := range revenueByQuarter {
+		prevRev, ok := revenueByQuarter[[2]int{pair[0] - 1, pair[1]}]
+		if !ok || prevRev == 0 {
+			continue
+		}
+		rd, ok := dateByQuarter[pair]
+		if !ok {
+			continue
+		}
+		yoy := (rev - prevRev) / math.Abs(prevRev) * 100
+		revenueYoyRows = append(revenueYoyRows, &model.StockFinance{Code: code, ReportDate: rd, RevenueYoy: &yoy})
+	}
+	if len(revenueYoyRows) > 0 {
+		if err := DB.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "code"}, {Name: "report_date"}},
+			DoUpdates: clause.AssignmentColumns([]string{"revenue_yoy"}),
+		}).Create(&revenueYoyRows).Error; err != nil {
+			log.Printf("[StockSync] 更新 %s 营收同比增长失败: %v", code, err)
+		}
+	}
+
+	// 6. 更新各报告期的数据来源标记
+	if len(touchedSources) > 0 {
+		list := make([]*model.StockFinance, 0, len(touchedSources))
+		for sd, src := range touchedSources {
+			list = append(list, &model.StockFinance{Code: code, ReportDate: touchedDates[sd], FinanceSources: src})
+		}
+		if err := DB.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "code"}, {Name: "report_date"}},
+			DoUpdates: clause.AssignmentColumns([]string{"finance_sources"}),
+		}).Create(&list).Error; err != nil {
+			log.Printf("[StockSync] 更新 %s 财务来源标记失败: %v", code, err)
+		}
+	}
+
+	if abortErr != nil {
+		// 已获取的部分已落库, 但整体按失败返回, 让前端感知到同步不完整
+		log.Printf("[StockSync] 同步 %s 财务数据中止: %v (已处理 %d 期)", code, abortErr, len(touchedSources))
+		return len(touchedSources), abortErr
+	}
+
+	log.Printf("[StockSync] 同步 %s 财务数据: %d 期", code, len(touchedSources))
+	return len(touchedSources), nil
 }
 
 // convertToBaostockCode 将代码转换为baostock格式, 优先使用市场标识 (000003+SH -> sh.000003)

@@ -333,9 +333,15 @@ func (s *StockService) GetDetail(code string) (*model.StockScreenResult, error) 
 		NetProfitYoy   *float64 `gorm:"column:net_profit_yoy"`
 		GrossMargin    *float64 `gorm:"column:gross_margin"`
 		NetMargin      *float64 `gorm:"column:net_margin"`
-		DebtRatio      *float64 `gorm:"column:debt_ratio"`
-		CurrentRatio   *float64 `gorm:"column:current_ratio"`
-		QuickRatio     *float64 `gorm:"column:quick_ratio"`
+	DebtRatio      *float64 `gorm:"column:debt_ratio"`
+	CurrentRatio   *float64 `gorm:"column:current_ratio"`
+	QuickRatio     *float64 `gorm:"column:quick_ratio"`
+	CashRatio      *float64 `gorm:"column:cash_ratio"`
+	NrTurnRatio    *float64 `gorm:"column:nr_turn_ratio"`
+	InvTurnRatio   *float64 `gorm:"column:inv_turn_ratio"`
+	YoyEquity      *float64 `gorm:"column:yoy_equity"`
+	YoyAsset       *float64 `gorm:"column:yoy_asset"`
+	CfoToOr        *float64 `gorm:"column:cfo_to_or"`
 	}
 
 	err := DB.Table("stock_info AS si").
@@ -350,7 +356,8 @@ func (s *StockService) GetDetail(code string) (*model.StockScreenResult, error) 
 			CASE WHEN sf.eps != 0 THEN ROUND(sd.close / sf.eps, 2) ELSE NULL END AS pe_ttm,
 			CASE WHEN sf.bps != 0 THEN ROUND(sd.close / sf.bps, 2) ELSE NULL END AS pb,
 			sf.roe, sf.revenue_yoy, sf.net_profit_yoy,
-			sf.gross_margin, sf.net_margin, sf.debt_ratio, sf.current_ratio, sf.quick_ratio`).
+			sf.gross_margin, sf.net_margin, sf.debt_ratio, sf.current_ratio, sf.quick_ratio,
+			sf.cash_ratio, sf.nr_turn_ratio, sf.inv_turn_ratio, sf.yoy_equity, sf.yoy_asset, sf.cfo_to_or`).
 		Joins(`LEFT JOIN stock_daily AS sd ON sd.code = si.code AND sd.frequency = 'daily' AND sd.trade_date = (
 			SELECT MAX(trade_date) FROM stock_daily WHERE code = si.code AND frequency = 'daily'
 		)`).
@@ -385,6 +392,12 @@ func (s *StockService) GetDetail(code string) (*model.StockScreenResult, error) 
 		DebtRatio:      result.DebtRatio,
 		CurrentRatio:   result.CurrentRatio,
 		QuickRatio:     result.QuickRatio,
+		CashRatio:      result.CashRatio,
+		NrTurnRatio:    result.NrTurnRatio,
+		InvTurnRatio:   result.InvTurnRatio,
+		YoyEquity:      result.YoyEquity,
+		YoyAsset:       result.YoyAsset,
+		CfoToOr:        result.CfoToOr,
 	}
 
 	// 补充概念
@@ -395,17 +408,19 @@ func (s *StockService) GetDetail(code string) (*model.StockScreenResult, error) 
 	return detail, nil
 }
 
-// GetFinanceHistory 获取历史财务数据
+// GetFinanceHistory 获取历史财务数据 (limit<=0 返回全部报告期)
 func (s *StockService) GetFinanceHistory(code string, limit int) ([]model.StockFinance, error) {
-	if limit <= 0 || limit > 20 {
-		limit = 8
+	if limit < 0 || limit > 200 {
+		limit = 200
 	}
 
 	var finances []model.StockFinance
-	err := DB.Where("code = ?", code).
-		Order("report_date DESC").
-		Limit(limit).
-		Find(&finances).Error
+	query := DB.Where("code = ?", code).
+		Order("report_date DESC")
+	if limit > 0 {
+		query = query.Limit(limit)
+	}
+	err := query.Find(&finances).Error
 	if err != nil {
 		return nil, err
 	}
