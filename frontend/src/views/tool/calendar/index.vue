@@ -81,12 +81,32 @@ const selectedDayReminders = computed(() => {
   });
 });
 
+function getDefaultRemindAt() {
+  const now = new Date();
+  const d = selectedDate.value;
+  const isToday =
+    d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+  const base = isToday
+    ? now
+    : new Date(d.getFullYear(), d.getMonth(), d.getDate(), now.getHours(), now.getMinutes(), now.getSeconds());
+  const t = new Date(base.getTime());
+  t.setSeconds(0, 0);
+  const remainder = t.getMinutes() % 30;
+  if (remainder !== 0) {
+    t.setMinutes(t.getMinutes() + (30 - remainder));
+  }
+  if (isToday && t.getTime() <= now.getTime()) {
+    t.setMinutes(t.getMinutes() + 30);
+  }
+  return t.getTime();
+}
+
 function openCreateModal() {
   editingId.value = null;
   form.value = {
     title: '',
     content: '',
-    remindAt: Date.now(),
+    remindAt: getDefaultRemindAt(),
     advanceMinutes: 3,
     repeatType: 'none',
     repeatInterval: 1,
