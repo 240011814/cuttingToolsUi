@@ -52,13 +52,17 @@ watch(currentDate, () => {
   loadReminders();
 });
 
-async function loadReminders() {
+async function loadReminders(year = currentYear.value, month = currentMonth.value) {
   loading.value = true;
-  const { data, error } = await fetchGetReminders({ year: currentYear.value, month: currentMonth.value });
+  const { data, error } = await fetchGetReminders({ year, month });
   if (!error) {
     reminders.value = data || [];
   }
   loading.value = false;
+}
+
+function handlePanelChange(info: { year: number; month: number }) {
+  loadReminders(info.year, info.month);
 }
 
 function handleDateChange(date: Date) {
@@ -240,6 +244,7 @@ onMounted(() => {
           :value="currentDate.getTime()"
           :is-date-disabled="() => false"
           @update:value="(v: number) => { currentDate = new Date(v); handleDateChange(new Date(v)); }"
+          @panel-change="handlePanelChange"
         >
           <template #default="{ year, month, date }">
             <div class="relative flex items-center justify-center">
