@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"gorm.io/gorm"
+
 	"github.com/go-co-op/gocron/v2"
 )
 
@@ -55,6 +57,14 @@ func (js *JobScheduler) RegisterCallback(jobType string, callback model.JobCallb
 
 // LoadAll 从数据库加载所有待执行的任务
 func (js *JobScheduler) LoadAll() error {
+	// 清理上次进程中断遗留的 running 任务，避免永久卡死
+	if err := DB.Model(&model.Job{}).Where("status = ?", model.JobStatusRunning).Updates(map[string]interface{}{
+		"status":     model.JobStatusFailed,
+		"last_error": "服务重启导致任务中断",
+	}).Error; err != nil {
+		log.Printf("[JobScheduler] 清理中断任务失败: %v", err)
+	}
+
 	var jobs []model.Job
 	if err := DB.Where("status = ?", model.JobStatusPending).Find(&jobs).Error; err != nil {
 		return err
@@ -107,12 +117,12 @@ func (js *JobScheduler) skipExpiredJob(job model.Job) {
 	})
 }
 
-// UnscheduleJob 从调度器移除任务（不改变数据库状态）
-func (js *JobScheduler) UnscheduleJob(jobID uint, jobType string) {
+// UnscheduleJob 从调度器移除任务（不改变数据库状态），jobID 为 jobs 表行 ID
+func (js *JobScheduler) UnscheduleJob(rowID uint, jobType string) {
 	js.mu.Lock()
 	defer js.mu.Unlock()
 
-	jobKey := js.getJobKey(jobID, jobType)
+	jobKey := js.getJobKey(rowID, jobType)
 	if job, ok := js.jobMap[jobKey]; ok {
 		js.scheduler.RemoveJob(job.ID())
 		delete(js.jobMap, jobKey)
@@ -133,7 +143,8 @@ func (js *JobScheduler) scheduleJobAt(job model.Job, at time.Time) {
 	js.mu.Lock()
 	defer js.mu.Unlock()
 
-	jobKey := js.getJobKey(job.JobID, job.JobType)
+	// 按行 ID 键控：重复任务的每一行是独立的执行实例，删除/更新该行才能正确取消调度
+	jobKey := js.getJobKey(job.ID, job.JobType)
 
 	// 如果已有任务，先移除
 	if existingJob, ok := js.jobMap[jobKey]; ok {
@@ -181,8 +192,16 @@ func (js *JobScheduler) executeJob(job model.Job) {
 		return
 	}
 
-	// 执行回调
-	if err := callback(job); err != nil {
+	// 执行回调（panic 保护，避免协程崩溃拖垮整个进程）
+	err := func() (cbErr error) {
+		defer func() {
+			if r := recover(); r != nil {
+				cbErr = fmt.Errorf("任务执行 panic: %v", r)
+			}
+		}()
+		return callback(job)
+	}()
+	if err != nil {
 		js.handleJobError(job, err)
 		return
 	}
@@ -193,7 +212,7 @@ func (js *JobScheduler) executeJob(job model.Job) {
 
 	// 从内存中移除
 	js.mu.Lock()
-	jobKey := js.getJobKey(job.JobID, job.JobType)
+	jobKey := js.getJobKey(job.ID, job.JobType)
 	delete(js.jobMap, jobKey)
 	js.mu.Unlock()
 
@@ -208,18 +227,18 @@ func (js *JobScheduler) handleJobError(job model.Job, err error) {
 
 	// 检查是否需要重试
 	if job.RetryCount < job.MaxRetries {
-		// 更新重试次数和错误信息
+		// 更新重试次数和错误信息（retry_count 原子递增，避免并发回退）
 		DB.Model(&model.Job{}).Where("id = ?", job.ID).Updates(map[string]interface{}{
-			"retry_count": job.RetryCount + 1,
+			"retry_count": gorm.Expr("retry_count + 1"),
 			"last_error":  err.Error(),
 			"status":      model.JobStatusPending,
 		})
 
-	// 重新调度（延迟重试），不修改 ScheduledAt，保证重复周期基于原计划时间计算
-	job.RetryCount++
-	job.Status = model.JobStatusPending
-	retryAt := time.Now().Add(time.Duration(job.RetryCount) * time.Minute)
-	js.scheduleJobAt(job, retryAt)
+		// 重新调度（延迟重试），不修改 ScheduledAt，保证重复周期基于原计划时间计算
+		job.RetryCount++
+		job.Status = model.JobStatusPending
+		retryAt := time.Now().Add(time.Duration(job.RetryCount) * time.Minute)
+		js.scheduleJobAt(job, retryAt)
 	} else {
 		// 超过最大重试次数，标记为失败
 		DB.Model(&model.Job{}).Where("id = ?", job.ID).Updates(map[string]interface{}{
@@ -248,11 +267,20 @@ func (js *JobScheduler) createNextRepeat(job model.Job) {
 		return
 	}
 
+	// 同链已有未来的待执行任务时不再创建，防止重复生成
+	var pendingCount int64
+	DB.Model(&model.Job{}).Where("job_type = ? AND job_id = ? AND status = ? AND scheduled_at > ? AND id <> ?",
+		job.JobType, job.JobID, model.JobStatusPending, time.Now(), job.ID).Count(&pendingCount)
+	if pendingCount > 0 {
+		return
+	}
+
 	newJob := model.Job{
 		JobType:        job.JobType,
 		JobID:          job.JobID,
 		UserID:         job.UserID,
 		ScheduledAt:    nextAt,
+		AdvanceMinutes: job.AdvanceMinutes,
 		Status:         model.JobStatusPending,
 		MaxRetries:     3,
 		Params:         job.Params,
@@ -281,10 +309,21 @@ func calcNextTime(at time.Time, repeatType string, interval int) time.Time {
 	case "weekly":
 		return at.AddDate(0, 0, 7*interval)
 	case "monthly":
-		return at.AddDate(0, interval, 0)
+		return addMonthsSameDay(at, interval)
 	case "yearly":
-		return at.AddDate(interval, 0, 0)
+		return addMonthsSameDay(at, 12*interval)
 	default:
 		return time.Time{}
 	}
+}
+
+// addMonthsSameDay 按月推进并保持"日"不变；目标月份没有该日（如 1月31日、2月29日）时跳到下一个月的同一天
+func addMonthsSameDay(at time.Time, months int) time.Time {
+	next := at.AddDate(0, months, 0)
+	// AddDate 会把溢出的日归一化到下个月（如 1月31日+1月=3月2日），此处检测并跳到下一个存在该日的月份
+	for i := 0; next.Day() != at.Day() && i < 12; i++ {
+		months++
+		next = at.AddDate(0, months, 0)
+	}
+	return next
 }

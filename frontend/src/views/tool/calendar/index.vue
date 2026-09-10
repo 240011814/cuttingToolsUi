@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue';
-import { useMessage, useDialog } from 'naive-ui';
+import { ref, computed, watch, onMounted, h } from 'vue';
+import { useMessage, useDialog, NButton, NSpace } from 'naive-ui';
 import type { FormInst } from 'naive-ui';
 import {
   fetchGetReminders,
@@ -134,19 +134,63 @@ async function handleSubmit() {
   }
 }
 
+async function doDelete(id: number, scope: 'this' | 'all') {
+  const { error } = await fetchDeleteReminder(id, scope);
+  if (!error) {
+    message.success('删除成功');
+    loadReminders();
+  }
+}
+
 function handleDelete(reminder: Reminder) {
-  dialog.warning({
+  if (reminder.repeatType === 'none') {
+    dialog.warning({
+      title: '确认删除',
+      content: `确定要删除备忘「${reminder.params.title}」吗？`,
+      positiveText: '删除',
+      negativeText: '取消',
+      onPositiveClick: () => doDelete(reminder.id, 'this')
+    });
+    return;
+  }
+
+  const d = dialog.warning({
     title: '确认删除',
-    content: `确定要删除备忘「${reminder.params.title}」吗？`,
-    positiveText: '删除',
-    negativeText: '取消',
-    onPositiveClick: async () => {
-      const { error } = await fetchDeleteReminder(reminder.id);
-      if (!error) {
-        message.success('删除成功');
-        loadReminders();
-      }
-    },
+    content: `「${reminder.params.title}」是重复提醒，请选择删除范围：`,
+    action: () =>
+      h(NSpace, { justify: 'end' }, {
+        default: () => [
+          h(
+            NButton,
+            { size: 'small', onClick: () => d.destroy() },
+            { default: () => '取消' }
+          ),
+          h(
+            NButton,
+            {
+              size: 'small',
+              type: 'primary',
+              onClick: () => {
+                d.destroy();
+                doDelete(reminder.id, 'this');
+              }
+            },
+            { default: () => '仅删除此条' }
+          ),
+          h(
+            NButton,
+            {
+              size: 'small',
+              type: 'error',
+              onClick: () => {
+                d.destroy();
+                doDelete(reminder.id, 'all');
+              }
+            },
+            { default: () => '删除全部' }
+          )
+        ]
+      })
   });
 }
 

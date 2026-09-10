@@ -107,7 +107,13 @@ func (h *ReminderHandler) Delete(c *gin.Context) {
 		return
 	}
 
-	if err := h.reminderSvc.Delete(userID, uint(id)); err != nil {
+	// scope: this 仅删除当前条目（默认），all 删除整条重复链
+	scope := c.DefaultQuery("scope", "this")
+	if scope != "this" && scope != "all" {
+		scope = "this"
+	}
+
+	if err := h.reminderSvc.Delete(userID, uint(id), scope); err != nil {
 		SendError(c, "500", err.Error())
 		return
 	}

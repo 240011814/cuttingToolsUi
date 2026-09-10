@@ -136,6 +136,10 @@ func (s *ReminderService) Update(userID, id uint, req model.UpdateReminderReques
 		updates["repeat_interval"] = req.RepeatInterval
 	}
 	updates["repeat_end_at"] = req.RepeatEndAt
+	// 重新调度时重置重试状态，保证新任务有完整的重试机会
+	updates["retry_count"] = 0
+	updates["last_error"] = ""
+	updates["status"] = model.JobStatusPending
 
 	if err := DB.Model(&job).Updates(updates).Error; err != nil {
 		return nil, errors.New("更新备忘失败: " + err.Error())
@@ -144,17 +148,122 @@ func (s *ReminderService) Update(userID, id uint, req model.UpdateReminderReques
 	DB.First(&job, job.ID)
 
 	s.jobScheduler.UnscheduleJob(job.ID, model.JobTypeReminder)
+
 	if job.ScheduledAt.Before(time.Now()) {
+		// 编辑为过期时间：先清理链上其它待执行任务，再基于新时间重新生成，
+		// 避免每次编辑都通过 createNextRepeat 追加一条
+		s.deletePendingChainJobs(userID, job.JobID, job.ID)
 		// 过期任务不补发
 		s.jobScheduler.skipExpiredJob(job)
-	} else {
-		s.jobScheduler.scheduleJob(job)
+		return &job, nil
 	}
+
+	// 同步更新到重复链上的其它待执行任务
+	s.syncChainJobs(userID, job, paramsJSON, req)
+	s.jobScheduler.scheduleJob(job)
 
 	return &job, nil
 }
 
-func (s *ReminderService) Delete(userID, id uint) error {
+// deletePendingChainJobs 删除同 job_id 链上除 excludeID 外的所有待执行任务
+func (s *ReminderService) deletePendingChainJobs(userID, jobID, excludeID uint) {
+	var rows []model.Job
+	if err := DB.Where("user_id = ? AND job_type = ? AND job_id = ? AND status = ? AND id <> ?",
+		userID, model.JobTypeReminder, jobID, model.JobStatusPending, excludeID).Find(&rows).Error; err != nil {
+		return
+	}
+	if len(rows) == 0 {
+		return
+	}
+	DB.Where("user_id = ? AND job_type = ? AND job_id = ? AND status = ? AND id <> ?",
+		userID, model.JobTypeReminder, jobID, model.JobStatusPending, excludeID).Delete(&model.Job{})
+	for _, row := range rows {
+		s.jobScheduler.UnscheduleJob(row.ID, model.JobTypeReminder)
+	}
+}
+
+// syncChainJobs 将更新同步到同 job_id 的其它待执行任务：
+// 标题/内容/重复配置全量同步；若修改了提醒时间，其它任务保留各自日期、仅同步时刻
+func (s *ReminderService) syncChainJobs(userID uint, job model.Job, paramsJSON []byte, req model.UpdateReminderRequest) {
+	var rows []model.Job
+	if err := DB.Where("user_id = ? AND job_type = ? AND job_id = ? AND status = ? AND id <> ?",
+		userID, model.JobTypeReminder, job.JobID, model.JobStatusPending, job.ID).Find(&rows).Error; err != nil {
+		return
+	}
+
+	for _, row := range rows {
+		updates := map[string]interface{}{
+			"params":      paramsJSON,
+			"retry_count": 0,
+			"last_error":  "",
+		}
+		if req.AdvanceMinutes != nil {
+			advanceMinutes := *req.AdvanceMinutes
+			if advanceMinutes < 0 {
+				advanceMinutes = 0
+			}
+			updates["advance_minutes"] = advanceMinutes
+		}
+		if req.RepeatType != "" {
+			updates["repeat_type"] = req.RepeatType
+		}
+		if req.RepeatInterval > 0 {
+			updates["repeat_interval"] = req.RepeatInterval
+		}
+		updates["repeat_end_at"] = req.RepeatEndAt
+
+		if !req.RemindAt.IsZero() {
+			t := req.RemindAt.In(row.ScheduledAt.Location())
+			updates["scheduled_at"] = time.Date(
+				row.ScheduledAt.Year(), row.ScheduledAt.Month(), row.ScheduledAt.Day(),
+				t.Hour(), t.Minute(), t.Second(), 0, row.ScheduledAt.Location(),
+			)
+		}
+
+		if err := DB.Model(&row).Updates(updates).Error; err != nil {
+			log.Printf("[ReminderService] 同步重复链任务 %d 失败: %v", row.ID, err)
+			continue
+		}
+		DB.First(&row, row.ID)
+
+		s.jobScheduler.UnscheduleJob(row.ID, model.JobTypeReminder)
+
+		// 同步后超出重复结束时间的任务直接删除
+		if row.RepeatEndAt != nil && row.ScheduledAt.After(*row.RepeatEndAt) {
+			DB.Delete(&row)
+			continue
+		}
+
+		if row.ScheduledAt.Before(time.Now()) {
+			s.jobScheduler.skipExpiredJob(row)
+		} else {
+			s.jobScheduler.scheduleJob(row)
+		}
+	}
+}
+
+// Delete 删除备忘
+// scope: "this" 仅删除当前条目；"all" 删除同 job_id 的整条重复链
+func (s *ReminderService) Delete(userID, id uint, scope string) error {
+	var job model.Job
+	if err := DB.Where("user_id = ? AND id = ? AND job_type = ?", userID, id, model.JobTypeReminder).First(&job).Error; err != nil {
+		return errors.New("备忘不存在")
+	}
+
+	if scope == "all" && job.JobID != 0 {
+		var rows []model.Job
+		if err := DB.Where("user_id = ? AND job_type = ? AND job_id = ?", userID, model.JobTypeReminder, job.JobID).Find(&rows).Error; err != nil {
+			return err
+		}
+		if err := DB.Where("user_id = ? AND job_type = ? AND job_id = ?", userID, model.JobTypeReminder, job.JobID).Delete(&model.Job{}).Error; err != nil {
+			return err
+		}
+		for _, row := range rows {
+			s.jobScheduler.UnscheduleJob(row.ID, model.JobTypeReminder)
+		}
+		return nil
+	}
+
 	result := DB.Where("user_id = ? AND id = ? AND job_type = ?", userID, id, model.JobTypeReminder).Delete(&model.Job{})
 	if result.Error != nil {
 		return result.Error

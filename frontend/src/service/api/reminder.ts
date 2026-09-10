@@ -52,6 +52,6 @@ export function fetchUpdateReminder(id: number, data: UpdateReminderParams) {
   return request<Reminder>({ url: `/api/reminders/${id}`, method: 'put', data });
 }
 
-export function fetchDeleteReminder(id: number) {
-  return request({ url: `/api/reminders/${id}`, method: 'delete' });
+export function fetchDeleteReminder(id: number, scope: 'this' | 'all' = 'this') {
+  return request({ url: `/api/reminders/${id}`, method: 'delete', params: { scope } });
 }
