@@ -39,8 +39,8 @@ func (s *StockService) Screen(req model.StockScreenRequest) (*model.StockScreenR
 			CASE WHEN sf.bps != 0 THEN ROUND(sd.close / sf.bps, 2) ELSE NULL END AS pb,
 			sf.roe, sf.revenue_yoy, sf.net_profit_yoy,
 			sf.gross_margin, sf.net_margin, sf.debt_ratio, sf.current_ratio, sf.quick_ratio`).
-		Joins(`LEFT JOIN stock_daily AS sd ON sd.code = si.code AND sd.trade_date = (
-			SELECT MAX(trade_date) FROM stock_daily WHERE code = si.code
+		Joins(`LEFT JOIN stock_daily AS sd ON sd.code = si.code AND sd.frequency = 'daily' AND sd.trade_date = (
+			SELECT MAX(trade_date) FROM stock_daily WHERE code = si.code AND frequency = 'daily'
 		)`).
 		Joins(`LEFT JOIN stock_finance AS sf ON sf.code = si.code AND sf.report_date = (
 			SELECT MAX(report_date) FROM stock_finance WHERE code = si.code
@@ -258,12 +258,12 @@ func senrichTechIndicators(list []model.StockScreenResult, codes []string) {
 	// 简化实现：直接从stock_daily取最近的数据
 	DB.Raw(`
 		SELECT code,
-			(SELECT close FROM stock_daily WHERE code = sd.code ORDER BY trade_date DESC LIMIT 1) AS ma5,
-			(SELECT close FROM stock_daily WHERE code = sd.code ORDER BY trade_date DESC LIMIT 1) AS ma10,
-			(SELECT close FROM stock_daily WHERE code = sd.code ORDER BY trade_date DESC LIMIT 1) AS ma20,
-			(SELECT close FROM stock_daily WHERE code = sd.code ORDER BY trade_date DESC LIMIT 1) AS ma60
+			(SELECT close FROM stock_daily WHERE code = sd.code AND frequency = 'daily' ORDER BY trade_date DESC LIMIT 1) AS ma5,
+			(SELECT close FROM stock_daily WHERE code = sd.code AND frequency = 'daily' ORDER BY trade_date DESC LIMIT 1) AS ma10,
+			(SELECT close FROM stock_daily WHERE code = sd.code AND frequency = 'daily' ORDER BY trade_date DESC LIMIT 1) AS ma20,
+			(SELECT close FROM stock_daily WHERE code = sd.code AND frequency = 'daily' ORDER BY trade_date DESC LIMIT 1) AS ma60
 		FROM stock_daily sd
-		WHERE code IN ?
+		WHERE code IN ? AND sd.frequency = 'daily'
 		GROUP BY code
 	`, codes).Find(&techResults)
 
@@ -351,8 +351,8 @@ func (s *StockService) GetDetail(code string) (*model.StockScreenResult, error) 
 			CASE WHEN sf.bps != 0 THEN ROUND(sd.close / sf.bps, 2) ELSE NULL END AS pb,
 			sf.roe, sf.revenue_yoy, sf.net_profit_yoy,
 			sf.gross_margin, sf.net_margin, sf.debt_ratio, sf.current_ratio, sf.quick_ratio`).
-		Joins(`LEFT JOIN stock_daily AS sd ON sd.code = si.code AND sd.trade_date = (
-			SELECT MAX(trade_date) FROM stock_daily WHERE code = si.code
+		Joins(`LEFT JOIN stock_daily AS sd ON sd.code = si.code AND sd.frequency = 'daily' AND sd.trade_date = (
+			SELECT MAX(trade_date) FROM stock_daily WHERE code = si.code AND frequency = 'daily'
 		)`).
 		Joins(`LEFT JOIN stock_finance AS sf ON sf.code = si.code AND sf.report_date = (
 			SELECT MAX(report_date) FROM stock_finance WHERE code = si.code
@@ -413,14 +413,19 @@ func (s *StockService) GetFinanceHistory(code string, limit int) ([]model.StockF
 	return finances, nil
 }
 
-// GetKline 获取K线数据
+// GetKline 获取K线数据 (period: daily/weekly/monthly)
 func (s *StockService) GetKline(code string, period string, count int) ([]map[string]interface{}, error) {
 	if count <= 0 || count > 500 {
 		count = 120
 	}
 
+	frequency := strings.ToLower(period)
+	if frequency != "weekly" && frequency != "monthly" {
+		frequency = "daily"
+	}
+
 	var dailies []model.StockDaily
-	err := DB.Where("code = ?", code).
+	err := DB.Where("code = ? AND frequency = ?", code, frequency).
 		Order("trade_date DESC").
 		Limit(count).
 		Find(&dailies).Error

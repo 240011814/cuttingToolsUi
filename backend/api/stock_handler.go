@@ -3,8 +3,9 @@ package api
 import (
 	"backend/model"
 	"backend/service"
-	"log"
+	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -212,21 +213,26 @@ func (h *StockHandler) HandleDeleteWatchlist(c *gin.Context) {
 
 // HandleSyncStockList 同步股票列表
 func (h *StockHandler) HandleSyncStockList(c *gin.Context) {
-	go func() {
-		if err := h.syncService.SyncStockList(); err != nil {
-			log.Printf("同步股票列表失败: %v", err)
-		}
-	}()
+	if !h.syncService.StartTask("股票列表", h.syncService.SyncStockList) {
+		SendError(c, "409", "已有同步任务在运行中，请稍后再试")
+		return
+	}
 	SendSuccess(c, true)
 }
 
-// HandleSyncDailyQuotes 同步行情数据(全量)
+// HandleSyncDailyQuotes 同步行情数据(日/周/月K线, 增量; ?force=1 全量)
 func (h *StockHandler) HandleSyncDailyQuotes(c *gin.Context) {
-	go func() {
-		if err := h.syncService.SyncDailyQuotes(); err != nil {
-			log.Printf("同步行情数据失败: %v", err)
-		}
-	}()
+	force := c.Query("force") == "1"
+	task := "行情数据"
+	if force {
+		task = "行情数据(全量)"
+	}
+	if !h.syncService.StartTask(task, func() error {
+		return h.syncService.SyncDailyQuotes(force)
+	}) {
+		SendError(c, "409", "已有同步任务在运行中，请稍后再试")
+		return
+	}
 	SendSuccess(c, true)
 }
 
@@ -237,20 +243,46 @@ func (h *StockHandler) HandleSyncSingleStock(c *gin.Context) {
 		SendError(c, "400", "股票代码不能为空")
 		return
 	}
+	market := c.Query("market")
+	force := c.Query("force") == "1"
 
-	go func() {
-		if err := h.syncService.SyncSingleStockDaily(code); err != nil {
-			log.Printf("同步 %s 行情失败: %v", code, err)
+	task := fmt.Sprintf("单股同步(%s)", code)
+	fn := func() error {
+		starts := map[string]time.Time{}
+		var latestTradeDay time.Time
+		if !force {
+			starts = h.syncService.GetStoredKlineStarts(code)
+			latestTradeDay = h.syncService.LatestTradeDay()
 		}
-		time.Sleep(80 * time.Millisecond)
-		if err := h.syncService.SyncFinanceData(code); err != nil {
-			log.Printf("同步 %s 财务失败: %v", code, err)
+		kRows, kErr := h.syncService.SyncSingleStockDaily(code, market, starts, latestTradeDay)
+		fRows, fErr := h.syncService.SyncFinanceData(code, market)
+
+		var errs []string
+		if kErr != nil {
+			errs = append(errs, "行情: "+kErr.Error())
 		}
-	}()
+		if fErr != nil {
+			errs = append(errs, "财务: "+fErr.Error())
+		}
+		if len(errs) > 0 {
+			return fmt.Errorf("%s", strings.Join(errs, "; "))
+		}
+		if kRows == 0 && fRows == 0 {
+			// 库里已有数据说明只是无新增(已是最新), 库里完全没有才是异常
+			if !h.syncService.HasStoredStockData(code) {
+				return fmt.Errorf("未获取到 %s 的任何数据, 该股票可能已退市或长期停牌", code)
+			}
+		}
+		return nil
+	}
+	if !h.syncService.StartTask(task, fn) {
+		SendError(c, "409", "已有同步任务在运行中，请稍后再试")
+		return
+	}
 	SendSuccess(c, true)
 }
 
-// HandleSyncFinanceData 同步财务数据
+// HandleSyncFinanceData 同步单只股票财务数据
 func (h *StockHandler) HandleSyncFinanceData(c *gin.Context) {
 	code := c.Query("code")
 	if code == "" {
@@ -258,54 +290,18 @@ func (h *StockHandler) HandleSyncFinanceData(c *gin.Context) {
 		return
 	}
 
-	go func() {
-		if err := h.syncService.SyncFinanceData(code); err != nil {
-			log.Printf("同步财务数据失败: %v", err)
-		}
-	}()
+	task := fmt.Sprintf("财务同步(%s)", code)
+	if !h.syncService.StartTask(task, func() error {
+		_, err := h.syncService.SyncFinanceData(code, c.Query("market"))
+		return err
+	}) {
+		SendError(c, "409", "已有同步任务在运行中，请稍后再试")
+		return
+	}
 	SendSuccess(c, true)
 }
 
-// HandleRealtimeKline 获取实时K线数据（直接调第三方API）
-func (h *StockHandler) HandleRealtimeKline(c *gin.Context) {
-	code := c.Param("code")
-	if code == "" {
-		SendError(c, "400", "股票代码不能为空")
-		return
-	}
-
-	data, err := h.syncService.FetchRealtimeKline(code)
-	if err != nil {
-		SendError(c, "500", "获取数据失败: "+err.Error())
-		return
-	}
-
-	SendSuccess(c, data)
-}
-
-// HandleRealtimeQuote 获取实时行情（直接调第三方API）
-func (h *StockHandler) HandleRealtimeQuote(c *gin.Context) {
-	code := c.Param("code")
-	if code == "" {
-		SendError(c, "400", "股票代码不能为空")
-		return
-	}
-
-	data, err := h.syncService.FetchRealtimeQuote(code)
-	if err != nil {
-		SendError(c, "500", "获取数据失败: "+err.Error())
-		return
-	}
-
-	SendSuccess(c, data)
-}
-
-// HandleSyncConcepts 同步概念板块
-func (h *StockHandler) HandleSyncConcepts(c *gin.Context) {
-	go func() {
-		if err := h.syncService.SyncConcepts(); err != nil {
-			log.Printf("同步概念板块失败: %v", err)
-		}
-	}()
-	SendSuccess(c, true)
+// HandleSyncStatus 获取同步任务状态
+func (h *StockHandler) HandleSyncStatus(c *gin.Context) {
+	SendSuccess(c, h.syncService.GetStatus())
 }

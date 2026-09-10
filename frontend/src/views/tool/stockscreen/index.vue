@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted, h } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, h } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMessage, NButton } from 'naive-ui'
 import { useAuth } from '@/hooks/business/auth'
@@ -13,7 +13,7 @@ import {
   addWatchlist,
   syncStockList,
   syncDailyQuotes,
-  syncConcepts
+  fetchSyncStatus
 } from '@/service/api'
 
 defineOptions({ name: 'ToolStockscreen' })
@@ -289,43 +289,84 @@ async function handleDeleteFilter(id: number) {
 }
 
 const syncLoading = ref(false)
-async function handleSyncAll() {
-  syncLoading.value = true
-  try {
-    await syncStockList()
-    message.success('股票列表同步已启动，请稍候刷新数据')
-    // 延迟后自动刷新
-    setTimeout(() => doScreen(), 3000)
-  } catch (e: any) {
-    message.error(e.message || '同步失败')
-  } finally {
-    syncLoading.value = false
+const syncRunning = ref(false)
+const syncTaskLabel = ref('')
+const syncProgressText = ref('')
+let syncPollTimer: ReturnType<typeof setInterval> | null = null
+
+function stopSyncPolling() {
+  if (syncPollTimer) {
+    clearInterval(syncPollTimer)
+    syncPollTimer = null
   }
 }
 
-async function handleSyncQuotes() {
-  syncLoading.value = true
-  try {
-    await syncDailyQuotes()
-    message.success('行情数据同步已启动')
-    setTimeout(() => doScreen(), 5000)
-  } catch (e: any) {
-    message.error(e.message || '同步失败')
-  } finally {
-    syncLoading.value = false
-  }
+function startSyncPolling(onDone?: () => void) {
+  stopSyncPolling()
+  syncRunning.value = true
+  let pendingConfirm = true
+  syncPollTimer = setInterval(async () => {
+    try {
+      const { data } = await fetchSyncStatus()
+      if (!data) return
+      if (data.running) {
+        pendingConfirm = false
+        syncTaskLabel.value = data.task
+        syncProgressText.value = data.total > 0 ? ` (${data.progress}/${data.total})` : ''
+        return
+      }
+      if (pendingConfirm) {
+        pendingConfirm = false
+        return
+      }
+      stopSyncPolling()
+      syncRunning.value = false
+      syncProgressText.value = ''
+      if (data.lastError) {
+        message.error(`同步失败: ${data.lastError}`)
+      } else if (onDone) {
+        onDone()
+      }
+    } catch {
+      // ignore
+    }
+  }, 3000)
 }
 
-async function handleSyncConcepts() {
+async function triggerSync(apiFn: () => Promise<{ error: any }>, label: string, onDone: () => void) {
+  if (syncRunning.value || syncLoading.value) return
   syncLoading.value = true
-  try {
-    await syncConcepts()
-    message.success('概念板块同步已启动')
-  } catch (e: any) {
-    message.error(e.message || '同步失败')
-  } finally {
-    syncLoading.value = false
+  const { error } = await apiFn()
+  syncLoading.value = false
+  if (error) {
+    message.warning(error.message || `${label}启动失败`)
+    startSyncPolling(onDone)
+    return
   }
+  message.success(`${label}已启动，完成后自动刷新`)
+  startSyncPolling(onDone)
+}
+
+function handleSyncAll() {
+  triggerSync(
+    syncStockList,
+    '股票列表同步',
+    () => {
+      message.success('股票列表同步完成')
+      doScreen()
+    }
+  )
+}
+
+function handleSyncQuotes() {
+  triggerSync(
+    syncDailyQuotes,
+    '行情数据同步',
+    () => {
+      message.success('行情数据同步完成')
+      doScreen()
+    }
+  )
 }
 
 onMounted(async () => {
@@ -342,6 +383,20 @@ onMounted(async () => {
   }
   loadSavedFilters()
   doScreen()
+
+  try {
+    const { data } = await fetchSyncStatus()
+    if (data?.running) {
+      message.info('检测到同步任务正在运行')
+      startSyncPolling()
+    }
+  } catch {
+    // ignore
+  }
+})
+
+onUnmounted(() => {
+  stopSyncPolling()
 })
 </script>
 
@@ -459,9 +514,11 @@ onMounted(async () => {
       <div v-if="hasAuth('stock:sync:execute')" class="mt-4 pt-4 border-t border-gray-200">
         <h3 class="text-sm font-bold mb-2">数据同步</h3>
         <div class="space-y-2">
-          <NButton size="small" block :loading="syncLoading" @click="handleSyncAll">同步股票列表</NButton>
-          <NButton size="small" block :loading="syncLoading" @click="handleSyncQuotes">同步行情数据</NButton>
-          <NButton size="small" block :loading="syncLoading" @click="handleSyncConcepts">同步概念板块</NButton>
+          <NButton size="small" block :loading="syncLoading || syncRunning" :disabled="syncRunning" @click="handleSyncAll">同步股票列表</NButton>
+          <NButton size="small" block :loading="syncLoading || syncRunning" :disabled="syncRunning" @click="handleSyncQuotes">同步行情数据</NButton>
+        </div>
+        <div v-if="syncRunning" class="mt-2 text-12px text-gray-400">
+          {{ syncTaskLabel }}同步中{{ syncProgressText }}，请稍候...
         </div>
       </div>
 

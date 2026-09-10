@@ -118,27 +118,27 @@ export function syncDailyQuotes() {
 }
 
 /** 同步财务数据 */
-export function syncFinanceData(code: string) {
+export function syncFinanceData(code: string, market?: string) {
   return request<boolean>({
     url: '/api/stock/sync/finance',
     method: 'post',
-    params: { code }
-  })
-}
-
-/** 同步概念板块 */
-export function syncConcepts() {
-  return request<boolean>({
-    url: '/api/stock/sync/concepts',
-    method: 'post'
+    params: { code, market }
   })
 }
 
 /** 同步单只股票(行情+财务) */
-export function syncSingleStock(code: string) {
+export function syncSingleStock(code: string, market?: string) {
   return request<boolean>({
     url: '/api/stock/sync/single',
     method: 'post',
-    params: { code }
+    params: { code, market }
+  })
+}
+
+/** 查询同步任务状态 */
+export function fetchSyncStatus() {
+  return request<Api.Stock.SyncStatus>({
+    url: '/api/stock/sync/status',
+    method: 'get'
   })
 }

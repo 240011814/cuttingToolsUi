@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref, onMounted, computed, watch, nextTick } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { stockDetail, stockKline, stockFinanceHistory, addWatchlist, syncSingleStock } from '@/service/api'
+import { stockDetail, stockKline, stockFinanceHistory, addWatchlist, syncSingleStock, fetchSyncStatus } from '@/service/api'
 import { useMessage, NButton, NDataTable, NTag, NSpin, NTabs, NTabPane } from 'naive-ui'
 import * as echarts from 'echarts'
 
@@ -74,17 +74,66 @@ async function handleAddWatchlist() {
 }
 
 const syncLoading = ref(false)
-async function handleSync() {
-  syncLoading.value = true
-  try {
-    await syncSingleStock(code.value)
-    message.success('同步成功')
-    loadDetail()
-  } catch (e: any) {
-    message.error(e.message || '同步失败')
-  } finally {
-    syncLoading.value = false
+const syncRunning = ref(false)
+let syncPollTimer: ReturnType<typeof setInterval> | null = null
+
+function stopSyncPolling() {
+  if (syncPollTimer) {
+    clearInterval(syncPollTimer)
+    syncPollTimer = null
   }
+  syncRunning.value = false
+}
+
+function waitForSyncDone(onDone: () => void) {
+  stopSyncPolling()
+  syncRunning.value = true
+  let runningSeen = false
+  let ticks = 0
+  syncPollTimer = setInterval(async () => {
+    ticks++
+    if (ticks > 100) {
+      stopSyncPolling()
+      onDone()
+      return
+    }
+    try {
+      const { data } = await fetchSyncStatus()
+      if (!data) return
+      if (data.running) {
+        runningSeen = true
+        return
+      }
+      if (!runningSeen) {
+        runningSeen = true
+        return
+      }
+      stopSyncPolling()
+      if (data.lastError) {
+        message.error(`同步失败: ${data.lastError}`)
+      }
+      onDone()
+    } catch {
+      // ignore
+    }
+  }, 3000)
+}
+
+async function handleSync() {
+  if (syncLoading.value || syncRunning.value) return
+  syncLoading.value = true
+  const { error } = await syncSingleStock(code.value, detail.value?.market || '')
+  syncLoading.value = false
+  if (error) {
+    message.warning(error.message || '同步启动失败，可能有其他同步任务在运行')
+    waitForSyncDone(() => loadDetail())
+    return
+  }
+  message.loading('正在同步最新数据，请稍候...')
+  waitForSyncDone(() => {
+    message.success('同步完成')
+    loadDetail()
+  })
 }
 
 function goBack() {
@@ -281,6 +330,21 @@ watch(klineData, () => {
 
 onMounted(() => {
   loadDetail()
+
+  fetchSyncStatus()
+    .then(({ data }) => {
+      if (data?.running) {
+        message.info('检测到同步任务正在运行，完成后将自动刷新')
+        waitForSyncDone(() => loadDetail())
+      }
+    })
+    .catch(() => {
+      // ignore
+    })
+})
+
+onUnmounted(() => {
+  stopSyncPolling()
 })
 </script>
 
@@ -293,9 +357,9 @@ onMounted(() => {
         返回筛选
       </NButton>
       <div class="flex gap-2">
-        <NButton :loading="syncLoading" @click="handleSync">
+        <NButton type="primary" :loading="syncLoading || syncRunning" :disabled="syncRunning" @click="handleSync">
           <template #icon><span class="i-mdi:refresh" /></template>
-          同步最新
+          {{ syncRunning ? '同步中...' : '同步最新' }}
         </NButton>
         <NButton type="primary" @click="handleAddWatchlist">加自选</NButton>
       </div>

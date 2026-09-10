@@ -296,8 +296,6 @@ func main() {
 			stockGroup.GET("/:code", stockHandler.HandleGetDetail)
 			stockGroup.GET("/:code/kline", stockHandler.HandleGetKline)
 			stockGroup.GET("/:code/finance-history", stockHandler.HandleGetFinanceHistory)
-			stockGroup.GET("/:code/realtime-kline", stockHandler.HandleRealtimeKline)
-			stockGroup.GET("/:code/realtime-quote", stockHandler.HandleRealtimeQuote)
 
 			// 筛选条件管理
 			stockGroup.POST("/filters", api.RequirePermission("stock:screen:save"), stockHandler.HandleSaveFilterCondition)
@@ -313,7 +311,8 @@ func main() {
 			stockGroup.POST("/sync/stock-list", api.RequirePermission("stock:sync:execute"), stockHandler.HandleSyncStockList)
 			stockGroup.POST("/sync/daily-quotes", api.RequirePermission("stock:sync:execute"), stockHandler.HandleSyncDailyQuotes)
 			stockGroup.POST("/sync/single", api.RequirePermission("stock:sync:execute"), stockHandler.HandleSyncSingleStock)
-			stockGroup.POST("/sync/concepts", api.RequirePermission("stock:sync:execute"), stockHandler.HandleSyncConcepts)
+			stockGroup.POST("/sync/finance", api.RequirePermission("stock:sync:execute"), stockHandler.HandleSyncFinanceData)
+			stockGroup.GET("/sync/status", stockHandler.HandleSyncStatus)
 		}
 
 		// Lottery Admin APIs (需要登录+权限)

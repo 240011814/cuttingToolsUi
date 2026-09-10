@@ -27,10 +27,11 @@ func (StockInfo) TableName() string {
 	return "stock_info"
 }
 
-// StockDaily 股票日行情
+// StockDaily 股票K线 (frequency: daily/weekly/monthly)
 type StockDaily struct {
 	ID           uint       `gorm:"primaryKey;autoIncrement" json:"id"`
 	Code         string     `gorm:"size:10;not null" json:"code"`
+	Frequency    string     `gorm:"size:10;not null;default:daily" json:"frequency"`
 	TradeDate    time.Time  `gorm:"not null" json:"tradeDate"`
 	Open         *float64   `json:"open"`
 	High         *float64   `json:"high"`

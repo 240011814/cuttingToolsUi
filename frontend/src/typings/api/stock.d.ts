@@ -112,5 +112,15 @@ declare namespace Api {
       note: string
       createdAt: string
     }
+
+    interface SyncStatus {
+      running: boolean
+      task: string
+      startedAt: string
+      finishedAt: string
+      lastError: string
+      progress: number
+      total: number
+    }
   }
 }
