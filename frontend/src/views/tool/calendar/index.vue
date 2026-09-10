@@ -207,26 +207,6 @@ function getRepeatLabel(type: string) {
   return repeatOptions.find((o) => o.value === type)?.label || '不重复';
 }
 
-function getStatusLabel(status: string) {
-  const map: Record<string, string> = {
-    pending: '待执行',
-    running: '执行中',
-    completed: '已完成',
-    failed: '已失败',
-  };
-  return map[status] || status;
-}
-
-function getStatusType(status: string) {
-  const map: Record<string, 'warning' | 'info' | 'success' | 'error'> = {
-    pending: 'warning',
-    running: 'info',
-    completed: 'success',
-    failed: 'error',
-  };
-  return map[status] || 'default';
-}
-
 onMounted(() => {
   loadReminders();
 });
@@ -304,8 +284,8 @@ onMounted(() => {
                 <div class="flex-1 min-w-0">
                   <div class="flex items-center gap-2">
                     <span class="font-bold text-15px truncate">{{ item.params.title }}</span>
-                    <NTag v-if="item.status !== 'pending'" size="tiny" :type="getStatusType(item.status)" :bordered="false">
-                      {{ getStatusLabel(item.status) }}
+                    <NTag v-if="item.status === 'completed'" size="tiny" type="success" :bordered="false">
+                      已通知
                     </NTag>
                   </div>
                   <div v-if="item.params.content" class="text-gray-500 mt-1 text-13px line-clamp-2">{{ item.params.content }}</div>

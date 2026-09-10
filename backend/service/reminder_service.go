@@ -136,16 +136,24 @@ func (s *ReminderService) Update(userID, id uint, req model.UpdateReminderReques
 		updates["repeat_interval"] = req.RepeatInterval
 	}
 	updates["repeat_end_at"] = req.RepeatEndAt
-	// 重新调度时重置重试状态，保证新任务有完整的重试机会
-	updates["retry_count"] = 0
-	updates["last_error"] = ""
-	updates["status"] = model.JobStatusPending
+	// 已通知的任务不重置状态，避免编辑后重复通知；仅 failed/pending 任务重置重试状态
+	if job.Status != model.JobStatusCompleted {
+		updates["retry_count"] = 0
+		updates["last_error"] = ""
+		updates["status"] = model.JobStatusPending
+	}
 
 	if err := DB.Model(&job).Updates(updates).Error; err != nil {
 		return nil, errors.New("更新备忘失败: " + err.Error())
 	}
 
 	DB.First(&job, job.ID)
+
+	// 已通知的任务仅同步内容到链上待执行任务，不重新调度、不生成下一次
+	if job.Status == model.JobStatusCompleted {
+		s.syncChainJobs(userID, job, paramsJSON, req)
+		return &job, nil
+	}
 
 	s.jobScheduler.UnscheduleJob(job.ID, model.JobTypeReminder)
 
