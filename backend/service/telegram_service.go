@@ -37,11 +37,14 @@ func (s *TelegramService) Name() string {
 	return "telegram"
 }
 
+// ErrBotNotStarted 表示 Telegram bot 尚未启动，调用方不应视为发送失败
+var ErrBotNotStarted = errors.New("Telegram bot 未启动")
+
 // Send 实现 Notifier 接口，发送 Telegram 消息
 // to 参数为用户的 telegram_chat_id（字符串形式）
 func (s *TelegramService) Send(to string, msg iface.NotifyMessage) error {
 	if s.bot == nil {
-		return errors.New("Telegram bot 未启动")
+		return ErrBotNotStarted
 	}
 
 	var chatID int64

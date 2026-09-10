@@ -86,7 +86,10 @@ func (s *ReminderService) Create(userID uint, req model.CreateReminderRequest) (
 
 	DB.Model(&job).Update("job_id", job.ID)
 
-	if !job.ScheduledAt.Before(time.Now()) {
+	if job.ScheduledAt.Before(time.Now()) {
+		// 过期任务不补发
+		s.jobScheduler.skipExpiredJob(job)
+	} else {
 		s.jobScheduler.scheduleJob(job)
 	}
 
@@ -141,7 +144,10 @@ func (s *ReminderService) Update(userID, id uint, req model.UpdateReminderReques
 	DB.First(&job, job.ID)
 
 	s.jobScheduler.UnscheduleJob(job.ID, model.JobTypeReminder)
-	if !job.ScheduledAt.Before(time.Now()) {
+	if job.ScheduledAt.Before(time.Now()) {
+		// 过期任务不补发
+		s.jobScheduler.skipExpiredJob(job)
+	} else {
 		s.jobScheduler.scheduleJob(job)
 	}
 
@@ -185,7 +191,8 @@ func (s *ReminderService) processReminder(job model.Job) error {
 		Body:    params.Content,
 	}
 
-	var lastErr error
+	var sendErrs []error
+	sentCount := 0
 	for _, notifier := range s.notifiers {
 		// 检查该通知渠道是否启用
 		if !s.isChannelEnabled(channels, notifier.Name()) {
@@ -199,14 +206,24 @@ func (s *ReminderService) processReminder(job model.Job) error {
 		}
 
 		if err := notifier.Send(to, msg); err != nil {
+			// bot 未启动不作为发送失败，避免任务重试导致重复发送
+			if errors.Is(err, ErrBotNotStarted) {
+				log.Printf("[ReminderService] %s 未启动，跳过发送: %s", notifier.Name(), params.Title)
+				continue
+			}
 			log.Printf("[ReminderService] 通过 %s 发送失败: %v", notifier.Name(), err)
-			lastErr = err
+			sendErrs = append(sendErrs, fmt.Errorf("%s: %w", notifier.Name(), err))
 		} else {
+			sentCount++
 			log.Printf("[ReminderService] 已通过 %s 发送: %s -> %s", notifier.Name(), params.Title, to)
 		}
 	}
 
-	return lastErr
+	// 只有存在发送尝试且全部渠道都失败时，任务才判定为失败
+	if len(sendErrs) > 0 && sentCount == 0 {
+		return errors.Join(sendErrs...)
+	}
+	return nil
 }
 
 // getUserNotificationChannels 获取用户的通知渠道偏好

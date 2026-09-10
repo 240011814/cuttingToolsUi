@@ -62,8 +62,9 @@ func (js *JobScheduler) LoadAll() error {
 
 	for _, job := range jobs {
 		if job.ScheduledAt.Before(time.Now()) {
-			// 过去的任务：立即执行
-			go js.executeJob(job)
+			// 过期任务不补发
+			log.Printf("[JobScheduler] 任务 %s:%d 已过期，跳过执行", job.JobType, job.JobID)
+			js.skipExpiredJob(job)
 			continue
 		}
 		js.scheduleJob(job)
@@ -81,14 +82,29 @@ func (js *JobScheduler) ScheduleJob(job *model.Job) error {
 	}
 
 	// 注册到调度器
-	if !job.ScheduledAt.Before(time.Now()) {
-		js.scheduleJob(*job)
+	if job.ScheduledAt.Before(time.Now()) {
+		js.skipExpiredJob(*job)
 	} else {
-		// 过去的任务立即执行
-		go js.executeJob(*job)
+		js.scheduleJob(*job)
 	}
 
 	return nil
+}
+
+// skipExpiredJob 过期任务不补发：重复任务基于原计划时间创建下一次执行，非重复任务标记为失败
+func (js *JobScheduler) skipExpiredJob(job model.Job) {
+	status := model.JobStatusFailed
+	lastError := "任务已过期，跳过执行"
+	if job.RepeatType != "" && job.RepeatType != "none" {
+		js.createNextRepeat(job)
+		status = model.JobStatusCompleted
+		lastError = "任务已过期，跳过本次执行"
+	}
+
+	DB.Model(&model.Job{}).Where("id = ?", job.ID).Updates(map[string]interface{}{
+		"status":     status,
+		"last_error": lastError,
+	})
 }
 
 // UnscheduleJob 从调度器移除任务（不改变数据库状态）
@@ -104,6 +120,16 @@ func (js *JobScheduler) UnscheduleJob(jobID uint, jobType string) {
 }
 
 func (js *JobScheduler) scheduleJob(job model.Job) {
+	// 计算实际调度时间（提醒时间 - 提前分钟数）
+	scheduledAt := job.ScheduledAt
+	if job.AdvanceMinutes > 0 {
+		scheduledAt = job.ScheduledAt.Add(-time.Duration(job.AdvanceMinutes) * time.Minute)
+	}
+	js.scheduleJobAt(job, scheduledAt)
+}
+
+// scheduleJobAt 按指定时间调度任务（重试场景使用，不改变任务的 ScheduledAt，避免影响重复周期计算）
+func (js *JobScheduler) scheduleJobAt(job model.Job, at time.Time) {
 	js.mu.Lock()
 	defer js.mu.Unlock()
 
@@ -115,21 +141,15 @@ func (js *JobScheduler) scheduleJob(job model.Job) {
 		delete(js.jobMap, jobKey)
 	}
 
-	// 计算实际调度时间（提醒时间 - 提前分钟数）
-	scheduledAt := job.ScheduledAt
-	if job.AdvanceMinutes > 0 {
-		scheduledAt = job.ScheduledAt.Add(-time.Duration(job.AdvanceMinutes) * time.Minute)
-	}
-
 	// 如果已过期，不调度
-	if scheduledAt.Before(time.Now()) {
+	if at.Before(time.Now()) {
 		log.Printf("[JobScheduler] 任务 %s:%d 时间已过期，跳过调度", job.JobType, job.JobID)
 		return
 	}
 
 	gocronJob, err := js.scheduler.NewJob(
 		gocron.OneTimeJob(
-			gocron.OneTimeJobStartDateTime(scheduledAt),
+			gocron.OneTimeJobStartDateTime(at),
 		),
 		gocron.NewTask(js.executeJob, job),
 		gocron.WithName(fmt.Sprintf("%s:%d", job.JobType, job.JobID)),
@@ -141,8 +161,7 @@ func (js *JobScheduler) scheduleJob(job model.Job) {
 	}
 
 	js.jobMap[jobKey] = gocronJob
-	delay := time.Until(scheduledAt)
-	log.Printf("[JobScheduler] 已注册任务: %s:%d, %v 后执行 (提前通知: %d分钟)", job.JobType, job.JobID, delay, job.AdvanceMinutes)
+	log.Printf("[JobScheduler] 已注册任务: %s:%d, %v 后执行 (提前通知: %d分钟)", job.JobType, job.JobID, time.Until(at), job.AdvanceMinutes)
 }
 
 func (js *JobScheduler) executeJob(job model.Job) {
@@ -196,11 +215,11 @@ func (js *JobScheduler) handleJobError(job model.Job, err error) {
 			"status":      model.JobStatusPending,
 		})
 
-		// 重新调度（延迟重试）
-		job.RetryCount++
-		job.Status = model.JobStatusPending
-		job.ScheduledAt = time.Now().Add(time.Duration(job.RetryCount) * time.Minute)
-		js.scheduleJob(job)
+	// 重新调度（延迟重试），不修改 ScheduledAt，保证重复周期基于原计划时间计算
+	job.RetryCount++
+	job.Status = model.JobStatusPending
+	retryAt := time.Now().Add(time.Duration(job.RetryCount) * time.Minute)
+	js.scheduleJobAt(job, retryAt)
 	} else {
 		// 超过最大重试次数，标记为失败
 		DB.Model(&model.Job{}).Where("id = ?", job.ID).Updates(map[string]interface{}{
