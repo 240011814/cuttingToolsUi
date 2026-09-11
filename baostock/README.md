@@ -5,7 +5,7 @@
 ![Docker Ready](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)
 ![Version 0.1.0](https://img.shields.io/badge/version-1.0.0-2ea44f)
 
-`baostock` HTTP 包装服务
+`baostock` HTTP 包装服务 (FastAPI + uvicorn)
 
 ## 已实现
 
@@ -45,9 +45,9 @@
 
 ## 目录约定
 
-- `main.py` 只负责 HTTP 服务启动、路由分发和通用错误处理
+- `main.py` 只负责 FastAPI 应用、路由注册、路由分发和通用错误处理
 - `baostock_api/*_endpoint.py` 每个文件对应一个接口，文件内放该接口的参数类型、业务类型和执行逻辑
-- `baostock_api/shared.py` 放公共运行时能力，例如 `baostock` 连接、usage 计数和通用响应函数
+- `baostock_api/shared.py` 放公共运行时能力，例如 `baostock` 连接、usage 计数和通用错误响应结构
 - `baostock_api/request.py` 放通用请求参数读取函数
 
 ## 安装

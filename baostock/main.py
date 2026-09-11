@@ -1,9 +1,15 @@
-from http import HTTPStatus
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import Any
+from __future__ import annotations
+
 import logging
 import time
-from urllib.parse import parse_qs, urlparse
+from http import HTTPStatus
+from typing import Any
+from urllib.parse import parse_qs
+
+import uvicorn
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from baostock_api import (
     __version__,
@@ -38,8 +44,8 @@ from baostock_api.shared import (
     DAILY_LIMIT,
     HOST,
     PORT,
+    DailyLimitExceeded,
     force_disconnect,
-    json_response,
     make_error_payload,
     usage_counter,
 )
@@ -50,207 +56,114 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 
+app = FastAPI(title="baostock-api", version=__version__)
 
-class BaostockApiHandler(BaseHTTPRequestHandler):
-    server_version = f"BaostockApi/{__version__}"
+QUERY_ENDPOINTS: dict[str, Any] = {
+    "/query_all_stock": query_all_stock_endpoint,
+    "/query_adjust_factor": query_adjust_factor_endpoint,
+    "/query_balance_data": query_balance_data_endpoint,
+    "/query_cash_flow_data": query_cash_flow_data_endpoint,
+    "/query_deposit_rate_data": query_deposit_rate_data_endpoint,
+    "/query_dividend_data": query_dividend_data_endpoint,
+    "/query_dupont_data": query_dupont_data_endpoint,
+    "/query_forecast_report": query_forecast_report_endpoint,
+    "/query_growth_data": query_growth_data_endpoint,
+    "/query_hs300_stocks": query_hs300_stocks_endpoint,
+    "/query_loan_rate_data": query_loan_rate_data_endpoint,
+    "/query_money_supply_data_month": query_money_supply_data_month_endpoint,
+    "/query_money_supply_data_year": query_money_supply_data_year_endpoint,
+    "/query_operation_data": query_operation_data_endpoint,
+    "/query_performance_express_report": query_performance_express_report_endpoint,
+    "/query_profit_data": query_profit_data_endpoint,
+    "/query_required_reserve_ratio_data": query_required_reserve_ratio_data_endpoint,
+    "/query_history_k_data_plus": query_history_k_data_plus_endpoint,
+    "/query_history_index_k_data_plus": query_history_index_k_data_plus_endpoint,
+    "/query_stock_basic": query_stock_basic_endpoint,
+    "/query_stock_industry": query_stock_industry_endpoint,
+    "/query_sz50_stocks": query_sz50_stocks_endpoint,
+    "/query_trade_dates": query_trade_dates_endpoint,
+    "/query_zz500_stocks": query_zz500_stocks_endpoint,
+}
 
-    def do_GET(self) -> None:
-        parsed = urlparse(self.path)
 
-        if parsed.path == "/health":
-            health_endpoint.handle(self)
-            return
+@app.get("/health")
+def health() -> JSONResponse:
+    return JSONResponse(status_code=HTTPStatus.OK, content=health_endpoint.handle())
 
-        if parsed.path == "/usage":
-            usage_endpoint.handle(self)
-            return
 
-        if parsed.path not in {
-            "/query_adjust_factor",
-            "/query_balance_data",
-            "/query_cash_flow_data",
-            "/query_deposit_rate_data",
-            "/query_all_stock",
-            "/query_dividend_data",
-            "/query_dupont_data",
-            "/query_forecast_report",
-            "/query_growth_data",
-            "/query_hs300_stocks",
-            "/query_loan_rate_data",
-            "/query_money_supply_data_month",
-            "/query_money_supply_data_year",
-            "/query_operation_data",
-            "/query_performance_express_report",
-            "/query_profit_data",
-            "/query_required_reserve_ratio_data",
-            "/query_history_k_data_plus",
-            "/query_history_index_k_data_plus",
-            "/query_stock_basic",
-            "/query_stock_industry",
-            "/query_sz50_stocks",
-            "/query_trade_dates",
-            "/query_zz500_stocks",
-        }:
-            json_response(
-                self,
-                HTTPStatus.NOT_FOUND,
-                make_error_payload("route not found", "not_found", usage_counter.get_stats()),
-            )
-            return
+@app.get("/usage")
+def usage() -> JSONResponse:
+    return JSONResponse(status_code=HTTPStatus.OK, content=usage_endpoint.handle())
 
-        query = parse_qs(parsed.query)
 
-        try:
-            usage = usage_counter.consume()
-        except RuntimeError:
-            json_response(
-                self,
-                HTTPStatus.TOO_MANY_REQUESTS,
-                make_error_payload(
-                    f"daily limit exceeded: {DAILY_LIMIT}",
-                    "daily_limit_exceeded",
-                    usage_counter.get_stats(),
-                ),
-            )
-            return
+def _handle_query(request: Request, endpoint: Any) -> JSONResponse:
+    query = parse_qs(request.url.query)
 
-        started = time.monotonic()
-        try:
-            if parsed.path == "/query_all_stock":
-                payload = query_all_stock_endpoint.execute(
-                    query_all_stock_endpoint.parse_params(query)
-                )
-            elif parsed.path == "/query_adjust_factor":
-                payload = query_adjust_factor_endpoint.execute(
-                    query_adjust_factor_endpoint.parse_params(query)
-                )
-            elif parsed.path == "/query_dividend_data":
-                payload = query_dividend_data_endpoint.execute(
-                    query_dividend_data_endpoint.parse_params(query)
-                )
-            elif parsed.path == "/query_deposit_rate_data":
-                payload = query_deposit_rate_data_endpoint.execute(
-                    query_deposit_rate_data_endpoint.parse_params(query)
-                )
-            elif parsed.path == "/query_dupont_data":
-                payload = query_dupont_data_endpoint.execute(
-                    query_dupont_data_endpoint.parse_params(query)
-                )
-            elif parsed.path == "/query_forecast_report":
-                payload = query_forecast_report_endpoint.execute(
-                    query_forecast_report_endpoint.parse_params(query)
-                )
-            elif parsed.path == "/query_operation_data":
-                payload = query_operation_data_endpoint.execute(
-                    query_operation_data_endpoint.parse_params(query)
-                )
-            elif parsed.path == "/query_growth_data":
-                payload = query_growth_data_endpoint.execute(
-                    query_growth_data_endpoint.parse_params(query)
-                )
-            elif parsed.path == "/query_hs300_stocks":
-                payload = query_hs300_stocks_endpoint.execute(
-                    query_hs300_stocks_endpoint.parse_params(query)
-                )
-            elif parsed.path == "/query_loan_rate_data":
-                payload = query_loan_rate_data_endpoint.execute(
-                    query_loan_rate_data_endpoint.parse_params(query)
-                )
-            elif parsed.path == "/query_balance_data":
-                payload = query_balance_data_endpoint.execute(
-                    query_balance_data_endpoint.parse_params(query)
-                )
-            elif parsed.path == "/query_money_supply_data_month":
-                payload = query_money_supply_data_month_endpoint.execute(
-                    query_money_supply_data_month_endpoint.parse_params(query)
-                )
-            elif parsed.path == "/query_money_supply_data_year":
-                payload = query_money_supply_data_year_endpoint.execute(
-                    query_money_supply_data_year_endpoint.parse_params(query)
-                )
-            elif parsed.path == "/query_cash_flow_data":
-                payload = query_cash_flow_data_endpoint.execute(
-                    query_cash_flow_data_endpoint.parse_params(query)
-                )
-            elif parsed.path == "/query_profit_data":
-                payload = query_profit_data_endpoint.execute(
-                    query_profit_data_endpoint.parse_params(query)
-                )
-            elif parsed.path == "/query_performance_express_report":
-                payload = query_performance_express_report_endpoint.execute(
-                    query_performance_express_report_endpoint.parse_params(query)
-                )
-            elif parsed.path == "/query_history_index_k_data_plus":
-                payload = query_history_index_k_data_plus_endpoint.execute(
-                    query_history_index_k_data_plus_endpoint.parse_params(query)
-                )
-            elif parsed.path == "/query_required_reserve_ratio_data":
-                payload = query_required_reserve_ratio_data_endpoint.execute(
-                    query_required_reserve_ratio_data_endpoint.parse_params(query)
-                )
-            elif parsed.path == "/query_stock_basic":
-                payload = query_stock_basic_endpoint.execute(
-                    query_stock_basic_endpoint.parse_params(query)
-                )
-            elif parsed.path == "/query_stock_industry":
-                payload = query_stock_industry_endpoint.execute(
-                    query_stock_industry_endpoint.parse_params(query)
-                )
-            elif parsed.path == "/query_sz50_stocks":
-                payload = query_sz50_stocks_endpoint.execute(
-                    query_sz50_stocks_endpoint.parse_params(query)
-                )
-            elif parsed.path == "/query_trade_dates":
-                payload = query_trade_dates_endpoint.execute(
-                    query_trade_dates_endpoint.parse_params(query)
-                )
-            elif parsed.path == "/query_zz500_stocks":
-                payload = query_zz500_stocks_endpoint.execute(
-                    query_zz500_stocks_endpoint.parse_params(query)
-                )
-            else:
-                payload = query_history_k_data_plus_endpoint.execute(
-                    query_history_k_data_plus_endpoint.parse_params(query)
-                )
-        except ValueError as error:
-            json_response(
-                self,
-                HTTPStatus.BAD_REQUEST,
-                make_error_payload(str(error), "invalid_request", usage),
-            )
-            return
-        except Exception as error:
-            # 查询异常后会话状态不可信, 强制断开, 下一个请求重新登录
-            force_disconnect()
-            json_response(
-                self,
-                HTTPStatus.BAD_GATEWAY,
-                make_error_payload(str(error), "baostock_query_failed", usage),
-            )
-            return
-        finally:
-            elapsed = time.monotonic() - started
-            if elapsed > 3:
-                logging.info("SLOW %s?%s took %.1fs", parsed.path, parsed.query, elapsed)
-
-        json_response(
-            self,
-            HTTPStatus.OK,
-            {
-                "ok": True,
-                "data": payload,
-                "usage": usage.to_dict(),
-            },
+    try:
+        usage = usage_counter.consume()
+    except DailyLimitExceeded:
+        return JSONResponse(
+            status_code=HTTPStatus.TOO_MANY_REQUESTS,
+            content=make_error_payload(
+                f"daily limit exceeded: {DAILY_LIMIT}",
+                "daily_limit_exceeded",
+                usage_counter.get_stats(),
+            ),
         )
 
-    def log_message(self, format: str, *args: Any) -> None:
-        logging.info("%s - %s", self.address_string(), format % args)
+    started = time.monotonic()
+    try:
+        payload = endpoint.execute(endpoint.parse_params(query))
+    except ValueError as error:
+        return JSONResponse(
+            status_code=HTTPStatus.BAD_REQUEST,
+            content=make_error_payload(str(error), "invalid_request", usage),
+        )
+    except Exception as error:
+        # 查询异常后会话状态不可信, 强制断开, 下一个请求重新登录
+        force_disconnect()
+        return JSONResponse(
+            status_code=HTTPStatus.BAD_GATEWAY,
+            content=make_error_payload(str(error), "baostock_query_failed", usage),
+        )
+    finally:
+        elapsed = time.monotonic() - started
+        if elapsed > 3:
+            logging.info("SLOW %s?%s took %.1fs", request.url.path, request.url.query, elapsed)
+
+    return JSONResponse(
+        status_code=HTTPStatus.OK,
+        content={
+            "ok": True,
+            "data": payload,
+            "usage": usage.to_dict(),
+        },
+    )
+
+
+def _make_query_handler(endpoint: Any):
+    def handler(request: Request) -> JSONResponse:
+        return _handle_query(request, endpoint)
+
+    return handler
+
+
+for _path, _endpoint in QUERY_ENDPOINTS.items():
+    app.add_api_route(_path, _make_query_handler(_endpoint), methods=["GET"], name=_path.lstrip("/"))
+
+
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(request: Request, exc: StarletteHTTPException) -> JSONResponse:
+    code = "not_found" if exc.status_code == HTTPStatus.NOT_FOUND else "http_error"
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=make_error_payload(str(exc.detail), code, usage_counter.get_stats()),
+    )
 
 
 def main() -> None:
-    server = ThreadingHTTPServer((HOST, PORT), BaostockApiHandler)
     logging.info("baostock api running on http://%s:%s", HOST, PORT)
-    server.serve_forever()
+    uvicorn.run(app, host=HOST, port=PORT, log_level="info")
 
 
 if __name__ == "__main__":

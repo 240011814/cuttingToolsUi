@@ -6,8 +6,6 @@ import socket
 import threading
 from dataclasses import asdict, dataclass
 from datetime import date
-from http import HTTPStatus
-from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 from typing import Any
 
@@ -46,6 +44,10 @@ class UsageStats:
         payload = asdict(self)
         payload["remaining"] = self.remaining
         return payload
+
+
+class DailyLimitExceeded(RuntimeError):
+    """每日调用限额已用尽"""
 
 
 class UsageCounter:
@@ -111,7 +113,7 @@ class UsageCounter:
             self.stats = self._reset_if_needed(self.stats)
 
             if self.stats.count >= self.stats.limit:
-                raise RuntimeError("daily_limit_exceeded")
+                raise DailyLimitExceeded("daily_limit_exceeded")
 
             self.stats.count += 1
             self._save_stats(self.stats)
@@ -167,32 +169,6 @@ def force_disconnect() -> None:
 
 bs.login = _patched_login
 bs.logout = _patched_logout
-
-
-def json_response(
-    handler: BaseHTTPRequestHandler,
-    status: HTTPStatus,
-    payload: dict[str, Any],
-) -> None:
-    body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
-    handler.send_response(status.value)
-    handler.send_header("Content-Type", "application/json; charset=utf-8")
-    handler.send_header("Content-Length", str(len(body)))
-    handler.end_headers()
-    handler.wfile.write(body)
-
-
-def text_response(
-    handler: BaseHTTPRequestHandler,
-    status: HTTPStatus,
-    content: str,
-) -> None:
-    body = content.encode("utf-8")
-    handler.send_response(status.value)
-    handler.send_header("Content-Type", "text/plain; charset=utf-8")
-    handler.send_header("Content-Length", str(len(body)))
-    handler.end_headers()
-    handler.wfile.write(body)
 
 
 def make_error_payload(message: str, code: str, usage: UsageStats) -> dict[str, Any]:
