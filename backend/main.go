@@ -398,10 +398,10 @@ func main() {
 			{
 				jobGroup.GET("/tasks", api.RequirePermission("job:manage"), jobHandler.HandleListTaskRegistry)
 				jobGroup.GET("", api.RequirePermission("job:manage"), jobHandler.HandleListJobs)
-				jobGroup.POST("", api.RequirePermission("job:manage"), jobHandler.HandleCreateJob)
-				jobGroup.PUT("/:id", api.RequirePermission("job:manage"), jobHandler.HandleUpdateJob)
-				jobGroup.DELETE("/:id", api.RequirePermission("job:manage"), jobHandler.HandleDeleteJob)
-				jobGroup.POST("/:id/run", api.RequirePermission("job:manage"), jobHandler.HandleRunJob)
+				jobGroup.POST("", api.RequirePermission("job:manage"), api.RequirePermission("job:edit"), jobHandler.HandleCreateJob)
+				jobGroup.PUT("/:id", api.RequirePermission("job:manage"), api.RequirePermission("job:edit"), jobHandler.HandleUpdateJob)
+				jobGroup.DELETE("/:id", api.RequirePermission("job:manage"), api.RequirePermission("job:edit"), jobHandler.HandleDeleteJob)
+				jobGroup.POST("/:id/run", api.RequirePermission("job:manage"), api.RequirePermission("job:edit"), jobHandler.HandleRunJob)
 				jobGroup.GET("/:id/runs", api.RequirePermission("job:manage"), jobHandler.HandleListJobRuns)
 			}
 		}

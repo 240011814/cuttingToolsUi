@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, h } from "vue";
 import { NButton, NSwitch, NSpace, NTag, NPopconfirm, useMessage } from "naive-ui";
+import { useAuth } from "@/hooks/business/auth";
 import {
   fetchJobs,
   fetchJobTasks,
@@ -14,6 +15,8 @@ import {
 defineOptions({ name: "SystemJob" });
 
 const message = useMessage();
+const { hasAuth } = useAuth();
+const canEdit = computed(() => hasAuth("job:edit"));
 
 const loading = ref(false);
 const jobs = ref<Api.Job.JobDefinition[]>([]);
@@ -79,6 +82,7 @@ const columns = [
       h(NSwitch, {
         value: row.enabled,
         size: "small",
+        disabled: !canEdit.value,
         onUpdateValue: (val: boolean) => handleToggle(row, val),
       }),
   },
@@ -99,41 +103,48 @@ const columns = [
         NSpace,
         { size: "small" },
         {
-          default: () => [
-            h(
-              NButton,
-              {
-                size: "small",
-                type: "primary",
-                ghost: true,
-                onClick: () => handleRun(row),
-              },
-              { default: () => "立即执行" }
-            ),
-            h(
-              NButton,
-              { size: "small", onClick: () => openEdit(row) },
-              { default: () => "编辑" }
-            ),
-            h(
-              NButton,
-              { size: "small", type: "info", ghost: true, onClick: () => openRuns(row) },
-              { default: () => "历史" }
-            ),
-            h(
-              NPopconfirm,
-              { onPositiveClick: () => handleDelete(row) },
-              {
-                trigger: () =>
-                  h(
+          default: () =>
+            [
+              canEdit.value
+                ? h(
                     NButton,
-                    { size: "small", type: "error", ghost: true },
-                    { default: () => "删除" }
-                  ),
-                default: () => `确定删除任务「${row.name}」？`,
-              }
-            ),
-          ],
+                    {
+                      size: "small",
+                      type: "primary",
+                      ghost: true,
+                      onClick: () => handleRun(row),
+                    },
+                    { default: () => "立即执行" }
+                  )
+                : null,
+              canEdit.value
+                ? h(
+                    NButton,
+                    { size: "small", onClick: () => openEdit(row) },
+                    { default: () => "编辑" }
+                  )
+                : null,
+              h(
+                NButton,
+                { size: "small", type: "info", ghost: true, onClick: () => openRuns(row) },
+                { default: () => "历史" }
+              ),
+              canEdit.value
+                ? h(
+                    NPopconfirm,
+                    { onPositiveClick: () => handleDelete(row) },
+                    {
+                      trigger: () =>
+                        h(
+                          NButton,
+                          { size: "small", type: "error", ghost: true },
+                          { default: () => "删除" }
+                        ),
+                      default: () => `确定删除任务「${row.name}」？`,
+                    }
+                  )
+                : null,
+            ].filter(Boolean),
         }
       ),
   },
@@ -316,7 +327,7 @@ onMounted(async () => {
   <div class="h-full overflow-auto p-6">
     <NCard :bordered="false" shadow="sm" title="定时任务管理">
       <template #header-extra>
-        <NButton type="primary" @click="openCreate">新增任务</NButton>
+        <NButton v-if="canEdit" type="primary" @click="openCreate">新增任务</NButton>
       </template>
       <NDataTable
         :columns="columns"
