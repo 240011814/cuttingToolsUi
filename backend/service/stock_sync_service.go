@@ -182,63 +182,38 @@ func (s *StockSyncService) fetchLatestTradeDay() (string, error) {
 	return days[0], nil
 }
 
-// SyncStockList 同步股票列表 (API调用: 交易日1次 + 股票列表1~2次 + 行业1次)
+// SyncStockList 同步股票列表 (API调用: query_stock_basic 1次 + 行业1次)
+// 全量证券基本资料含已退市股: is_active 由上市状态派生, list_date 取 ipoDate, 只保留 type=1股票/2指数
 func (s *StockSyncService) SyncStockList() error {
 	log.Println("[StockSync] 同步股票列表...")
 
-	// 1. 先查最近交易日列表; query_all_stock 需要传交易日, 且当日数据约17:30后才发布,
-	// 当天为交易日但数据未发布时列表为空, 需要回退到上一交易日
-	tradeDays, err := s.fetchRecentTradeDays(5)
+	// 1. 全量证券基本资料 (1次调用, type: 1股票 2指数 3其它 4可转债 5ETF)
+	basicURL := fmt.Sprintf("%s/query_stock_basic", s.baostockURL)
+	body, err := s.httpGetWithDelay(basicURL)
 	if err != nil {
-		log.Printf("[StockSync] 查询交易日失败, 将按自然日回退尝试: %v", err)
-		tradeDays = nil
+		return fmt.Errorf("获取证券基本资料失败: %v", err)
 	}
+	var resp struct {
+		Ok   bool `json:"ok"`
+		Data struct {
+			Items []struct {
+				Code     string `json:"code"`
+				CodeName string `json:"code_name"`
+				IpoDate  string `json:"ipoDate"`
+				Type     string `json:"type"`
+				Status   string `json:"status"`
+			} `json:"items"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return fmt.Errorf("解析证券基本资料失败: %v", err)
+	}
+	if !resp.Ok || len(resp.Data.Items) == 0 {
+		return fmt.Errorf("未获取到证券基本资料")
+	}
+	log.Printf("[StockSync] 获取证券基本资料: %d 条", len(resp.Data.Items))
 
-	// 2. 获取所有股票列表
-	var items []struct {
-		Code        string `json:"code"`
-		CodeName    string `json:"code_name"`
-		TradeStatus string `json:"trade_status"`
-	}
-	for i := 0; i < 15 && len(items) == 0; i++ {
-		day := ""
-		if i < len(tradeDays) {
-			day = tradeDays[i]
-		} else {
-			day = time.Now().AddDate(0, 0, -i).Format("2006-01-02")
-		}
-		stockListURL := fmt.Sprintf("%s/query_all_stock?day=%s", s.baostockURL, day)
-		body, err := s.httpGetWithDelay(stockListURL)
-		if err != nil {
-			return fmt.Errorf("获取股票列表失败: %v", err)
-		}
-
-		var resp struct {
-			Ok   bool `json:"ok"`
-			Data struct {
-				Items []struct {
-					Code        string `json:"code"`
-					CodeName    string `json:"code_name"`
-					TradeStatus string `json:"trade_status"`
-				} `json:"items"`
-			} `json:"data"`
-		}
-		if err := json.Unmarshal(body, &resp); err != nil {
-			return fmt.Errorf("解析股票列表失败: %v", err)
-		}
-		if resp.Ok && len(resp.Data.Items) > 0 {
-			items = resp.Data.Items
-			log.Printf("[StockSync] 股票列表取自 %s", day)
-			break
-		}
-		log.Printf("[StockSync] %s 无股票列表数据, 尝试前一交易日", day)
-	}
-	if len(items) == 0 {
-		return fmt.Errorf("未获取到股票列表数据")
-	}
-	log.Printf("[StockSync] 获取股票列表: %d 只", len(items))
-
-	// 3. 获取行业信息 (失败不影响股票列表同步)
+	// 2. 获取行业信息 (1次调用, 失败不影响股票列表同步)
 	industryMap := make(map[string]string)
 	industryURL := fmt.Sprintf("%s/query_stock_industry", s.baostockURL)
 	industryBody, err := s.httpGetWithDelay(industryURL)
@@ -263,11 +238,12 @@ func (s *StockSyncService) SyncStockList() error {
 		}
 	}
 
-	// 4. 组装数据, 有行业的和无行业的分开, 避免行业接口失败或缺失时把已有行业清空
-	withIndustry := make([]model.StockInfo, 0, len(items))
+	// 3. 组装数据, 有行业的和无行业的分开, 避免行业接口失败或缺失时把已有行业清空
+	withIndustry := make([]model.StockInfo, 0, len(resp.Data.Items))
 	withoutIndustry := make([]model.StockInfo, 0)
-	for _, item := range items {
-		if item.Code == "" {
+	for _, item := range resp.Data.Items {
+		// 只保留股票与指数, 排除其它/可转债/ETF
+		if item.Code == "" || (item.Type != "1" && item.Type != "2") {
 			continue
 		}
 
@@ -288,7 +264,10 @@ func (s *StockSyncService) SyncStockList() error {
 			Name:     item.CodeName,
 			Market:   market,
 			IsST:     strings.Contains(item.CodeName, "ST"),
-			IsActive: item.TradeStatus == "1",
+			IsActive: item.Status == "1",
+		}
+		if t, err := time.Parse("2006-01-02", item.IpoDate); err == nil {
+			stock.ListDate = &t
 		}
 		if industry, ok := industryMap[item.Code]; ok && industry != "" {
 			stock.Industry = industry
@@ -297,14 +276,17 @@ func (s *StockSyncService) SyncStockList() error {
 			withoutIndustry = append(withoutIndustry, stock)
 		}
 	}
+	if len(withIndustry)+len(withoutIndustry) == 0 {
+		return fmt.Errorf("证券基本资料过滤后为空, 未保留任何股票/指数")
+	}
 
 	if len(withIndustry) > 0 {
-		if err := s.batchUpsertStocks(withIndustry, []string{"name", "market", "industry", "is_st", "is_active"}); err != nil {
+		if err := s.batchUpsertStocks(withIndustry, []string{"name", "market", "industry", "is_st", "is_active", "list_date"}); err != nil {
 			return err
 		}
 	}
 	if len(withoutIndustry) > 0 {
-		if err := s.batchUpsertStocks(withoutIndustry, []string{"name", "market", "is_st", "is_active"}); err != nil {
+		if err := s.batchUpsertStocks(withoutIndustry, []string{"name", "market", "is_st", "is_active", "list_date"}); err != nil {
 			return err
 		}
 	}
@@ -339,6 +321,9 @@ var weeklyMonthlyFreqs = []string{"weekly", "monthly"}
 func KlineFrequencies() []string {
 	return klineFrequencies
 }
+
+// stockDailyUpsertCols K线 upsert 更新的数据列 (按日全量与逐股路径共用, 避免两处漂移)
+var stockDailyUpsertCols = []string{"open", "high", "low", "close", "preclose", "volume", "amount", "turnover_rate", "change_pct", "trade_status", "pe_ttm", "pb_mrq", "ps_ttm", "pcf_ncf_ttm"}
 
 // baostockFreq 库内周期标识 -> baostock frequency 参数
 func baostockFreq(freq string) string {
@@ -644,7 +629,7 @@ func (s *StockSyncService) SyncDailyKByDate(force bool) (time.Time, error) {
 	for i, day := range pending {
 		s.setProgress(i+1, len(pending))
 
-		rows, err := s.fetchDailyDayRows(day)
+		rows, isST, err := s.fetchDailyDayRows(day)
 		if err != nil {
 			// 交易日按顺序处理, 某日失败即中止(水位不推进), 下轮从该日续跑
 			return latest, fmt.Errorf("获取 %s 日K失败: %v", day, err)
@@ -654,7 +639,7 @@ func (s *StockSyncService) SyncDailyKByDate(force bool) (time.Time, error) {
 			log.Printf("[StockSync] %s 无日K数据(可能尚未发布), 本轮到此为止", day)
 			break
 		}
-		if err := s.storeDailyDayRows(rows, day, knownCodes); err != nil {
+		if err := s.storeDailyDayRows(rows, isST, day, knownCodes); err != nil {
 			return latest, fmt.Errorf("写入 %s 日K失败: %v", day, err)
 		}
 		latest, _ = time.Parse("2006-01-02", day)
@@ -741,44 +726,52 @@ func (s *StockSyncService) maxStoredDailyTradeDate() time.Time {
 	return maxDate
 }
 
-// fetchDailyDayRows 拉取某交易日全市场个股日K (1次API调用)
-func (s *StockSyncService) fetchDailyDayRows(day string) ([]model.StockDaily, error) {
+// fetchDailyDayRows 拉取某交易日全市场个股日K (1次API调用), 返回日K行与官方逐日 isST 标记
+func (s *StockSyncService) fetchDailyDayRows(day string) ([]model.StockDaily, map[string]bool, error) {
 	url := fmt.Sprintf("%s/query_daily_history_k_astock?date=%s", s.baostockURL, day)
 	body, err := s.httpGetWithDelay(url)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	var resp struct {
 		Ok   bool `json:"ok"`
 		Data struct {
 			Items []struct {
-				Date   string `json:"date"`
-				Code   string `json:"code"`
-				Open   string `json:"open"`
-				High   string `json:"high"`
-				Low    string `json:"low"`
-				Close  string `json:"close"`
-				Volume string `json:"volume"`
-				Amount string `json:"amount"`
-				Turn   string `json:"turn"`
-				PctChg string `json:"pctChg"`
+				Date        string `json:"date"`
+				Code        string `json:"code"`
+				Open        string `json:"open"`
+				High        string `json:"high"`
+				Low         string `json:"low"`
+				Close       string `json:"close"`
+				Preclose    string `json:"preclose"`
+				Volume      string `json:"volume"`
+				Amount      string `json:"amount"`
+				Turn        string `json:"turn"`
+				TradeStatus string `json:"tradestatus"`
+				PctChg      string `json:"pctChg"`
+				PeTtm       string `json:"peTTM"`
+				PbMrq       string `json:"pbMRQ"`
+				PsTtm       string `json:"psTTM"`
+				PcfNcfTtm   string `json:"pcfNcfTTM"`
+				IsST        string `json:"isST"`
 			} `json:"items"`
 		} `json:"data"`
 	}
 	if err := json.Unmarshal(body, &resp); err != nil {
-		return nil, fmt.Errorf("解析日K数据失败: %v", err)
+		return nil, nil, fmt.Errorf("解析日K数据失败: %v", err)
 	}
 	if !resp.Ok {
-		return nil, fmt.Errorf("获取日K数据失败")
+		return nil, nil, fmt.Errorf("获取日K数据失败")
 	}
 
 	tradeDate, err := time.Parse("2006-01-02", day)
 	if err != nil {
-		return nil, fmt.Errorf("交易日格式错误: %s", day)
+		return nil, nil, fmt.Errorf("交易日格式错误: %s", day)
 	}
 
 	rows := make([]model.StockDaily, 0, len(resp.Data.Items))
+	isSTByCode := make(map[string]bool) // 官方逐日 isST, 用于每日更新 stock_info
 	for _, item := range resp.Data.Items {
 		code := item.Code
 		if idx := strings.Index(code, "."); idx >= 0 {
@@ -786,6 +779,9 @@ func (s *StockSyncService) fetchDailyDayRows(day string) ([]model.StockDaily, er
 		}
 		if code == "" || isBJCode(code) {
 			continue
+		}
+		if item.IsST != "" {
+			isSTByCode[code] = item.IsST == "1"
 		}
 		rows = append(rows, model.StockDaily{
 			Code:         code,
@@ -795,17 +791,23 @@ func (s *StockSyncService) fetchDailyDayRows(day string) ([]model.StockDaily, er
 			High:         parseFloatPtr(item.High),
 			Low:          parseFloatPtr(item.Low),
 			Close:        parseFloatPtr(item.Close),
+			Preclose:     parseFloatPtr(item.Preclose),
 			Volume:       parseFloatPtr(item.Volume),
 			Amount:       parseFloatPtr(item.Amount),
-			ChangePct:    parseFloatPtr(item.PctChg),
+			TradeStatus:  parseIntPtr(item.TradeStatus),
 			TurnoverRate: parseFloatPtr(item.Turn),
+			ChangePct:    parseFloatPtr(item.PctChg),
+			PeTtm:        parseFloatPtr(item.PeTtm),
+			PbMrq:        parseFloatPtr(item.PbMrq),
+			PsTtm:        parseFloatPtr(item.PsTtm),
+			PcfNcfTtm:    parseFloatPtr(item.PcfNcfTtm),
 		})
 	}
-	return rows, nil
+	return rows, isSTByCode, nil
 }
 
-// storeDailyDayRows 写入某交易日的全市场日K, 并同步推进 stock_sync_state 的个股日K水位
-func (s *StockSyncService) storeDailyDayRows(rows []model.StockDaily, day string, knownCodes map[string]bool) error {
+// storeDailyDayRows 写入某交易日的全市场日K, 推进 stock_sync_state 的个股日K水位, 并按官方逐日 isST 更新 ST 标记
+func (s *StockSyncService) storeDailyDayRows(rows []model.StockDaily, isST map[string]bool, day string, knownCodes map[string]bool) error {
 	// 全量历史可能上万条, 分批写入避免超过 max_allowed_packet
 	const batchSize = 2000
 	for i := 0; i < len(rows); i += batchSize {
@@ -813,7 +815,7 @@ func (s *StockSyncService) storeDailyDayRows(rows []model.StockDaily, day string
 		batch := rows[i:end]
 		if err := DB.Clauses(clause.OnConflict{
 			Columns:   []clause.Column{{Name: "code"}, {Name: "frequency"}, {Name: "trade_date"}},
-			DoUpdates: clause.AssignmentColumns([]string{"open", "high", "low", "close", "volume", "amount", "turnover_rate", "change_pct"}),
+			DoUpdates: clause.AssignmentColumns(stockDailyUpsertCols),
 		}).Create(&batch).Error; err != nil {
 			return err
 		}
@@ -846,6 +848,43 @@ func (s *StockSyncService) storeDailyDayRows(rows []model.StockDaily, day string
 			return fmt.Errorf("推进个股日K水位失败: %v", err)
 		}
 	}
+
+	// 官方逐日 isST 更新 ST 标记 (比按名称判断更准; MySQL 值未变化时不产生实际行写入)
+	if err := s.updateSTFlags(isST, knownCodes); err != nil {
+		log.Printf("[StockSync] 更新 ST 标记失败: %v", err)
+	}
+	return nil
+}
+
+// updateSTFlags 批量更新 stock_info.is_st
+func (s *StockSyncService) updateSTFlags(isST map[string]bool, knownCodes map[string]bool) error {
+	if len(isST) == 0 {
+		return nil
+	}
+	stCodes := make([]string, 0, len(isST))
+	nonStCodes := make([]string, 0, len(isST))
+	for code, st := range isST {
+		if knownCodes[code] {
+			if st {
+				stCodes = append(stCodes, code)
+			} else {
+				nonStCodes = append(nonStCodes, code)
+			}
+		}
+	}
+	const batchSize = 1000
+	for i := 0; i < len(stCodes); i += batchSize {
+		end := min(i+batchSize, len(stCodes))
+		if err := DB.Model(&model.StockInfo{}).Where("code IN ?", stCodes[i:end]).Update("is_st", true).Error; err != nil {
+			return err
+		}
+	}
+	for i := 0; i < len(nonStCodes); i += batchSize {
+		end := min(i+batchSize, len(nonStCodes))
+		if err := DB.Model(&model.StockInfo{}).Where("code IN ?", nonStCodes[i:end]).Update("is_st", false).Error; err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -873,13 +912,13 @@ func (s *StockSyncService) SyncSingleStockDaily(code, market string, starts map[
 			startDate = start.Format("2006-01-02")
 		}
 
-		// 指数走指数接口(无换手率字段), 个股走股票接口
+		// 指数走指数接口(无换手率/交易状态/估值字段), 个股走股票接口
 		var url string
 		if isIndex {
-			url = fmt.Sprintf("%s/query_history_index_k_data_plus?code=%s&fields=date,open,high,low,close,volume,amount,pctChg&start_date=%s&end_date=%s&frequency=%s",
+			url = fmt.Sprintf("%s/query_history_index_k_data_plus?code=%s&fields=date,open,high,low,close,preclose,volume,amount,pctChg&start_date=%s&end_date=%s&frequency=%s",
 				s.baostockURL, baostockCode, startDate, endDate, baostockFreq(freq))
 		} else {
-			url = fmt.Sprintf("%s/query_history_k_data_plus?code=%s&fields=date,open,high,low,close,volume,amount,turn,pctChg&start_date=%s&end_date=%s&frequency=%s&adjustflag=3",
+			url = fmt.Sprintf("%s/query_history_k_data_plus?code=%s&fields=date,open,high,low,close,preclose,volume,amount,turn,tradestatus,pctChg,peTTM,pbMRQ,psTTM,pcfNcfTTM,isST&start_date=%s&end_date=%s&frequency=%s&adjustflag=3",
 				s.baostockURL, baostockCode, startDate, endDate, baostockFreq(freq))
 		}
 
@@ -893,15 +932,21 @@ func (s *StockSyncService) SyncSingleStockDaily(code, market string, starts map[
 			Ok   bool `json:"ok"`
 			Data struct {
 				Items []struct {
-					Date   string `json:"date"`
-					Open   string `json:"open"`
-					High   string `json:"high"`
-					Low    string `json:"low"`
-					Close  string `json:"close"`
-					Volume string `json:"volume"`
-					Amount string `json:"amount"`
-					Turn   string `json:"turn"`
-					PctChg string `json:"pctChg"`
+					Date        string `json:"date"`
+					Open        string `json:"open"`
+					High        string `json:"high"`
+					Low         string `json:"low"`
+					Close       string `json:"close"`
+					Preclose    string `json:"preclose"`
+					Volume      string `json:"volume"`
+					Amount      string `json:"amount"`
+					Turn        string `json:"turn"`
+					TradeStatus string `json:"tradestatus"`
+					PctChg      string `json:"pctChg"`
+					PeTtm       string `json:"peTTM"`
+					PbMrq       string `json:"pbMRQ"`
+					PsTtm       string `json:"psTTM"`
+					PcfNcfTtm   string `json:"pcfNcfTTM"`
 				} `json:"items"`
 			} `json:"data"`
 		}
@@ -929,13 +974,19 @@ func (s *StockSyncService) SyncSingleStockDaily(code, market string, starts map[
 				Frequency:    freq,
 				TradeDate:    tradeDate,
 				Open:         parseFloatPtr(item.Open),
-				Close:        parseFloatPtr(item.Close),
 				High:         parseFloatPtr(item.High),
 				Low:          parseFloatPtr(item.Low),
+				Close:        parseFloatPtr(item.Close),
+				Preclose:     parseFloatPtr(item.Preclose),
 				Volume:       parseFloatPtr(item.Volume),
 				Amount:       parseFloatPtr(item.Amount),
-				ChangePct:    parseFloatPtr(item.PctChg),
+				TradeStatus:  parseIntPtr(item.TradeStatus),
 				TurnoverRate: parseFloatPtr(item.Turn),
+				ChangePct:    parseFloatPtr(item.PctChg),
+				PeTtm:        parseFloatPtr(item.PeTtm),
+				PbMrq:        parseFloatPtr(item.PbMrq),
+				PsTtm:        parseFloatPtr(item.PsTtm),
+				PcfNcfTtm:    parseFloatPtr(item.PcfNcfTtm),
 			})
 		}
 
@@ -951,7 +1002,7 @@ func (s *StockSyncService) SyncSingleStockDaily(code, market string, starts map[
 			batch := dailies[i:end]
 			if err := DB.Clauses(clause.OnConflict{
 				Columns:   []clause.Column{{Name: "code"}, {Name: "frequency"}, {Name: "trade_date"}},
-				DoUpdates: clause.AssignmentColumns([]string{"open", "high", "low", "close", "volume", "amount", "turnover_rate", "change_pct"}),
+				DoUpdates: clause.AssignmentColumns(stockDailyUpsertCols),
 			}).Create(&batch).Error; err != nil {
 				s.refreshKlineState(code, freqDates, err)
 				return total, fmt.Errorf("写入 %s %s K线数据失败: %v", code, freq, err)
@@ -1392,6 +1443,19 @@ func parseFloatPtr(s string) *float64 {
 		return nil
 	}
 	return &v
+}
+
+// parseIntPtr 解析整数, 空串或非法值返回 nil (存 NULL 而不是 0, 避免污染数据)
+func parseIntPtr(s string) *int8 {
+	if s == "" {
+		return nil
+	}
+	v, err := strconv.ParseInt(s, 10, 8)
+	if err != nil {
+		return nil
+	}
+	n := int8(v)
+	return &n
 }
 
 // httpGet 发送HTTP GET请求 (复用 client 连接, 429限额错误不重试)

@@ -37,10 +37,16 @@ type StockDaily struct {
 	High         *float64   `json:"high"`
 	Low          *float64   `json:"low"`
 	Close        *float64   `json:"close"`
+	Preclose     *float64   `json:"preclose"`
 	Volume       *float64   `json:"volume"`
+	TradeStatus  *int8      `json:"tradeStatus"`
 	Amount       *float64   `json:"amount"`
 	TurnoverRate *float64   `json:"turnoverRate"`
 	ChangePct    *float64   `json:"changePct"`
+	PeTtm        *float64   `json:"peTtm"`
+	PbMrq        *float64   `json:"pbMrq"`
+	PsTtm        *float64   `json:"psTtm"`
+	PcfNcfTtm    *float64   `json:"pcfNcfTtm"`
 	Amplitude    *float64   `json:"amplitude"`
 	CreatedAt    time.Time  `json:"createdAt"`
 }
