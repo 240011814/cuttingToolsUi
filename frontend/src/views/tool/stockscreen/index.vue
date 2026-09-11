@@ -50,6 +50,10 @@ const industryOptions = ref<string[]>([])
 const conceptOptions = ref<{ label: string; value: string }[]>([])
 const savedFilters = ref<Api.Stock.FilterConditionSave[]>([])
 
+function screenRowKey(row: Api.Stock.ScreenResult) {
+  return row.code
+}
+
 const filterForm = reactive({
   conditions: [] as Api.Stock.FilterCondition[],
   conceptNames: [] as string[],
@@ -569,7 +573,7 @@ onUnmounted(() => {
           :columns="columns"
           :data="results"
           :loading="loading"
-          :row-key="(row: Api.Stock.ScreenResult) => row.code"
+          :row-key="screenRowKey"
           :pagination="pagination"
           :scroll-x="1200"
           size="small"

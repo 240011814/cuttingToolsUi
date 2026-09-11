@@ -36,6 +36,41 @@ let chartInstance: echarts.ECharts | null = null
 const klineChartRef = ref<HTMLElement | null>(null)
 let klineChartInstance: echarts.ECharts | null = null
 
+const klineColumns = [
+  { title: '日期', key: 'date', width: 100 },
+  { title: '开盘', key: 'open', width: 80, render: (row: Api.Stock.KlineData) => row.open?.toFixed(2) || '-' },
+  { title: '最高', key: 'high', width: 80, render: (row: Api.Stock.KlineData) => row.high?.toFixed(2) || '-' },
+  { title: '最低', key: 'low', width: 80, render: (row: Api.Stock.KlineData) => row.low?.toFixed(2) || '-' },
+  { title: '收盘', key: 'close', width: 80, render: (row: Api.Stock.KlineData) => row.close?.toFixed(2) || '-' },
+  { title: '涨跌%', key: 'changePct', width: 80, render: (row: Api.Stock.KlineData) => row.changePct !== null ? `${row.changePct >= 0 ? '+' : ''}${row.changePct.toFixed(2)}%` : '-' },
+  { title: '成交量', key: 'volume', width: 100, render: (row: Api.Stock.KlineData) => row.volume ? `${(row.volume / 10000).toFixed(2)}万手` : '-' }
+]
+
+const financeColumns = [
+  { title: '报告期', key: 'reportDate', width: 100, fixed: 'left' as const, render: (row: Api.Stock.FinanceHistory) => row.reportDate?.slice(0, 10) || '-' },
+  { title: 'ROE%', key: 'roe', width: 70, render: (row: Api.Stock.FinanceHistory) => row.roe?.toFixed(2) || '-' },
+  { title: '毛利率%', key: 'grossMargin', width: 70, render: (row: Api.Stock.FinanceHistory) => row.grossMargin?.toFixed(2) || '-' },
+  { title: '净利率%', key: 'netMargin', width: 70, render: (row: Api.Stock.FinanceHistory) => row.netMargin?.toFixed(2) || '-' },
+  { title: '营收(万)', key: 'revenue', width: 80, render: (row: Api.Stock.FinanceHistory) => row.revenue?.toFixed(0) || '-' },
+  { title: '营收同比%', key: 'revenueYoy', width: 80, render: (row: Api.Stock.FinanceHistory) => row.revenueYoy !== null ? `${row.revenueYoy >= 0 ? '+' : ''}${row.revenueYoy.toFixed(2)}%` : '-' },
+  { title: '净利润(万)', key: 'netProfit', width: 80, render: (row: Api.Stock.FinanceHistory) => row.netProfit?.toFixed(0) || '-' },
+  { title: '净利同比%', key: 'netProfitYoy', width: 80, render: (row: Api.Stock.FinanceHistory) => row.netProfitYoy !== null ? `${row.netProfitYoy >= 0 ? '+' : ''}${row.netProfitYoy.toFixed(2)}%` : '-' },
+  { title: 'EPS', key: 'eps', width: 60, render: (row: Api.Stock.FinanceHistory) => row.eps?.toFixed(3) || '-' },
+  { title: '净资产同比%', key: 'yoyEquity', width: 80, render: (row: Api.Stock.FinanceHistory) => row.yoyEquity !== null ? `${row.yoyEquity >= 0 ? '+' : ''}${row.yoyEquity.toFixed(2)}%` : '-' },
+  { title: '总资产同比%', key: 'yoyAsset', width: 80, render: (row: Api.Stock.FinanceHistory) => row.yoyAsset !== null ? `${row.yoyAsset >= 0 ? '+' : ''}${row.yoyAsset.toFixed(2)}%` : '-' },
+  { title: 'EPS同比%', key: 'yoyEps', width: 80, render: (row: Api.Stock.FinanceHistory) => row.yoyEps !== null ? `${row.yoyEps >= 0 ? '+' : ''}${row.yoyEps.toFixed(2)}%` : '-' },
+  { title: '资产负债率%', key: 'debtRatio', width: 80, render: (row: Api.Stock.FinanceHistory) => row.debtRatio?.toFixed(2) || '-' },
+  { title: '流动比率', key: 'currentRatio', width: 70, render: (row: Api.Stock.FinanceHistory) => row.currentRatio?.toFixed(2) || '-' },
+  { title: '速动比率', key: 'quickRatio', width: 70, render: (row: Api.Stock.FinanceHistory) => row.quickRatio?.toFixed(2) || '-' },
+  { title: '现金比率', key: 'cashRatio', width: 70, render: (row: Api.Stock.FinanceHistory) => row.cashRatio?.toFixed(2) || '-' },
+  { title: '应收周转', key: 'nrTurnRatio', width: 70, render: (row: Api.Stock.FinanceHistory) => row.nrTurnRatio?.toFixed(2) || '-' },
+  { title: '存货周转', key: 'invTurnRatio', width: 70, render: (row: Api.Stock.FinanceHistory) => row.invTurnRatio?.toFixed(2) || '-' },
+  { title: '流动资产周转', key: 'caTurnRatio', width: 80, render: (row: Api.Stock.FinanceHistory) => row.caTurnRatio?.toFixed(2) || '-' },
+  { title: '总资产周转', key: 'assetTurnRatio', width: 80, render: (row: Api.Stock.FinanceHistory) => row.assetTurnRatio?.toFixed(2) || '-' },
+  { title: '现金流/营收', key: 'cfoToOr', width: 80, render: (row: Api.Stock.FinanceHistory) => row.cfoToOr?.toFixed(2) || '-' },
+  { title: '现金流/净利', key: 'cfoToNp', width: 80, render: (row: Api.Stock.FinanceHistory) => row.cfoToNp?.toFixed(2) || '-' }
+]
+
 const realtimeUrl = computed(() => {
   if (!code.value) return ''
   const market = code.value.startsWith('6') ? 'sh' : 'sz'
@@ -558,15 +593,7 @@ onUnmounted(() => {
                   <!-- 表格模式 -->
                   <NDataTable
                     v-show="klineViewMode === 'table'"
-                    :columns="[
-                      { title: '日期', key: 'date', width: 100 },
-                      { title: '开盘', key: 'open', width: 80, render: (row: Api.Stock.KlineData) => row.open?.toFixed(2) || '-' },
-                      { title: '最高', key: 'high', width: 80, render: (row: Api.Stock.KlineData) => row.high?.toFixed(2) || '-' },
-                      { title: '最低', key: 'low', width: 80, render: (row: Api.Stock.KlineData) => row.low?.toFixed(2) || '-' },
-                      { title: '收盘', key: 'close', width: 80, render: (row: Api.Stock.KlineData) => row.close?.toFixed(2) || '-' },
-                      { title: '涨跌%', key: 'changePct', width: 80, render: (row: Api.Stock.KlineData) => row.changePct !== null ? `${row.changePct >= 0 ? '+' : ''}${row.changePct.toFixed(2)}%` : '-' },
-                      { title: '成交量', key: 'volume', width: 100, render: (row: Api.Stock.KlineData) => row.volume ? `${(row.volume / 10000).toFixed(2)}万手` : '-' }
-                    ]"
+                    :columns="klineColumns"
                     :data="klineData.slice(-20)"
                     :bordered="false"
                     size="small"
@@ -611,30 +638,7 @@ onUnmounted(() => {
                 <!-- 表格模式 -->
                 <NDataTable
                   v-show="financeViewMode === 'table'"
-                  :columns="[
-                    { title: '报告期', key: 'reportDate', width: 100, fixed: 'left' as const, render: (row: Api.Stock.FinanceHistory) => row.reportDate?.slice(0, 10) || '-' },
-                    { title: 'ROE%', key: 'roe', width: 70, render: (row: Api.Stock.FinanceHistory) => row.roe?.toFixed(2) || '-' },
-                    { title: '毛利率%', key: 'grossMargin', width: 70, render: (row: Api.Stock.FinanceHistory) => row.grossMargin?.toFixed(2) || '-' },
-                    { title: '净利率%', key: 'netMargin', width: 70, render: (row: Api.Stock.FinanceHistory) => row.netMargin?.toFixed(2) || '-' },
-                    { title: '营收(万)', key: 'revenue', width: 80, render: (row: Api.Stock.FinanceHistory) => row.revenue?.toFixed(0) || '-' },
-                    { title: '营收同比%', key: 'revenueYoy', width: 80, render: (row: Api.Stock.FinanceHistory) => row.revenueYoy !== null ? `${row.revenueYoy >= 0 ? '+' : ''}${row.revenueYoy.toFixed(2)}%` : '-' },
-                    { title: '净利润(万)', key: 'netProfit', width: 80, render: (row: Api.Stock.FinanceHistory) => row.netProfit?.toFixed(0) || '-' },
-                    { title: '净利同比%', key: 'netProfitYoy', width: 80, render: (row: Api.Stock.FinanceHistory) => row.netProfitYoy !== null ? `${row.netProfitYoy >= 0 ? '+' : ''}${row.netProfitYoy.toFixed(2)}%` : '-' },
-                    { title: 'EPS', key: 'eps', width: 60, render: (row: Api.Stock.FinanceHistory) => row.eps?.toFixed(3) || '-' },
-                    { title: '净资产同比%', key: 'yoyEquity', width: 80, render: (row: Api.Stock.FinanceHistory) => row.yoyEquity !== null ? `${row.yoyEquity >= 0 ? '+' : ''}${row.yoyEquity.toFixed(2)}%` : '-' },
-                    { title: '总资产同比%', key: 'yoyAsset', width: 80, render: (row: Api.Stock.FinanceHistory) => row.yoyAsset !== null ? `${row.yoyAsset >= 0 ? '+' : ''}${row.yoyAsset.toFixed(2)}%` : '-' },
-                    { title: 'EPS同比%', key: 'yoyEps', width: 80, render: (row: Api.Stock.FinanceHistory) => row.yoyEps !== null ? `${row.yoyEps >= 0 ? '+' : ''}${row.yoyEps.toFixed(2)}%` : '-' },
-                    { title: '资产负债率%', key: 'debtRatio', width: 80, render: (row: Api.Stock.FinanceHistory) => row.debtRatio?.toFixed(2) || '-' },
-                    { title: '流动比率', key: 'currentRatio', width: 70, render: (row: Api.Stock.FinanceHistory) => row.currentRatio?.toFixed(2) || '-' },
-                    { title: '速动比率', key: 'quickRatio', width: 70, render: (row: Api.Stock.FinanceHistory) => row.quickRatio?.toFixed(2) || '-' },
-                    { title: '现金比率', key: 'cashRatio', width: 70, render: (row: Api.Stock.FinanceHistory) => row.cashRatio?.toFixed(2) || '-' },
-                    { title: '应收周转', key: 'nrTurnRatio', width: 70, render: (row: Api.Stock.FinanceHistory) => row.nrTurnRatio?.toFixed(2) || '-' },
-                    { title: '存货周转', key: 'invTurnRatio', width: 70, render: (row: Api.Stock.FinanceHistory) => row.invTurnRatio?.toFixed(2) || '-' },
-                    { title: '流动资产周转', key: 'caTurnRatio', width: 80, render: (row: Api.Stock.FinanceHistory) => row.caTurnRatio?.toFixed(2) || '-' },
-                    { title: '总资产周转', key: 'assetTurnRatio', width: 80, render: (row: Api.Stock.FinanceHistory) => row.assetTurnRatio?.toFixed(2) || '-' },
-                    { title: '现金流/营收', key: 'cfoToOr', width: 80, render: (row: Api.Stock.FinanceHistory) => row.cfoToOr?.toFixed(2) || '-' },
-                    { title: '现金流/净利', key: 'cfoToNp', width: 80, render: (row: Api.Stock.FinanceHistory) => row.cfoToNp?.toFixed(2) || '-' }
-                  ]"
+                  :columns="financeColumns"
                   :data="financeHistory"
                   :bordered="false"
                   size="small"

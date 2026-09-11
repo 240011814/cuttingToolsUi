@@ -190,6 +190,14 @@ function formatTime(t: string | null) {
   return new Date(t).toLocaleString("zh-CN", { hour12: false });
 }
 
+function jobRowKey(row: Api.Job.JobDefinition) {
+  return row.id;
+}
+
+function runRowKey(row: Api.Job.JobRun) {
+  return row.id;
+}
+
 async function loadJobs() {
   loading.value = true;
   try {
@@ -333,7 +341,7 @@ onMounted(async () => {
         :columns="columns"
         :data="jobs"
         :loading="loading"
-        :row-key="(row: Api.Job.JobDefinition) => row.id"
+        :row-key="jobRowKey"
         size="small"
         striped
       />
@@ -410,7 +418,7 @@ onMounted(async () => {
         :columns="runColumns"
         :data="runs"
         :loading="runsLoading"
-        :row-key="(row: Api.Job.JobRun) => row.id"
+        :row-key="runRowKey"
         size="small"
         striped
         :max-height="420"
