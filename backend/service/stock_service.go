@@ -408,6 +408,18 @@ func (s *StockService) GetDetail(code string) (*model.StockScreenResult, error) 
 	return detail, nil
 }
 
+// GetSyncState 获取个股同步状态 (从未同步时返回 nil, 由前端显示未同步)
+func (s *StockService) GetSyncState(code string) (*model.StockSyncState, error) {
+	var st model.StockSyncState
+	if err := DB.Where("code = ?", code).First(&st).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &st, nil
+}
+
 // GetFinanceHistory 获取历史财务数据 (limit<=0 返回全部报告期)
 func (s *StockService) GetFinanceHistory(code string, limit int) ([]model.StockFinance, error) {
 	if limit < 0 || limit > 200 {

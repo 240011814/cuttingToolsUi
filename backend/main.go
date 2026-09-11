@@ -301,6 +301,7 @@ func main() {
 			stockGroup.GET("/:code", stockHandler.HandleGetDetail)
 			stockGroup.GET("/:code/kline", stockHandler.HandleGetKline)
 			stockGroup.GET("/:code/finance-history", stockHandler.HandleGetFinanceHistory)
+			stockGroup.GET("/:code/sync-state", stockHandler.HandleGetSyncState)
 
 			// 筛选条件管理
 			stockGroup.POST("/filters", api.RequirePermission("stock:screen:save"), stockHandler.HandleSaveFilterCondition)

@@ -150,3 +150,11 @@ export function fetchSyncStatus() {
     method: 'get'
   })
 }
+
+/** 查询个股数据同步状态 */
+export function fetchStockSyncState(code: string) {
+  return request<Api.Stock.SyncState | null>({
+    url: `/api/stock/${code}/sync-state`,
+    method: 'get'
+  })
+}

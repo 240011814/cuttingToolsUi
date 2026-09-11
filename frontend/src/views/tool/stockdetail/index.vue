@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { stockDetail, stockKline, stockFinanceHistory, addWatchlist, syncSingleStock, fetchSyncStatus } from '@/service/api'
+import { stockDetail, stockKline, stockFinanceHistory, addWatchlist, syncSingleStock, fetchSyncStatus, fetchStockSyncState } from '@/service/api'
 import { useMessage, NButton, NDataTable, NTag, NSpin, NTabs, NTabPane } from 'naive-ui'
 import * as echarts from 'echarts'
 
@@ -29,6 +29,7 @@ const klineLoading = ref(false)
 const financeRange = ref<'recent' | 'all'>('recent')
 const financeLoading = ref(false)
 const financeChartGroup = ref<'profit' | 'growth' | 'operation' | 'solvency'>('profit')
+const syncState = ref<Api.Stock.SyncState | null>(null)
 
 const chartRef = ref<HTMLElement | null>(null)
 let chartInstance: echarts.ECharts | null = null
@@ -84,10 +85,11 @@ async function loadDetail() {
   }
   loading.value = true
   try {
-    const [detailRes, klineRes] = await Promise.all([
+    const [detailRes, klineRes, , syncStateRes] = await Promise.all([
       stockDetail(code.value),
       stockKline(code.value, { period: klinePeriod.value, count: 120 }),
-      loadFinance()
+      loadFinance(),
+      fetchStockSyncState(code.value)
     ])
     if (detailRes.data) {
       detail.value = detailRes.data
@@ -95,6 +97,7 @@ async function loadDetail() {
     if (klineRes.data) {
       klineData.value = klineRes.data
     }
+    syncState.value = syncStateRes?.data || null
   } catch (e: any) {
     message.error(e.message || '加载失败')
   } finally {
@@ -260,6 +263,47 @@ const financeItems = computed(() => {
     { label: '净资产同比', value: d.yoyEquity !== null ? `${d.yoyEquity >= 0 ? '+' : ''}${d.yoyEquity.toFixed(2)}%` : '-', tip: '净资产较上年同期增速，反映内生积累能力' },
     { label: '总资产同比', value: d.yoyAsset !== null ? `${d.yoyAsset >= 0 ? '+' : ''}${d.yoyAsset.toFixed(2)}%` : '-', tip: '总资产较上年同期增速，反映扩张速度' },
     { label: '现金流/营收', value: d.cfoToOr?.toFixed(2) || '-', tip: '公式: 经营现金流净额/营业收入。>0.2较好，持续为负需警惕' }
+  ]
+})
+
+function fmtSyncDate(v: string | null | undefined) {
+  return v ? v.slice(0, 10) : '-'
+}
+
+function fmtSyncDateTime(v: string | null | undefined) {
+  return v ? v.slice(0, 19).replace('T', ' ') : '-'
+}
+
+const klineStatusMeta = computed(() => {
+  const s = syncState.value?.klineStatus || 'pending'
+  const meta: Record<string, { label: string; type: 'success' | 'error' | 'default' }> = {
+    ok: { label: '已同步', type: 'success' },
+    failed: { label: '同步失败', type: 'error' },
+    pending: { label: '未同步', type: 'default' }
+  }
+  return meta[s] || meta.pending
+})
+
+const financeStatusMeta = computed(() => {
+  const s = syncState.value?.financeStatus || 'pending'
+  const meta: Record<string, { label: string; type: 'success' | 'error' | 'default' | 'info' }> = {
+    ok: { label: '已同步', type: 'success' },
+    failed: { label: '同步失败', type: 'error' },
+    pending: { label: '未同步', type: 'default' },
+    skipped: { label: '指数无财务', type: 'info' }
+  }
+  return meta[s] || meta.pending
+})
+
+const syncItems = computed(() => {
+  const st = syncState.value
+  return [
+    { label: '日K已到', value: fmtSyncDate(st?.klineDailyTo) },
+    { label: '周K已到', value: fmtSyncDate(st?.klineWeeklyTo) },
+    { label: '月K已到', value: fmtSyncDate(st?.klineMonthlyTo) },
+    { label: 'K线同步时间', value: fmtSyncDateTime(st?.klineSyncedAt) },
+    { label: '财务已到', value: fmtSyncDate(st?.financeTo) },
+    { label: '财务同步时间', value: fmtSyncDateTime(st?.financeSyncedAt) }
   ]
 })
 
@@ -550,6 +594,29 @@ onUnmounted(() => {
                       <span v-if="item.tip" class="text-gray-400 cursor-help" :title="item.tip">?</span>
                     </span>
                   </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 数据同步状态 -->
+            <div class="mt-4 p-4 bg-white rounded-lg shadow">
+              <h2 class="text-lg font-bold mb-3">数据同步状态</h2>
+              <div class="grid grid-cols-2 gap-2">
+                <div v-for="item in syncItems" :key="item.label" class="flex justify-between items-center">
+                  <span class="text-gray-500">{{ item.label }}</span>
+                  <span class="font-medium">{{ item.value }}</span>
+                </div>
+              </div>
+              <div class="flex flex-wrap gap-x-8 gap-y-2 mt-3">
+                <div class="flex items-center gap-2">
+                  <span class="text-gray-500">K线状态</span>
+                  <NTag :type="klineStatusMeta.type" size="small">{{ klineStatusMeta.label }}</NTag>
+                  <span v-if="syncState?.klineError" class="text-12px text-red-500 cursor-help" :title="syncState.klineError">?</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="text-gray-500">财务状态</span>
+                  <NTag :type="financeStatusMeta.type" size="small">{{ financeStatusMeta.label }}</NTag>
+                  <span v-if="syncState?.financeError" class="text-12px text-red-500 cursor-help" :title="syncState.financeError">?</span>
                 </div>
               </div>
             </div>

@@ -3,6 +3,7 @@ package service
 import (
 	"backend/model"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -13,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
@@ -397,6 +399,91 @@ func (s *StockSyncService) HasStoredStockData(code string) bool {
 	return kCount > 0 || fCount > 0
 }
 
+// === 同步状态维护 (stock_sync_state) ===
+// 数据表(stock_daily/stock_finance)是真相, 状态表只做水位缓存与观测: 状态漂移时最多多拉一次数据(upsert 幂等), 不会产生脏数据
+// 同步任务由 StartTask/RunExclusive 全局互斥, 同一 code 无并发写入, 读改写安全
+
+// refreshKlineState K线写入后更新同步水位与状态; freqDates 为本次各周期最新交易日(零值=该周期无新数据, 保留原水位); syncErr 非空时标记失败
+func (s *StockSyncService) refreshKlineState(code string, freqDates map[string]time.Time, syncErr error) {
+	var st model.StockSyncState
+	err := DB.Where("code = ?", code).First(&st).Error
+	if err != nil {
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			log.Printf("[StockSync] 更新 %s K线同步状态失败: %v", code, err)
+			return
+		}
+		st = model.StockSyncState{Code: code}
+	}
+	for freq, d := range freqDates {
+		if d.IsZero() {
+			continue
+		}
+		switch freq {
+		case "daily":
+			st.KlineDailyTo = &d
+		case "weekly":
+			st.KlineWeeklyTo = &d
+		case "monthly":
+			st.KlineMonthlyTo = &d
+		}
+	}
+	now := time.Now()
+	st.KlineSyncedAt = &now
+	if syncErr != nil {
+		st.KlineStatus = "failed"
+		st.KlineError = truncateText(syncErr.Error(), 250)
+	} else {
+		st.KlineStatus = "ok"
+		st.KlineError = ""
+	}
+	if err := DB.Save(&st).Error; err != nil {
+		log.Printf("[StockSync] 写入 %s K线同步状态失败: %v", code, err)
+	}
+}
+
+// refreshFinanceState 财务写入后更新同步状态; status: pending/ok/failed/skipped
+func (s *StockSyncService) refreshFinanceState(code string, financeTo time.Time, status, errMsg string) {
+	var st model.StockSyncState
+	err := DB.Where("code = ?", code).First(&st).Error
+	if err != nil {
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			log.Printf("[StockSync] 更新 %s 财务同步状态失败: %v", code, err)
+			return
+		}
+		st = model.StockSyncState{Code: code}
+	}
+	if !financeTo.IsZero() {
+		st.FinanceTo = &financeTo
+	}
+	now := time.Now()
+	st.FinanceSyncedAt = &now
+	st.FinanceStatus = status
+	st.FinanceError = truncateText(errMsg, 250)
+	if err := DB.Save(&st).Error; err != nil {
+		log.Printf("[StockSync] 写入 %s 财务同步状态失败: %v", code, err)
+	}
+}
+
+// maxReportDate 取各报告期中最大的日期
+func maxReportDate(dateByQuarter map[[2]int]time.Time) time.Time {
+	var max time.Time
+	for _, d := range dateByQuarter {
+		if d.After(max) {
+			max = d
+		}
+	}
+	return max
+}
+
+// truncateText 截断错误信息避免超出列宽
+func truncateText(s string, max int) string {
+	runes := []rune(s)
+	if len(runes) <= max {
+		return s
+	}
+	return string(runes[:max])
+}
+
 // SyncDailyQuotes 同步行情数据 (串行, 日/周/月K线增量同步: 从各周期库中最新交易日起更新, 无数据则拉全部历史; force=true 强制全量)
 func (s *StockSyncService) SyncDailyQuotes(force bool) error {
 	log.Printf("[StockSync] 同步行情数据... (force=%v)", force)
@@ -415,25 +502,25 @@ func (s *StockSyncService) SyncDailyQuotes(force bool) error {
 		}
 	}
 
-	// 每只股票每个周期在库中的最新交易日
-	type latestRow struct {
-		Code      string    `gorm:"column:code"`
-		Frequency string    `gorm:"column:frequency"`
-		TradeDate time.Time `gorm:"column:trade_date"`
+	// 每只股票每个周期在库中的最新交易日: 从同步状态表读水位(同步完成时维护, 与数据表一致),
+	// 替代对 stock_daily 全表 GROUP BY; 状态表缺失的股票按无数据处理, 拉全量后自动补建状态
+	var states []model.StockSyncState
+	if err := DB.Find(&states).Error; err != nil {
+		return fmt.Errorf("查询同步状态失败: %v", err)
 	}
-	var latestRows []latestRow
-	if err := DB.Model(&model.StockDaily{}).
-		Select("code, frequency, MAX(trade_date) AS trade_date").
-		Group("code, frequency").
-		Scan(&latestRows).Error; err != nil {
-		return fmt.Errorf("查询已有行情日期失败: %v", err)
-	}
-	latestMap := make(map[string]map[string]time.Time, len(latestRows))
-	for _, r := range latestRows {
-		if latestMap[r.Code] == nil {
-			latestMap[r.Code] = make(map[string]time.Time, 3)
+	latestMap := make(map[string]map[string]time.Time, len(states))
+	for _, st := range states {
+		m := make(map[string]time.Time, 3)
+		if st.KlineDailyTo != nil {
+			m["daily"] = *st.KlineDailyTo
 		}
-		latestMap[r.Code][r.Frequency] = r.TradeDate
+		if st.KlineWeeklyTo != nil {
+			m["weekly"] = *st.KlineWeeklyTo
+		}
+		if st.KlineMonthlyTo != nil {
+			m["monthly"] = *st.KlineMonthlyTo
+		}
+		latestMap[st.Code] = m
 	}
 
 	updated := 0
@@ -497,6 +584,7 @@ func (s *StockSyncService) SyncSingleStockDaily(code, market string, starts map[
 
 	total := 0
 	fetched := make([]string, 0, len(klineFrequencies))
+	freqDates := make(map[string]time.Time, len(klineFrequencies)) // 本次各周期已同步到的最新交易日
 	for _, freq := range klineFrequencies {
 		start := starts[freq]
 		if freqIsCurrent(start, freq, latestTradeDay) {
@@ -519,6 +607,7 @@ func (s *StockSyncService) SyncSingleStockDaily(code, market string, starts map[
 
 		body, err := s.httpGetWithDelay(url)
 		if err != nil {
+			s.refreshKlineState(code, freqDates, err)
 			return total, fmt.Errorf("获取%sK线数据失败: %v", freq, err)
 		}
 
@@ -539,10 +628,13 @@ func (s *StockSyncService) SyncSingleStockDaily(code, market string, starts map[
 			} `json:"data"`
 		}
 		if err := json.Unmarshal(body, &resp); err != nil {
+			s.refreshKlineState(code, freqDates, err)
 			return total, fmt.Errorf("解析%sK线数据失败: %v", freq, err)
 		}
 		if !resp.Ok {
-			return total, fmt.Errorf("获取%sK线数据失败", freq)
+			err := fmt.Errorf("获取%sK线数据失败", freq)
+			s.refreshKlineState(code, freqDates, err)
+			return total, err
 		}
 
 		dailies := make([]model.StockDaily, 0, len(resp.Data.Items))
@@ -571,6 +663,7 @@ func (s *StockSyncService) SyncSingleStockDaily(code, market string, starts map[
 
 		if len(dailies) == 0 {
 			log.Printf("[StockSync] 同步 %s %s K线: 0 条(%s 起无新数据)", code, freq, startDate)
+			freqDates[freq] = start
 			continue
 		}
 		// 全量历史可能上万条, 分批写入避免超过 max_allowed_packet
@@ -582,13 +675,16 @@ func (s *StockSyncService) SyncSingleStockDaily(code, market string, starts map[
 				Columns:   []clause.Column{{Name: "code"}, {Name: "frequency"}, {Name: "trade_date"}},
 				DoUpdates: clause.AssignmentColumns([]string{"open", "high", "low", "close", "volume", "amount", "turnover_rate", "change_pct"}),
 			}).Create(&batch).Error; err != nil {
+				s.refreshKlineState(code, freqDates, err)
 				return total, fmt.Errorf("写入 %s %s K线数据失败: %v", code, freq, err)
 			}
 		}
 
+		freqDates[freq] = dailies[len(dailies)-1].TradeDate
 		fetched = append(fetched, fmt.Sprintf("%s=%d条(%s~%s)", freq, len(dailies), dailies[0].TradeDate.Format("2006-01-02"), dailies[len(dailies)-1].TradeDate.Format("2006-01-02")))
 		total += len(dailies)
 	}
+	s.refreshKlineState(code, freqDates, nil)
 	if len(fetched) > 0 {
 		log.Printf("[StockSync] 同步 %s K线数据: %s", code, strings.Join(fetched, ", "))
 	}
@@ -617,6 +713,7 @@ func (s *StockSyncService) SyncFinanceData(code, market string) (int, error) {
 	market = s.resolveMarket(code, market)
 	if isIndexCode(code, market) {
 		log.Printf("[StockSync] %s 是指数, 无财务数据, 跳过", code)
+		s.refreshFinanceState(code, time.Time{}, "skipped", "指数无财务数据")
 		return 0, nil
 	}
 	baostockCode := s.convertToBaostockCode(code, market)
@@ -880,10 +977,12 @@ func (s *StockSyncService) SyncFinanceData(code, market string) (int, error) {
 
 	if abortErr != nil {
 		// 已获取的部分已落库, 但整体按失败返回, 让前端感知到同步不完整
+		s.refreshFinanceState(code, maxReportDate(dateByQuarter), "failed", abortErr.Error())
 		log.Printf("[StockSync] 同步 %s 财务数据中止: %v (已处理 %d 期)", code, abortErr, len(touchedSources))
 		return len(touchedSources), abortErr
 	}
 
+	s.refreshFinanceState(code, maxReportDate(dateByQuarter), "ok", "")
 	log.Printf("[StockSync] 同步 %s 财务数据: %d 期", code, len(touchedSources))
 	return len(touchedSources), nil
 }

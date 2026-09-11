@@ -138,5 +138,21 @@ declare namespace Api {
       progress: number
       total: number
     }
+
+    interface SyncState {
+      code: string
+      klineDailyTo: string | null
+      klineWeeklyTo: string | null
+      klineMonthlyTo: string | null
+      klineStatus: 'pending' | 'ok' | 'failed'
+      klineError: string | null
+      klineSyncedAt: string | null
+      financeTo: string | null
+      financeStatus: 'pending' | 'ok' | 'failed' | 'skipped'
+      financeError: string | null
+      financeSyncedAt: string | null
+      createdAt: string
+      updatedAt: string
+    }
   }
 }

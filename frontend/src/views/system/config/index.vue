@@ -278,10 +278,6 @@ async function handleSendTestEmail() {
 onMounted(() => {
   loadConfig();
 });
-
-function openGocronUI() {
-  window.open("http://localhost:8090", "_blank");
-}
 </script>
 
 <template>

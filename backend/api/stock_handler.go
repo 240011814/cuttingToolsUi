@@ -90,6 +90,23 @@ func (h *StockHandler) HandleGetDetail(c *gin.Context) {
 	SendSuccess(c, result)
 }
 
+// HandleGetSyncState 个股数据同步状态
+func (h *StockHandler) HandleGetSyncState(c *gin.Context) {
+	code := c.Param("code")
+	if code == "" {
+		SendError(c, "400", "股票代码不能为空")
+		return
+	}
+
+	result, err := h.svc.GetSyncState(code)
+	if err != nil {
+		SendError(c, "500", "获取同步状态失败: "+err.Error())
+		return
+	}
+
+	SendSuccess(c, result)
+}
+
 // HandleGetFinanceHistory 历史财务数据
 func (h *StockHandler) HandleGetFinanceHistory(c *gin.Context) {
 	code := c.Param("code")

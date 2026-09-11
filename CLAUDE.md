@@ -100,4 +100,5 @@ MySQL 不支持在一个查询中执行多条 SQL 语句。需要将建表语句
 - baostock 代理 (baostock/): 底层 socket 无超时, 服务端偶发卡顿会永久阻塞并占住全局锁导致连锁超时, 已通过 `socket.setdefaulttimeout(60)` 兜底; 登录会话已做复用 (shared.py 包装 login/logout), 查询异常时 force_disconnect 强制重连
 - baostock 周线/月线只返回已完成周期 (周线日期=周最后交易日, 月线=月末交易日), 当前周期不出 K 线; 股票代码与指数代码有重叠 (如 sz.000003 退市股 vs sh.000003 上证B指), 必须结合市场标识区分, 指数走 query_history_index_k_data_plus
 - baostock 财务数据从 2007Q1 开始; 每日调用限额默认 5 万次 (BAOSTOCK_API_DAILY_LIMIT), 同步必须增量+串行, 429 限额错误不要重试
+- 股票同步水位统一走 stock_sync_state (每股一行: 各周期K线已到日期+财务已到报告期+状态/错误/同步时间), 批量同步不再对 stock_daily 全表 GROUP BY; 原则: 数据表(stock_daily/stock_finance)是真相, 状态表只是水位缓存+观测, 漂移时最多多拉一次数据(upsert 幂等兜底); 同步成功/失败都要更新状态(失败记录原因, 便于续跑与排查); 迁移里有存量数据回填
 - 定时任务统一存于 job_definitions/job_runs (TaskRegistry 注册, 方法名是 key 不做反射); 备忘= task_name=reminder.notify + user_id + once/repeat 调度, 系统任务= cron + user_id IS NULL; 重复备忘按旧链式逻辑: 每条定义=一次执行, 执行完由调度器生成下一条 (chain_id 分组, 过期不补发循环补齐), 日历只查定义行不做 run 映射; 手动触发与重试不生成下一条; 管理接口不展示用户备忘

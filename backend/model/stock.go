@@ -49,6 +49,29 @@ func (StockDaily) TableName() string {
 	return "stock_daily"
 }
 
+// StockSyncState 股票数据同步状态 (每只股票一行)
+// 数据表(stock_daily/stock_finance)是真相, 此表是同步水位缓存+观测: 用于断点续跑、失败记录与状态展示
+type StockSyncState struct {
+	ID              uint       `gorm:"primaryKey;autoIncrement" json:"id"`
+	Code            string     `gorm:"size:10;not null;uniqueIndex" json:"code"`
+	KlineDailyTo    *time.Time `json:"klineDailyTo"`
+	KlineWeeklyTo   *time.Time `json:"klineWeeklyTo"`
+	KlineMonthlyTo  *time.Time `json:"klineMonthlyTo"`
+	KlineStatus     string     `gorm:"size:20;not null;default:pending" json:"klineStatus"`
+	KlineError      string     `gorm:"size:255" json:"klineError"`
+	KlineSyncedAt   *time.Time `json:"klineSyncedAt"`
+	FinanceTo       *time.Time `json:"financeTo"`
+	FinanceStatus   string     `gorm:"size:20;not null;default:pending" json:"financeStatus"`
+	FinanceError    string     `gorm:"size:255" json:"financeError"`
+	FinanceSyncedAt *time.Time `json:"financeSyncedAt"`
+	CreatedAt       time.Time  `json:"createdAt"`
+	UpdatedAt       time.Time  `json:"updatedAt"`
+}
+
+func (StockSyncState) TableName() string {
+	return "stock_sync_state"
+}
+
 // StockFinance 股票财务数据
 type StockFinance struct {
 	ID             uint     `gorm:"primaryKey;autoIncrement" json:"id"`
