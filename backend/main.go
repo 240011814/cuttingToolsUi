@@ -113,6 +113,12 @@ func main() {
 	stockService := service.NewStockService()
 	stockHandler := api.NewStockHandler(stockService, cfg.Baostock.URL)
 
+	// Job Handler + 注册后台可调度的定时任务
+	jobHandler := api.NewJobHandler(jobScheduler)
+	if jobScheduler != nil {
+		stockHandler.RegisterCronTasks(jobScheduler)
+	}
+
 	r.GET("/api/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"status":  "ok",
@@ -386,6 +392,18 @@ func main() {
 				configGroup.PUT("", systemConfigHandler.Update)
 				configGroup.POST("/test-email", systemConfigHandler.SendTestEmail)
 			}
+
+			// Job Management (定时任务后台管理)
+			jobGroup := adminGroup.Group("/jobs")
+			{
+				jobGroup.GET("/tasks", api.RequirePermission("job:manage"), jobHandler.HandleListTaskRegistry)
+				jobGroup.GET("", api.RequirePermission("job:manage"), jobHandler.HandleListJobs)
+				jobGroup.POST("", api.RequirePermission("job:manage"), jobHandler.HandleCreateJob)
+				jobGroup.PUT("/:id", api.RequirePermission("job:manage"), jobHandler.HandleUpdateJob)
+				jobGroup.DELETE("/:id", api.RequirePermission("job:manage"), jobHandler.HandleDeleteJob)
+				jobGroup.POST("/:id/run", api.RequirePermission("job:manage"), jobHandler.HandleRunJob)
+				jobGroup.GET("/:id/runs", api.RequirePermission("job:manage"), jobHandler.HandleListJobRuns)
+			}
 		}
 	}
 
@@ -426,6 +444,7 @@ func main() {
 	if jobScheduler != nil {
 		jobScheduler.Start()
 		jobScheduler.LoadAll()
+		jobScheduler.LoadCronDefinitions()
 	}
 
 	r.Run(":8080")

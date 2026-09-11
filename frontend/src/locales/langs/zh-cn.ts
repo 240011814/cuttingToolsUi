@@ -253,6 +253,7 @@ const local: App.I18n.Schema = {
     system_permission: "权限管理",
     "system_ai-config": "AI 配置管理",
     system_config: "系统配置",
+    system_job: "定时任务管理",
     "system_lottery": "抽奖管理",
     "system_model-scenario": "模型和场景",
     tool: "工具",

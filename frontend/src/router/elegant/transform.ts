@@ -190,6 +190,7 @@ const routeMap: RouteMap = {
   "system": "/system",
   "system_ai-config": "/system/ai-config",
   "system_config": "/system/config",
+  "system_job": "/system/job",
   "system_lottery": "/system/lottery",
   "system_model-scenario": "/system/model-scenario",
   "system_permission": "/system/permission",

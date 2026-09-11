@@ -3,6 +3,7 @@ package api
 import (
 	"backend/model"
 	"backend/service"
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -18,6 +19,41 @@ type StockHandler struct {
 
 func NewStockHandler(svc *service.StockService, baostockURL string) *StockHandler {
 	return &StockHandler{svc: svc, syncService: service.NewStockSyncService(baostockURL)}
+}
+
+// SyncService 暴露同步服务(供定时任务注册使用)
+func (h *StockHandler) SyncService() *service.StockSyncService {
+	return h.syncService
+}
+
+// RegisterCronTasks 注册股票相关的后台定时任务
+func (h *StockHandler) RegisterCronTasks(js *service.JobScheduler) {
+	sync := h.syncService
+
+	js.RegisterTask("stock.sync_stock_list", "同步股票列表", json.RawMessage(`{}`), func(_ json.RawMessage) error {
+		return sync.RunExclusive("股票列表(定时)", sync.SyncStockList)
+	})
+
+	js.RegisterTask("stock.sync_daily_quotes", "同步行情数据(日/周/月K线, 增量)", json.RawMessage(`{"force": false}`), func(params json.RawMessage) error {
+		force := false
+		if len(params) > 0 {
+			var p struct {
+				Force bool `json:"force"`
+			}
+			if err := json.Unmarshal(params, &p); err == nil {
+				force = p.Force
+			}
+		}
+		task := "行情数据(定时)"
+		if force {
+			task = "行情数据全量(定时)"
+		}
+		return sync.RunExclusive(task, func() error { return sync.SyncDailyQuotes(force) })
+	})
+
+	js.RegisterTask("stock.sync_finance_all", "同步全部股票财务数据(增量)", json.RawMessage(`{}`), func(_ json.RawMessage) error {
+		return sync.RunExclusive("全部财务数据(定时)", sync.SyncAllFinance)
+	})
 }
 
 // HandleScreen 股票筛选

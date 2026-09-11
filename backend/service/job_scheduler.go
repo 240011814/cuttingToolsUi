@@ -17,6 +17,8 @@ type JobScheduler struct {
 	mu        sync.Mutex
 	jobMap    map[string]gocron.Job // jobKey -> job
 	callbacks map[string]model.JobCallback // jobType -> callback
+	tasks     map[string]taskEntry // 已注册的可调度任务(后台定时任务)
+	cronJobs  map[string]gocron.Job // cron-def:{id} -> job
 }
 
 func NewJobScheduler() (*JobScheduler, error) {
@@ -29,6 +31,8 @@ func NewJobScheduler() (*JobScheduler, error) {
 		scheduler: s,
 		jobMap:    make(map[string]gocron.Job),
 		callbacks: make(map[string]model.JobCallback),
+		tasks:     make(map[string]taskEntry),
+		cronJobs:  make(map[string]gocron.Job),
 	}
 
 	return js, nil

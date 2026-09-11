@@ -59,31 +59,14 @@ func NewStockSyncService(baostockURL string) *StockSyncService {
 	}
 }
 
-// StartTask 启动同步任务(防重入), 返回 false 表示已有任务在运行
+// StartTask 启动同步任务(防重入, 异步执行), 返回 false 表示已有任务在运行
 func (s *StockSyncService) StartTask(task string, fn func() error) bool {
-	s.mu.Lock()
-	if s.running {
-		current := s.task
-		s.mu.Unlock()
-		log.Printf("[StockSync] 任务 %s 被拒绝: %s 正在运行", task, current)
+	if !s.tryStart(task) {
 		return false
 	}
-	s.running = true
-	s.task = task
-	s.startedAt = time.Now()
-	s.progress, s.total = 0, 0
-	s.lastError = ""
-	s.mu.Unlock()
 
 	go func() {
-		err := fn()
-		s.mu.Lock()
-		s.running = false
-		s.finishedAt = time.Now()
-		if err != nil {
-			s.lastError = err.Error()
-		}
-		s.mu.Unlock()
+		err := s.runTask(task, fn)
 		if err != nil {
 			log.Printf("[StockSync] 任务 %s 失败: %v", task, err)
 		} else {
@@ -91,6 +74,44 @@ func (s *StockSyncService) StartTask(task string, fn func() error) bool {
 		}
 	}()
 	return true
+}
+
+// RunExclusive 同步执行任务(复用同一套防重入状态, 供定时任务调用), 已有任务运行时返回错误
+func (s *StockSyncService) RunExclusive(task string, fn func() error) error {
+	if !s.tryStart(task) {
+		s.mu.Lock()
+		current := s.task
+		s.mu.Unlock()
+		return fmt.Errorf("同步任务 %s 正在运行中", current)
+	}
+	return s.runTask(task, fn)
+}
+
+func (s *StockSyncService) tryStart(task string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.running {
+		log.Printf("[StockSync] 任务 %s 被拒绝: %s 正在运行", task, s.task)
+		return false
+	}
+	s.running = true
+	s.task = task
+	s.startedAt = time.Now()
+	s.progress, s.total = 0, 0
+	s.lastError = ""
+	return true
+}
+
+func (s *StockSyncService) runTask(task string, fn func() error) error {
+	err := fn()
+	s.mu.Lock()
+	s.running = false
+	s.finishedAt = time.Now()
+	if err != nil {
+		s.lastError = err.Error()
+	}
+	s.mu.Unlock()
+	return err
 }
 
 // GetStatus 获取当前同步任务状态
