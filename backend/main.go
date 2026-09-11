@@ -11,7 +11,6 @@ import (
 	"backend/service/tools"
 
 	"github.com/gin-gonic/gin"
-	gocronui "github.com/go-co-op/gocron-ui/server"
 )
 
 func main() {
@@ -421,17 +420,6 @@ func main() {
 
 	// Public share route (no auth required, under /api for reverse proxy compatibility)
 	r.GET("/api/share/:token", api.HandleGetSharedHistory(historyService))
-
-	// gocron-ui (独立端口 8090)
-	if jobScheduler != nil {
-		uiServer := gocronui.NewServer(jobScheduler.GetScheduler(), 8090, gocronui.WithTitle("定时任务管理"))
-		go func() {
-			log.Println("gocron-ui available at http://localhost:8090")
-			if err := http.ListenAndServe(":8090", uiServer.Router); err != nil {
-				log.Printf("Warning: Failed to start gocron-ui: %v", err)
-			}
-		}()
-	}
 
 	// Start Telegram Bot
 	go func() {
