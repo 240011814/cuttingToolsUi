@@ -38,13 +38,20 @@ const klineChartRef = ref<HTMLElement | null>(null)
 let klineChartInstance: echarts.ECharts | null = null
 
 const klineColumns = [
-  { title: '日期', key: 'date', width: 100 },
+  { title: '日期', key: 'date', width: 100, fixed: 'left' as const },
+  { title: '状态', key: 'tradeStatus', width: 60, render: (row: Api.Stock.KlineData) => (row.tradeStatus === null ? '-' : row.tradeStatus === 0 ? '停牌' : '交易') },
   { title: '开盘', key: 'open', width: 80, render: (row: Api.Stock.KlineData) => row.open?.toFixed(2) || '-' },
   { title: '最高', key: 'high', width: 80, render: (row: Api.Stock.KlineData) => row.high?.toFixed(2) || '-' },
   { title: '最低', key: 'low', width: 80, render: (row: Api.Stock.KlineData) => row.low?.toFixed(2) || '-' },
+  { title: '昨收', key: 'preclose', width: 80, render: (row: Api.Stock.KlineData) => row.preclose?.toFixed(2) || '-' },
   { title: '收盘', key: 'close', width: 80, render: (row: Api.Stock.KlineData) => row.close?.toFixed(2) || '-' },
   { title: '涨跌%', key: 'changePct', width: 80, render: (row: Api.Stock.KlineData) => row.changePct !== null ? `${row.changePct >= 0 ? '+' : ''}${row.changePct.toFixed(2)}%` : '-' },
-  { title: '成交量', key: 'volume', width: 100, render: (row: Api.Stock.KlineData) => row.volume ? `${(row.volume / 10000).toFixed(2)}万手` : '-' }
+  { title: '换手%', key: 'turnoverRate', width: 80, render: (row: Api.Stock.KlineData) => row.turnoverRate?.toFixed(2) || '-' },
+  { title: '成交量', key: 'volume', width: 100, render: (row: Api.Stock.KlineData) => row.volume ? `${(row.volume / 10000).toFixed(2)}万手` : '-' },
+  { title: 'PE(TTM)', key: 'peTtm', width: 90, render: (row: Api.Stock.KlineData) => row.peTtm?.toFixed(2) || '-' },
+  { title: 'PB', key: 'pbMrq', width: 70, render: (row: Api.Stock.KlineData) => row.pbMrq?.toFixed(2) || '-' },
+  { title: 'PS(TTM)', key: 'psTtm', width: 90, render: (row: Api.Stock.KlineData) => row.psTtm?.toFixed(2) || '-' },
+  { title: '市现率', key: 'pcfNcfTtm', width: 80, render: (row: Api.Stock.KlineData) => row.pcfNcfTtm?.toFixed(2) || '-' }
 ]
 
 const financeColumns = [
@@ -665,6 +672,7 @@ onUnmounted(() => {
                     :bordered="false"
                     size="small"
                     striped
+                    :scroll-x="1350"
                   />
                   <div v-if="klineData.length > 20 && klineViewMode === 'table'" class="mt-2 text-12px text-gray-400 text-center">
                     仅显示最近20条, 图表模式可查看全部 {{ klineData.length }} 条

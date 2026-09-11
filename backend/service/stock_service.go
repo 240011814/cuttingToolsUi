@@ -465,14 +465,21 @@ func (s *StockService) GetKline(code string, period string, count int) ([]map[st
 	for i := len(dailies) - 1; i >= 0; i-- {
 		d := dailies[i]
 		item := map[string]interface{}{
-			"date":     d.TradeDate.Format("2006-01-02"),
-			"open":     d.Open,
-			"high":     d.High,
-			"low":      d.Low,
-			"close":    d.Close,
-			"volume":   d.Volume,
-			"amount":   d.Amount,
-			"changePct": d.ChangePct,
+			"date":         d.TradeDate.Format("2006-01-02"),
+			"open":         d.Open,
+			"high":         d.High,
+			"low":          d.Low,
+			"close":        d.Close,
+			"preclose":     d.Preclose,
+			"volume":       d.Volume,
+			"amount":       d.Amount,
+			"turnoverRate": d.TurnoverRate,
+			"tradeStatus":  d.TradeStatus,
+			"changePct":    d.ChangePct,
+			"peTtm":        d.PeTtm,
+			"pbMrq":        d.PbMrq,
+			"psTtm":        d.PsTtm,
+			"pcfNcfTtm":    d.PcfNcfTtm,
 		}
 
 		// 计算MA5/10/20/60

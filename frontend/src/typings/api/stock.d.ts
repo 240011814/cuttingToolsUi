@@ -72,9 +72,16 @@ declare namespace Api {
       high: number | null
       low: number | null
       close: number | null
+      preclose: number | null
       volume: number | null
       amount: number | null
+      turnoverRate: number | null
+      tradeStatus: number | null
       changePct: number | null
+      peTtm: number | null
+      pbMrq: number | null
+      psTtm: number | null
+      pcfNcfTtm: number | null
       ma5: number | null
       ma10: number | null
       ma20: number | null
