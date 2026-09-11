@@ -30,11 +30,11 @@ func (h *StockHandler) SyncService() *service.StockSyncService {
 func (h *StockHandler) RegisterCronTasks(js *service.JobScheduler) {
 	sync := h.syncService
 
-	js.RegisterTask("stock.sync_stock_list", "同步股票列表", json.RawMessage(`{}`), func(_ json.RawMessage) error {
+	js.RegisterTask("stock.sync_stock_list", "同步股票列表", json.RawMessage(`{}`), func(_ *model.JobDefinition, _ json.RawMessage) error {
 		return sync.RunExclusive("股票列表(定时)", sync.SyncStockList)
 	})
 
-	js.RegisterTask("stock.sync_daily_quotes", "同步行情数据(日/周/月K线, 增量)", json.RawMessage(`{"force": false}`), func(params json.RawMessage) error {
+	js.RegisterTask("stock.sync_daily_quotes", "同步行情数据(日/周/月K线, 增量)", json.RawMessage(`{"force": false}`), func(_ *model.JobDefinition, params json.RawMessage) error {
 		force := false
 		if len(params) > 0 {
 			var p struct {
@@ -51,7 +51,7 @@ func (h *StockHandler) RegisterCronTasks(js *service.JobScheduler) {
 		return sync.RunExclusive(task, func() error { return sync.SyncDailyQuotes(force) })
 	})
 
-	js.RegisterTask("stock.sync_finance_all", "同步全部股票财务数据(增量)", json.RawMessage(`{}`), func(_ json.RawMessage) error {
+	js.RegisterTask("stock.sync_finance_all", "同步全部股票财务数据(增量)", json.RawMessage(`{}`), func(_ *model.JobDefinition, _ json.RawMessage) error {
 		return sync.RunExclusive("全部财务数据(定时)", sync.SyncAllFinance)
 	})
 }

@@ -2,22 +2,21 @@ package service
 
 import (
 	"backend/model"
+	"encoding/json"
 	"fmt"
 	"log"
 	"sync"
 	"time"
 
-	"gorm.io/gorm"
-
 	"github.com/go-co-op/gocron/v2"
+	"github.com/robfig/cron/v3"
 )
 
+// JobScheduler 调度器: 系统任务(cron) + 用户备忘(once/repeat) 统一调度与执行
 type JobScheduler struct {
 	scheduler gocron.Scheduler
 	mu        sync.Mutex
-	jobMap    map[string]gocron.Job // jobKey -> job
-	callbacks map[string]model.JobCallback // jobType -> callback
-	tasks     map[string]taskEntry // 已注册的可调度任务(后台定时任务)
+	tasks     map[string]taskEntry  // 已注册的可调度任务
 	cronJobs  map[string]gocron.Job // cron-def:{id} -> job
 }
 
@@ -29,8 +28,6 @@ func NewJobScheduler() (*JobScheduler, error) {
 
 	js := &JobScheduler{
 		scheduler: s,
-		jobMap:    make(map[string]gocron.Job),
-		callbacks: make(map[string]model.JobCallback),
 		tasks:     make(map[string]taskEntry),
 		cronJobs:  make(map[string]gocron.Job),
 	}
@@ -51,259 +48,454 @@ func (js *JobScheduler) Shutdown() error {
 	return js.scheduler.Shutdown()
 }
 
-// RegisterCallback 注册任务回调函数
-func (js *JobScheduler) RegisterCallback(jobType string, callback model.JobCallback) {
+// ============ 任务注册表 ============
+// 后台可调度的任务必须先注册到 registry, 方法名是注册 key 而非反射任意 Go 方法
+
+// TaskHandler 任务执行体: def 提供定义上下文(如备忘的归属用户)
+type TaskHandler func(def *model.JobDefinition, params json.RawMessage) error
+
+type taskEntry struct {
+	meta    model.TaskMeta
+	handler TaskHandler
+}
+
+// RegisterTask 注册可调度任务
+func (js *JobScheduler) RegisterTask(name, description string, paramsExample json.RawMessage, handler TaskHandler) {
 	js.mu.Lock()
 	defer js.mu.Unlock()
-	js.callbacks[jobType] = callback
-	log.Printf("[JobScheduler] 注册回调: %s", jobType)
+	js.tasks[name] = taskEntry{
+		meta:    model.TaskMeta{Name: name, Description: description, ParamsExample: paramsExample},
+		handler: handler,
+	}
+	log.Printf("[JobScheduler] 注册任务: %s (%s)", name, description)
 }
 
-// LoadAll 从数据库加载所有待执行的任务
-func (js *JobScheduler) LoadAll() error {
-	// 清理上次进程中断遗留的 running 任务，避免永久卡死
-	if err := DB.Model(&model.Job{}).Where("status = ?", model.JobStatusRunning).Updates(map[string]interface{}{
-		"status":     model.JobStatusFailed,
-		"last_error": "服务重启导致任务中断",
+// ListRegisteredTasks 列出所有已注册任务(供后台下拉选择)
+func (js *JobScheduler) ListRegisteredTasks() []model.TaskMeta {
+	js.mu.Lock()
+	defer js.mu.Unlock()
+	list := make([]model.TaskMeta, 0, len(js.tasks))
+	for _, entry := range js.tasks {
+		list = append(list, entry.meta)
+	}
+	return list
+}
+
+func (js *JobScheduler) getTask(taskName string) (TaskHandler, bool) {
+	js.mu.Lock()
+	defer js.mu.Unlock()
+	entry, ok := js.tasks[taskName]
+	return entry.handler, ok
+}
+
+// GetTask 查询任务是否已注册
+func (js *JobScheduler) GetTask(taskName string) (model.TaskMeta, bool) {
+	js.mu.Lock()
+	defer js.mu.Unlock()
+	entry, ok := js.tasks[taskName]
+	return entry.meta, ok
+}
+
+// ============ 定义调度 ============
+
+// LoadCronDefinitions 启动时加载启用的任务定义并注册到调度器
+func (js *JobScheduler) LoadCronDefinitions() error {
+	// 清理上次进程中断遗留的 running 记录
+	if err := DB.Model(&model.JobRun{}).Where("status = ?", model.JobRunStatusRunning).Updates(map[string]interface{}{
+		"status":      model.JobRunStatusFailed,
+		"error":       "服务重启导致任务中断",
+		"finished_at": time.Now(),
 	}).Error; err != nil {
-		log.Printf("[JobScheduler] 清理中断任务失败: %v", err)
+		log.Printf("[JobScheduler] 清理中断的定时任务记录失败: %v", err)
 	}
 
-	var jobs []model.Job
-	if err := DB.Where("status = ?", model.JobStatusPending).Find(&jobs).Error; err != nil {
+	var defs []model.JobDefinition
+	if err := DB.Where("enabled = ?", true).Find(&defs).Error; err != nil {
 		return err
 	}
-
-	for _, job := range jobs {
-		if job.ScheduledAt.Before(time.Now()) {
-			// 过期任务不补发
-			log.Printf("[JobScheduler] 任务 %s:%d 已过期，跳过执行", job.JobType, job.JobID)
-			js.skipExpiredJob(job)
-			continue
+	for i := range defs {
+		if err := js.ScheduleDefinition(&defs[i]); err != nil {
+			log.Printf("[JobScheduler] 加载任务 %s 失败: %v", defs[i].Name, err)
 		}
-		js.scheduleJob(job)
 	}
-
-	log.Printf("[JobScheduler] 已加载 %d 个待执行任务", len(jobs))
+	log.Printf("[JobScheduler] 已加载 %d 个启用的任务定义", len(defs))
 	return nil
 }
 
-// ScheduleJob 创建新任务
-func (js *JobScheduler) ScheduleJob(job *model.Job) error {
-	// 保存到数据库
-	if err := DB.Create(job).Error; err != nil {
-		return err
+// ValidateCronExpr 校验 cron 表达式(5段标准格式), 并返回下一次执行时间
+func ValidateCronExpr(expr string) (time.Time, error) {
+	parser := cron.NewParser(cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow | cron.Descriptor)
+	schedule, err := parser.Parse(expr)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("cron 表达式无效: %v", err)
+	}
+	return schedule.Next(time.Now()), nil
+}
+
+// ScheduleDefinition 注册/更新任务定义的调度 (新增或编辑后调用)
+func (js *JobScheduler) ScheduleDefinition(def *model.JobDefinition) error {
+	js.mu.Lock()
+	defer js.mu.Unlock()
+	return js.scheduleDefinitionLocked(def)
+}
+
+func (js *JobScheduler) scheduleDefinitionLocked(def *model.JobDefinition) error {
+	key := defKey(def.ID)
+	if existing, ok := js.cronJobs[key]; ok {
+		js.scheduler.RemoveJob(existing.ID())
+		delete(js.cronJobs, key)
 	}
 
-	// 注册到调度器
-	if job.ScheduledAt.Before(time.Now()) {
-		js.skipExpiredJob(*job)
-	} else {
-		js.scheduleJob(*job)
+	if !def.Enabled {
+		return nil
 	}
 
+	switch def.ScheduleType {
+	case model.ScheduleTypeCron:
+		return js.scheduleCron(def, key)
+	case model.ScheduleTypeOnce, model.ScheduleTypeRepeat:
+		return js.scheduleAtTime(def, key)
+	default:
+		return fmt.Errorf("未知调度类型: %s", def.ScheduleType)
+	}
+}
+
+func defKey(defID uint) string {
+	return fmt.Sprintf("cron-def:%d", defID)
+}
+
+func (js *JobScheduler) scheduleCron(def *model.JobDefinition, key string) error {
+	job, err := js.scheduler.NewJob(
+		gocron.CronJob(def.CronExpr, false),
+		gocron.NewTask(js.cronTick, def.ID),
+		gocron.WithName(key),
+		gocron.WithTags(key),
+	)
+	if err != nil {
+		return fmt.Errorf("注册 cron 任务失败: %v", err)
+	}
+	js.cronJobs[key] = job
+	log.Printf("[JobScheduler] 已注册定时任务: %s (%s) [%s]", def.Name, def.TaskName, def.CronExpr)
 	return nil
 }
 
-// skipExpiredJob 过期任务不补发：重复任务基于原计划时间创建下一次执行，非重复任务标记为失败
-func (js *JobScheduler) skipExpiredJob(job model.Job) {
-	status := model.JobStatusFailed
-	lastError := "任务已过期，跳过执行"
-	if job.RepeatType != "" && job.RepeatType != "none" {
-		js.createNextRepeat(job)
-		status = model.JobStatusCompleted
-		lastError = "任务已过期，跳过本次执行"
+// scheduleAtTime once/repeat: 按 run_at(减去提前分钟数)注册一次性任务
+// repeat 到期后由执行引擎生成下一次的新定义行; 进程重启由 LoadCronDefinitions 恢复
+func (js *JobScheduler) scheduleAtTime(def *model.JobDefinition, key string) error {
+	if def.RunAt == nil {
+		return fmt.Errorf("任务 %s 缺少执行时间", def.Name)
+	}
+	now := time.Now()
+	effectiveAt := def.RunAt.Add(-time.Duration(def.AdvanceMinutes) * time.Minute)
+
+	if effectiveAt.Before(now) {
+		// 过期不补发 (旧 skipExpiredJob 语义: 重复任务基于原时间生成下一次, 一次性任务直接过期)
+		DB.Model(&model.JobDefinition{}).Where("id = ?", def.ID).Update("enabled", false)
+		def.Enabled = false
+		recordSkippedRun(def.ID, "执行时间已过期, 跳过执行")
+		log.Printf("[JobScheduler] 任务 %s 已过期, 跳过执行", def.Name)
+
+		if def.ScheduleType == model.ScheduleTypeRepeat {
+			js.ensureNextOccurrenceLocked(def)
+		}
+		return nil
 	}
 
-	DB.Model(&model.Job{}).Where("id = ?", job.ID).Updates(map[string]interface{}{
-		"status":     status,
-		"last_error": lastError,
+	job, err := js.scheduler.NewJob(
+		gocron.OneTimeJob(gocron.OneTimeJobStartDateTime(effectiveAt)),
+		gocron.NewTask(js.cronTick, def.ID),
+		gocron.WithName(key),
+		gocron.WithTags(key),
+	)
+	if err != nil {
+		return fmt.Errorf("注册定时任务失败: %v", err)
+	}
+	js.cronJobs[key] = job
+	log.Printf("[JobScheduler] 已注册定时任务: %s (%s), %v 后执行", def.Name, def.TaskName, time.Until(effectiveAt))
+	return nil
+}
+
+// UnscheduleDefinition 移除任务定义的调度 (停用或删除后调用)
+func (js *JobScheduler) UnscheduleDefinition(defID uint) {
+	js.mu.Lock()
+	defer js.mu.Unlock()
+
+	key := defKey(defID)
+	if existing, ok := js.cronJobs[key]; ok {
+		js.scheduler.RemoveJob(existing.ID())
+		delete(js.cronJobs, key)
+	}
+}
+
+// NextRunAt 查询定义的下一次执行时间(未启用或未注册返回零值)
+func (js *JobScheduler) NextRunAt(defID uint) *time.Time {
+	js.mu.Lock()
+	defer js.mu.Unlock()
+
+	job, ok := js.cronJobs[defKey(defID)]
+	if !ok {
+		return nil
+	}
+	next, err := job.NextRun()
+	if err != nil || next.IsZero() {
+		return nil
+	}
+	return &next
+}
+
+// cronTick 调度器到点触发
+func (js *JobScheduler) cronTick(defID uint) {
+	js.runDefinition(defID, model.JobTriggerScheduler, 1)
+}
+
+// TriggerDefinition 手动立即执行 (异步, 返回是否成功启动)
+func (js *JobScheduler) TriggerDefinition(defID uint) bool {
+	var def model.JobDefinition
+	if err := DB.First(&def, defID).Error; err != nil {
+		log.Printf("[JobScheduler] 手动触发失败: 定义 %d 不存在", defID)
+		return false
+	}
+	go js.runDefinition(defID, model.JobTriggerManual, 1)
+	return true
+}
+
+// ============ 执行引擎 ============
+// 手动触发与调度触发走同一入口, 区分 trigger_type
+
+// cronRunning 正在执行的定义(单实例内存态, 防止 cron/手动重入)
+var cronRunning = struct {
+	sync.Mutex
+	ids map[uint]bool
+}{ids: make(map[uint]bool)}
+
+func acquireDefinition(defID uint) bool {
+	cronRunning.Lock()
+	defer cronRunning.Unlock()
+	if cronRunning.ids[defID] {
+		return false
+	}
+	cronRunning.ids[defID] = true
+	return true
+}
+
+func releaseDefinition(defID uint) {
+	cronRunning.Lock()
+	defer cronRunning.Unlock()
+	delete(cronRunning.ids, defID)
+}
+
+func recordSkippedRun(defID uint, reason string) {
+	now := time.Now()
+	DB.Create(&model.JobRun{
+		Definition:  defID,
+		Attempt:     1,
+		Status:      model.JobRunStatusSkipped,
+		TriggerType: model.JobTriggerScheduler,
+		StartedAt:   &now,
+		FinishedAt:  &now,
+		Error:       reason,
 	})
 }
 
-// UnscheduleJob 从调度器移除任务（不改变数据库状态），jobID 为 jobs 表行 ID
-func (js *JobScheduler) UnscheduleJob(rowID uint, jobType string) {
-	js.mu.Lock()
-	defer js.mu.Unlock()
-
-	jobKey := js.getJobKey(rowID, jobType)
-	if job, ok := js.jobMap[jobKey]; ok {
-		js.scheduler.RemoveJob(job.ID())
-		delete(js.jobMap, jobKey)
+func (js *JobScheduler) runDefinition(defID uint, triggerType string, attempt int) {
+	if !acquireDefinition(defID) {
+		if triggerType == model.JobTriggerScheduler {
+			// 上一轮还在执行, 记录一次跳过
+			recordSkippedRun(defID, "上一轮执行尚未结束, 本次跳过")
+			log.Printf("[JobScheduler] 定时任务 %d 上一轮未结束, 跳过本轮", defID)
+			// repeat 链不能断: 跳过本次仍需推进到下一次
+			var def model.JobDefinition
+			if err := DB.First(&def, defID).Error; err == nil {
+				js.advanceScheduleAfterRun(&def, triggerType, attempt)
+			}
+		}
+		return
 	}
-}
+	defer releaseDefinition(defID)
 
-func (js *JobScheduler) scheduleJob(job model.Job) {
-	// 计算实际调度时间（提醒时间 - 提前分钟数）
-	scheduledAt := job.ScheduledAt
-	if job.AdvanceMinutes > 0 {
-		scheduledAt = job.ScheduledAt.Add(-time.Duration(job.AdvanceMinutes) * time.Minute)
-	}
-	js.scheduleJobAt(job, scheduledAt)
-}
-
-// scheduleJobAt 按指定时间调度任务（重试场景使用，不改变任务的 ScheduledAt，避免影响重复周期计算）
-func (js *JobScheduler) scheduleJobAt(job model.Job, at time.Time) {
-	js.mu.Lock()
-	defer js.mu.Unlock()
-
-	// 按行 ID 键控：重复任务的每一行是独立的执行实例，删除/更新该行才能正确取消调度
-	jobKey := js.getJobKey(job.ID, job.JobType)
-
-	// 如果已有任务，先移除
-	if existingJob, ok := js.jobMap[jobKey]; ok {
-		js.scheduler.RemoveJob(existingJob.ID())
-		delete(js.jobMap, jobKey)
-	}
-
-	// 如果已过期，不调度
-	if at.Before(time.Now()) {
-		log.Printf("[JobScheduler] 任务 %s:%d 时间已过期，跳过调度", job.JobType, job.JobID)
+	var def model.JobDefinition
+	if err := DB.First(&def, defID).Error; err != nil {
+		log.Printf("[JobScheduler] 定时任务 %d 定义不存在", defID)
 		return
 	}
 
-	gocronJob, err := js.scheduler.NewJob(
-		gocron.OneTimeJob(
-			gocron.OneTimeJobStartDateTime(at),
-		),
-		gocron.NewTask(js.executeJob, job),
-		gocron.WithName(fmt.Sprintf("%s:%d", job.JobType, job.JobID)),
-		gocron.WithTags(job.JobType, fmt.Sprintf("%s:%d", job.JobType, job.JobID)),
-	)
-	if err != nil {
-		log.Printf("[JobScheduler] 注册任务失败 (%s:%d): %v", job.JobType, job.JobID, err)
+	handler, ok := js.getTask(def.TaskName)
+	now := time.Now()
+	run := model.JobRun{
+		Definition:  def.ID,
+		Attempt:     attempt,
+		Status:      model.JobRunStatusRunning,
+		TriggerType: triggerType,
+		StartedAt:   &now,
+	}
+	if !ok {
+		finishAt := time.Now()
+		run.Status = model.JobRunStatusFailed
+		run.FinishedAt = &finishAt
+		run.Error = fmt.Sprintf("任务方法未注册: %s", def.TaskName)
+		DB.Create(&run)
+		log.Printf("[JobScheduler] 定时任务 %s 执行失败: %s", def.Name, run.Error)
 		return
 	}
+	DB.Create(&run)
 
-	js.jobMap[jobKey] = gocronJob
-	log.Printf("[JobScheduler] 已注册任务: %s:%d, %v 后执行 (提前通知: %d分钟)", job.JobType, job.JobID, time.Until(at), job.AdvanceMinutes)
-}
+	log.Printf("[JobScheduler] 执行定时任务: %s (%s) 第%d次尝试", def.Name, def.TaskName, attempt)
 
-func (js *JobScheduler) executeJob(job model.Job) {
-	log.Printf("[JobScheduler] 执行任务: %s:%d", job.JobType, job.JobID)
-
-	// 更新状态为运行中
-	DB.Model(&model.Job{}).Where("id = ?", job.ID).Update("status", model.JobStatusRunning)
-
-	// 查找回调函数
-	js.mu.Lock()
-	callback, exists := js.callbacks[job.JobType]
-	js.mu.Unlock()
-
-	if !exists {
-		log.Printf("[JobScheduler] 未找到回调函数: %s", job.JobType)
-		js.handleJobError(job, fmt.Errorf("未找到回调函数: %s", job.JobType))
-		return
-	}
-
-	// 执行回调（panic 保护，避免协程崩溃拖垮整个进程）
+	// panic 保护, 避免协程崩溃拖垮进程
 	err := func() (cbErr error) {
 		defer func() {
 			if r := recover(); r != nil {
 				cbErr = fmt.Errorf("任务执行 panic: %v", r)
 			}
 		}()
-		return callback(job)
+		return handler(&def, def.Params)
 	}()
+
+	finishAt := time.Now()
+	run.FinishedAt = &finishAt
 	if err != nil {
-		js.handleJobError(job, err)
+		run.Status = model.JobRunStatusFailed
+		run.Error = err.Error()
+		DB.Model(&model.JobRun{}).Where("id = ?", run.ID).Updates(map[string]interface{}{
+			"status":      run.Status,
+			"finished_at": finishAt,
+			"error":       run.Error,
+		})
+		log.Printf("[JobScheduler] 定时任务 %s 执行失败: %v", def.Name, err)
+
+		// 失败重试: 延迟 attempt 分钟后单次调度
+		if attempt <= def.MaxRetries {
+			retryAt := time.Now().Add(time.Duration(attempt) * time.Minute)
+			if _, err := js.scheduler.NewJob(
+				gocron.OneTimeJob(gocron.OneTimeJobStartDateTime(retryAt)),
+				gocron.NewTask(js.runDefinitionRetry, def.ID, triggerType, attempt+1),
+				gocron.WithName(fmt.Sprintf("cron-def-retry:%d:%d", def.ID, attempt)),
+				gocron.WithTags(fmt.Sprintf("cron-def-retry:%d", def.ID)),
+			); err != nil {
+				log.Printf("[JobScheduler] 定时任务 %s 重试调度失败: %v", def.Name, err)
+			} else {
+				log.Printf("[JobScheduler] 定时任务 %s 将于 %v 重试(第%d次)", def.Name, retryAt, attempt+1)
+			}
+		}
+		// 只有首次调度触发才推进生命周期, 重试不推进
+		if attempt == 1 {
+			js.advanceScheduleAfterRun(&def, triggerType, attempt)
+		}
 		return
 	}
 
-	// 执行成功
-	DB.Model(&model.Job{}).Where("id = ?", job.ID).Update("status", model.JobStatusCompleted)
-	log.Printf("[JobScheduler] 任务执行成功: %s:%d", job.JobType, job.JobID)
+	run.Status = model.JobRunStatusSuccess
+	DB.Model(&model.JobRun{}).Where("id = ?", run.ID).Updates(map[string]interface{}{
+		"status":      run.Status,
+		"finished_at": finishAt,
+	})
+	log.Printf("[JobScheduler] 定时任务 %s 执行成功", def.Name)
 
-	// 从内存中移除
+	if attempt == 1 {
+		js.advanceScheduleAfterRun(&def, triggerType, attempt)
+	}
+}
+
+// advanceScheduleAfterRun 调度触发执行完后推进 once/repeat 定义的生命周期 (手动触发与重试不推进)
+func (js *JobScheduler) advanceScheduleAfterRun(def *model.JobDefinition, triggerType string, attempt int) {
+	if triggerType != model.JobTriggerScheduler || attempt != 1 {
+		return
+	}
+	switch def.ScheduleType {
+	case model.ScheduleTypeOnce:
+		// 一次性任务执行完即结束(无论成败, 失败重试已在上方调度)
+		DB.Model(&model.JobDefinition{}).Where("id = ?", def.ID).Update("enabled", false)
+		def.Enabled = false
+		js.UnscheduleDefinition(def.ID)
+	case model.ScheduleTypeRepeat:
+		// 当前次执行完成, 生成下一次执行的新任务行 (链式: 每次执行 = 一条任务)
+		DB.Model(&model.JobDefinition{}).Where("id = ?", def.ID).Update("enabled", false)
+		def.Enabled = false
+		js.UnscheduleDefinition(def.ID)
+		if next := js.EnsureNextOccurrence(def); next != nil {
+			log.Printf("[JobScheduler] 已生成下一次任务: %s, 执行时间: %v", next.Name, *next.RunAt)
+		} else {
+			log.Printf("[JobScheduler] 任务 %s 重复周期已结束", def.Name)
+		}
+	}
+}
+
+// EnsureNextOccurrence 为 repeat 定义生成下一次执行的新任务行 (同 chain_id)
+// 链上已有未来待执行任务时不生成, 防止重复 (旧 createNextRepeat 的防重护栏)
+// 返回新任务行, nil 表示无下一次 (非重复/周期结束/已有待执行)
+func (js *JobScheduler) EnsureNextOccurrence(def *model.JobDefinition) *model.JobDefinition {
 	js.mu.Lock()
-	jobKey := js.getJobKey(job.ID, job.JobType)
-	delete(js.jobMap, jobKey)
-	js.mu.Unlock()
-
-	// 如果有重复类型，创建下一次任务
-	if job.RepeatType != "none" {
-		js.createNextRepeat(job)
-	}
+	defer js.mu.Unlock()
+	return js.ensureNextOccurrenceLocked(def)
 }
 
-func (js *JobScheduler) handleJobError(job model.Job, err error) {
-	log.Printf("[JobScheduler] 任务执行失败: %s:%d, 错误: %v", job.JobType, job.JobID, err)
-
-	// 检查是否需要重试
-	if job.RetryCount < job.MaxRetries {
-		// 更新重试次数和错误信息（retry_count 原子递增，避免并发回退）
-		DB.Model(&model.Job{}).Where("id = ?", job.ID).Updates(map[string]interface{}{
-			"retry_count": gorm.Expr("retry_count + 1"),
-			"last_error":  err.Error(),
-			"status":      model.JobStatusPending,
-		})
-
-		// 重新调度（延迟重试），不修改 ScheduledAt，保证重复周期基于原计划时间计算
-		job.RetryCount++
-		job.Status = model.JobStatusPending
-		retryAt := time.Now().Add(time.Duration(job.RetryCount) * time.Minute)
-		js.scheduleJobAt(job, retryAt)
-	} else {
-		// 超过最大重试次数，标记为失败
-		DB.Model(&model.Job{}).Where("id = ?", job.ID).Updates(map[string]interface{}{
-			"status":     model.JobStatusFailed,
-			"last_error": err.Error(),
-		})
-	}
-}
-
-func (js *JobScheduler) createNextRepeat(job model.Job) {
-	if job.RepeatType == "none" {
-		return
+func (js *JobScheduler) ensureNextOccurrenceLocked(def *model.JobDefinition) *model.JobDefinition {
+	if def.RepeatType == "" || def.RepeatType == "none" || def.RunAt == nil {
+		return nil
 	}
 
-	nextAt := calcNextTime(job.ScheduledAt, job.RepeatType, job.RepeatInterval)
-	maxIter := 100
-	for i := 0; nextAt.Before(time.Now()) && i < maxIter; i++ {
-		nextAt = calcNextTime(nextAt, job.RepeatType, job.RepeatInterval)
+	chainID := def.ChainID
+	if chainID == 0 {
+		chainID = def.ID
 	}
 
-	if nextAt.IsZero() || nextAt.Before(time.Now()) {
-		return
-	}
-
-	if job.RepeatEndAt != nil && nextAt.After(*job.RepeatEndAt) {
-		return
-	}
-
-	// 同链已有未来的待执行任务时不再创建，防止重复生成
+	// 同链已有未来待执行任务时不再创建, 防止重复生成
 	var pendingCount int64
-	DB.Model(&model.Job{}).Where("job_type = ? AND job_id = ? AND status = ? AND scheduled_at > ? AND id <> ?",
-		job.JobType, job.JobID, model.JobStatusPending, time.Now(), job.ID).Count(&pendingCount)
+	DB.Model(&model.JobDefinition{}).
+		Where("chain_id = ? AND enabled = ? AND run_at > ? AND id <> ?", chainID, true, time.Now(), def.ID).
+		Count(&pendingCount)
 	if pendingCount > 0 {
-		return
+		return nil
 	}
 
-	newJob := model.Job{
-		JobType:        job.JobType,
-		JobID:          job.JobID,
-		UserID:         job.UserID,
-		ScheduledAt:    nextAt,
-		AdvanceMinutes: job.AdvanceMinutes,
-		Status:         model.JobStatusPending,
-		MaxRetries:     3,
-		Params:         job.Params,
-		RepeatType:     job.RepeatType,
-		RepeatInterval: job.RepeatInterval,
-		RepeatEndAt:    job.RepeatEndAt,
+	// 过期不补发: 从当前锚点推进到未来执行点, 只生成未来那一条
+	next := calcNextTime(*def.RunAt, def.RepeatType, def.RepeatInterval)
+	maxIter := 100
+	for i := 0; !next.IsZero() && next.Before(time.Now()) && i < maxIter; i++ {
+		next = calcNextTime(next, def.RepeatType, def.RepeatInterval)
+	}
+	if next.IsZero() || (def.RepeatEndAt != nil && next.After(*def.RepeatEndAt)) {
+		return nil
 	}
 
-	if err := DB.Create(&newJob).Error; err != nil {
-		log.Printf("[JobScheduler] 创建下次任务失败: %v", err)
-		return
+	row := model.JobDefinition{
+		ChainID:        chainID,
+		UserID:         def.UserID,
+		Name:           fmt.Sprintf("%s-%s", truncateRunes(def.Name, 84), next.Format("20060102150405")),
+		TaskName:       def.TaskName,
+		ScheduleType:   def.ScheduleType,
+		RunAt:          &next,
+		AdvanceMinutes: def.AdvanceMinutes,
+		RepeatType:     def.RepeatType,
+		RepeatInterval: def.RepeatInterval,
+		RepeatEndAt:    def.RepeatEndAt,
+		Params:         def.Params,
+		Enabled:        true,
+		MaxRetries:     def.MaxRetries,
+		Remark:         def.Remark,
+		CreatedBy:      def.CreatedBy,
 	}
-
-	js.scheduleJob(newJob)
-	log.Printf("[JobScheduler] 已创建下次重复任务: %s:%d, 执行时间: %v", job.JobType, job.JobID, nextAt)
+	if err := DB.Create(&row).Error; err != nil {
+		log.Printf("[JobScheduler] 生成下一次任务失败: %v", err)
+		return nil
+	}
+	if err := js.scheduleDefinitionLocked(&row); err != nil {
+		log.Printf("[JobScheduler] 调度下一次任务失败: %v", err)
+	}
+	return &row
 }
 
-func (js *JobScheduler) getJobKey(jobID uint, jobType string) string {
-	return fmt.Sprintf("%s:%d", jobType, jobID)
+func truncateRunes(s string, max int) string {
+	runes := []rune(s)
+	if len(runes) <= max {
+		return s
+	}
+	return string(runes[:max])
+}
+
+// runDefinitionRetry 重试入口
+func (js *JobScheduler) runDefinitionRetry(defID uint, triggerType string, attempt int) {
+	js.runDefinition(defID, triggerType, attempt)
 }
 
 func calcNextTime(at time.Time, repeatType string, interval int) time.Time {
@@ -321,7 +513,7 @@ func calcNextTime(at time.Time, repeatType string, interval int) time.Time {
 	}
 }
 
-// addMonthsSameDay 按月推进并保持"日"不变；目标月份没有该日（如 1月31日、2月29日）时跳到下一个月的同一天
+// addMonthsSameDay 按月推进并保持"日"不变; 目标月份没有该日（如 1月31日、2月29日）时跳到下一个月的同一天
 func addMonthsSameDay(at time.Time, months int) time.Time {
 	next := at.AddDate(0, months, 0)
 	// AddDate 会把溢出的日归一化到下个月（如 1月31日+1月=3月2日），此处检测并跳到下一个存在该日的月份

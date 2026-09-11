@@ -5,27 +5,25 @@ import (
 	"time"
 )
 
+// Job 备忘视图 DTO: 由 job_definitions/job_runs 映射而来, 供日历与 AI 工具使用 (不对应数据库表)
+// ID 为有符号: 正数=定义, 负数=执行历史(job_runs)
 type Job struct {
-	ID             uint            `gorm:"primaryKey;autoIncrement" json:"id"`
-	JobType        string          `gorm:"size:50;not null;index" json:"jobType"`
-	JobID          uint            `gorm:"not null;index" json:"jobId"`
-	UserID         *uint           `gorm:"index" json:"userId"`
-	ScheduledAt    time.Time       `gorm:"not null;index" json:"scheduledAt"`
-	AdvanceMinutes int             `gorm:"default:0" json:"advanceMinutes"`
-	Status         string          `gorm:"size:20;default:'pending';index" json:"status"`
-	RetryCount     int             `gorm:"default:0" json:"retryCount"`
-	MaxRetries     int             `gorm:"default:3" json:"maxRetries"`
-	LastError      string          `gorm:"type:text" json:"lastError"`
-	Params         json.RawMessage `gorm:"type:json" json:"params"`
-	RepeatType     string          `gorm:"size:20;default:'none'" json:"repeatType"`
-	RepeatInterval int             `gorm:"default:1" json:"repeatInterval"`
+	ID             int64           `json:"id"`
+	JobType        string          `json:"jobType"`
+	JobID          int64           `json:"jobId"`
+	UserID         *uint           `json:"userId"`
+	ScheduledAt    time.Time       `json:"scheduledAt"`
+	AdvanceMinutes int             `json:"advanceMinutes"`
+	Status         string          `json:"status"`
+	RetryCount     int             `json:"retryCount"`
+	MaxRetries     int             `json:"maxRetries"`
+	LastError      string          `json:"lastError"`
+	Params         json.RawMessage `json:"params"`
+	RepeatType     string          `json:"repeatType"`
+	RepeatInterval int             `json:"repeatInterval"`
 	RepeatEndAt    *time.Time      `json:"repeatEndAt"`
 	CreatedAt      time.Time       `json:"createdAt"`
 	UpdatedAt      time.Time       `json:"updatedAt"`
-}
-
-func (Job) TableName() string {
-	return "jobs"
 }
 
 const (
@@ -33,11 +31,7 @@ const (
 	JobStatusRunning   = "running"
 	JobStatusCompleted = "completed"
 	JobStatusFailed    = "failed"
-
-	JobTypeReminder = "reminder"
 )
-
-type JobCallback func(job Job) error
 
 type ReminderParams struct {
 	Title   string `json:"title"`

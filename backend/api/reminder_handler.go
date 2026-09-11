@@ -101,7 +101,7 @@ func (h *ReminderHandler) Delete(c *gin.Context) {
 		return
 	}
 
-	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
 		SendError(c, "400", "无效的备忘ID")
 		return
@@ -113,7 +113,7 @@ func (h *ReminderHandler) Delete(c *gin.Context) {
 		scope = "this"
 	}
 
-	if err := h.reminderSvc.Delete(userID, uint(id), scope); err != nil {
+	if err := h.reminderSvc.Delete(userID, id, scope); err != nil {
 		SendError(c, "500", err.Error())
 		return
 	}

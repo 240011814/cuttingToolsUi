@@ -18,15 +18,22 @@ func NewJobHandler(scheduler *service.JobScheduler) *JobHandler {
 	return &JobHandler{scheduler: scheduler}
 }
 
-// HandleListTaskRegistry 已注册的可调度任务列表
+// HandleListTaskRegistry 已注册的可调度任务列表 (不含用户备忘, 备忘走日历页创建)
 func (h *JobHandler) HandleListTaskRegistry(c *gin.Context) {
-	SendSuccess(c, h.scheduler.ListRegisteredTasks())
+	list := h.scheduler.ListRegisteredTasks()
+	filtered := make([]model.TaskMeta, 0, len(list))
+	for _, t := range list {
+		if t.Name != model.TaskNameReminder {
+			filtered = append(filtered, t)
+		}
+	}
+	SendSuccess(c, filtered)
 }
 
-// HandleListJobs 定时任务定义列表
+// HandleListJobs 定时任务定义列表 (仅系统任务, 用户备忘不展示)
 func (h *JobHandler) HandleListJobs(c *gin.Context) {
 	var defs []model.JobDefinition
-	if err := service.DB.Order("id ASC").Find(&defs).Error; err != nil {
+	if err := service.DB.Where("user_id IS NULL").Order("id ASC").Find(&defs).Error; err != nil {
 		SendError(c, "500", "查询失败: "+err.Error())
 		return
 	}
@@ -55,6 +62,10 @@ func (h *JobHandler) HandleCreateJob(c *gin.Context) {
 		SendError(c, "400", "任务方法未注册: "+req.TaskName)
 		return
 	}
+	if req.TaskName == model.TaskNameReminder {
+		SendError(c, "400", "用户备忘请在日历页创建")
+		return
+	}
 	if _, err := service.ValidateCronExpr(req.CronExpr); err != nil {
 		SendError(c, "400", err.Error())
 		return
@@ -66,14 +77,15 @@ func (h *JobHandler) HandleCreateJob(c *gin.Context) {
 
 	userID := GetUserID(c)
 	def := model.JobDefinition{
-		Name:       req.Name,
-		TaskName:   req.TaskName,
-		CronExpr:   req.CronExpr,
-		Params:     req.Params,
-		Enabled:    req.Enabled != nil && *req.Enabled,
-		MaxRetries: req.MaxRetries,
-		Remark:     req.Remark,
-		CreatedBy:  &userID,
+		Name:         req.Name,
+		TaskName:     req.TaskName,
+		ScheduleType: model.ScheduleTypeCron,
+		CronExpr:     req.CronExpr,
+		Params:       req.Params,
+		Enabled:      req.Enabled != nil && *req.Enabled,
+		MaxRetries:   req.MaxRetries,
+		Remark:       req.Remark,
+		CreatedBy:    &userID,
 	}
 	if err := service.DB.Create(&def).Error; err != nil {
 		SendError(c, "500", "创建失败: "+err.Error())
@@ -108,6 +120,10 @@ func (h *JobHandler) HandleUpdateJob(c *gin.Context) {
 	}
 
 	taskName := def.TaskName
+	if def.TaskName == model.TaskNameReminder || (req.TaskName != nil && *req.TaskName == model.TaskNameReminder) {
+		SendError(c, "400", "用户备忘请在日历页修改")
+		return
+	}
 	if req.TaskName != nil {
 		if _, ok := h.scheduler.GetTask(*req.TaskName); !ok {
 			SendError(c, "400", "任务方法未注册: "+*req.TaskName)

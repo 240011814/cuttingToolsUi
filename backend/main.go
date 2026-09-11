@@ -431,7 +431,6 @@ func main() {
 	// Start Scheduler
 	if jobScheduler != nil {
 		jobScheduler.Start()
-		jobScheduler.LoadAll()
 		jobScheduler.LoadCronDefinitions()
 	}
 

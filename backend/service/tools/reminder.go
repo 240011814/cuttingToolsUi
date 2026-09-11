@@ -16,7 +16,7 @@ import (
 type ReminderService interface {
 	Create(userID uint, req model.CreateReminderRequest) (*model.Job, error)
 	ListByMonth(userID uint, year int, month time.Month) ([]model.Job, error)
-	Delete(userID, id uint, scope string) error
+	Delete(userID uint, id int64, scope string) error
 }
 
 var reminderSvc ReminderService
@@ -135,11 +135,11 @@ func (t *reminderTool) InvokableRun(ctx context.Context, arguments string, _ ...
 		if req.RemindID == "" {
 			return "", fmt.Errorf("备忘ID不能为空")
 		}
-		id, err := strconv.ParseUint(req.RemindID, 10, 64)
+		id, err := strconv.ParseInt(req.RemindID, 10, 64)
 		if err != nil {
 			return "", fmt.Errorf("备忘ID格式错误")
 		}
-		if err := reminderSvc.Delete(userID, uint(id), "all"); err != nil {
+		if err := reminderSvc.Delete(userID, id, "all"); err != nil {
 			return "", err
 		}
 		return fmt.Sprintf(`{"id":%d,"message":"备忘已删除"}`, id), nil
