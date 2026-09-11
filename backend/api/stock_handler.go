@@ -307,7 +307,7 @@ func (h *StockHandler) HandleSyncSingleStock(c *gin.Context) {
 			starts = h.syncService.GetStoredKlineStarts(code)
 			latestTradeDay = h.syncService.LatestTradeDay()
 		}
-		kRows, kErr := h.syncService.SyncSingleStockDaily(code, market, starts, latestTradeDay)
+		kRows, kErr := h.syncService.SyncSingleStockDaily(code, market, starts, latestTradeDay, service.KlineFrequencies())
 		fRows, fErr := h.syncService.SyncFinanceData(code, market)
 
 		var errs []string

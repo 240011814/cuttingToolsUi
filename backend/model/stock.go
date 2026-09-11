@@ -72,6 +72,21 @@ func (StockSyncState) TableName() string {
 	return "stock_sync_state"
 }
 
+// SyncWatermark 批量同步水位断点 (按日全量等批量同步, 只推进到完整成功的一天)
+type SyncWatermark struct {
+	Name      string     `gorm:"size:50;primaryKey" json:"name"`
+	LastDate  *time.Time `json:"lastDate"`
+	Status    string     `gorm:"size:20;not null;default:pending" json:"status"`
+	Error     string     `gorm:"size:255" json:"error"`
+	SyncedAt  *time.Time `json:"syncedAt"`
+	CreatedAt time.Time  `json:"createdAt"`
+	UpdatedAt time.Time  `json:"updatedAt"`
+}
+
+func (SyncWatermark) TableName() string {
+	return "sync_watermark"
+}
+
 // StockFinance 股票财务数据
 type StockFinance struct {
 	ID             uint     `gorm:"primaryKey;autoIncrement" json:"id"`

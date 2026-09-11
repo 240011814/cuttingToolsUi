@@ -1,0 +1,69 @@
+"""验证新版 baostock 每日更新接口 (query_daily_history_k_AStock / query_daily_adjust_factor)
+
+用途: 部署前确认代理服务器上的 baostock 版本支持新接口, 并实测:
+  1. 近期交易日返回的行数、市场分布 (sh/sz/bj)、是否包含指数
+  2. 历史深度 (老日期是否可查, 决定按日回填策略)
+  3. 按日复权因子是否可用
+
+用法: python verify_daily_updates.py [date]   (默认 2026-09-10)
+"""
+
+from __future__ import annotations
+
+import sys
+
+import baostock as bs
+
+
+def fetch(method_name: str, date_str: str | None) -> list[dict[str, str]]:
+    method = getattr(bs, method_name)
+    kwargs = {"date": date_str} if date_str else {}
+    rs = method(**kwargs)
+    if rs.error_code != "0":
+        raise RuntimeError(f"{method_name} failed: {rs.error_code} {rs.error_msg}")
+    rows: list[dict[str, str]] = []
+    while rs.error_code == "0" and rs.next():
+        rows.append(dict(zip(rs.fields, rs.get_row_data())))
+    return rows
+
+
+def market_stats(codes: set[str]) -> str:
+    return " ".join(
+        f"{prefix}={sum(1 for c in codes if c.startswith(prefix))}"
+        for prefix in ("sh.", "sz.", "bj.")
+    )
+
+
+def main() -> None:
+    lg = bs.login()
+    if lg.error_code != "0":
+        raise SystemExit(f"login failed: {lg.error_msg}")
+
+    try:
+        recent = sys.argv[1] if len(sys.argv) > 1 else "2026-09-10"
+
+        rows = fetch("query_daily_history_k_AStock", recent)
+        codes = {r["code"] for r in rows}
+        print(f"[AStock {recent}] rows={len(rows)}")
+        print(f"  fields={list(rows[0].keys()) if rows else '-'}")
+        print(f"  markets: {market_stats(codes)}")
+        print(f"  index: sh.000001={'sh.000001' in codes} sz.399001={'sz.399001' in codes}")
+        if rows:
+            print(f"  sample={rows[0]}")
+
+        for old in ("2005-01-04", "1995-01-03"):
+            try:
+                old_rows = fetch("query_daily_history_k_AStock", old)
+                old_codes = {r["code"] for r in old_rows}
+                print(f"[AStock {old}] rows={len(old_rows)} {market_stats(old_codes)}")
+            except Exception as e:
+                print(f"[AStock {old}] FAILED: {e}")
+
+        factor_rows = fetch("query_daily_adjust_factor", recent)
+        print(f"[adjust_factor {recent}] rows={len(factor_rows)} sample={factor_rows[0] if factor_rows else '-'}")
+    finally:
+        bs.logout()
+
+
+if __name__ == "__main__":
+    main()

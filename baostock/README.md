@@ -13,6 +13,9 @@
 - `GET /usage`
 - `GET /query_all_stock?day=YYYY-MM-DD`
 - `GET /query_adjust_factor`
+- `GET /query_daily_adjust_factor?date=YYYY-MM-DD`
+- `GET /query_daily_history_k_astock?date=YYYY-MM-DD`
+- `GET /query_daily_history_k_etf?date=YYYY-MM-DD`
 - `GET /query_balance_data`
 - `GET /query_cash_flow_data`
 - `GET /query_deposit_rate_data`
@@ -214,8 +217,23 @@ curl "http://127.0.0.1:3002/query_trade_dates?start_date=2017-01-01&end_date=201
 ```
 
 ```bash
+curl "http://127.0.0.1:3002/query_daily_history_k_astock?date=2026-09-10"
+```
+
+```bash
+curl "http://127.0.0.1:3002/query_daily_adjust_factor?date=2026-09-10"
+```
+
+```bash
 curl "http://127.0.0.1:3002/query_zz500_stocks"
 ```
+
+## 每日更新接口 (需 baostock ≥ 00.9.30)
+
+- `query_daily_history_k_astock`：指定交易日全市场个股日K，1 次调用返回全部个股；返回不含指数与北交所
+- `query_daily_history_k_etf`：指定交易日全部 ETF 日K
+- `query_daily_adjust_factor`：指定交易日除权股票的复权因子
+- 部署/升级后运行 `python verify_daily_updates.py [date]` 验证版本与数据
 
 ```bash
 curl "http://127.0.0.1:3002/query_zz500_stocks?date=2018-11-26"
