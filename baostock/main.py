@@ -1,6 +1,7 @@
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
+import logging
 import time
 from urllib.parse import parse_qs, urlparse
 
@@ -41,6 +42,12 @@ from baostock_api.shared import (
     json_response,
     make_error_payload,
     usage_counter,
+)
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [baostock-api] %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
 )
 
 
@@ -224,7 +231,7 @@ class BaostockApiHandler(BaseHTTPRequestHandler):
         finally:
             elapsed = time.monotonic() - started
             if elapsed > 3:
-                print(f"[baostock-api] SLOW {parsed.path}?{parsed.query} took {elapsed:.1f}s")
+                logging.info("SLOW %s?%s took %.1fs", parsed.path, parsed.query, elapsed)
 
         json_response(
             self,
@@ -237,12 +244,12 @@ class BaostockApiHandler(BaseHTTPRequestHandler):
         )
 
     def log_message(self, format: str, *args: Any) -> None:
-        print(f"[baostock-api] {self.address_string()} - {format % args}")
+        logging.info("%s - %s", self.address_string(), format % args)
 
 
 def main() -> None:
     server = ThreadingHTTPServer((HOST, PORT), BaostockApiHandler)
-    print(f"baostock api running on http://{HOST}:{PORT}")
+    logging.info("baostock api running on http://%s:%s", HOST, PORT)
     server.serve_forever()
 
 
