@@ -312,6 +312,7 @@ func main() {
 			stockGroup.POST("/sync/daily-quotes", api.RequirePermission("stock:sync:execute"), stockHandler.HandleSyncDailyQuotes)
 			stockGroup.POST("/sync/single", api.RequirePermission("stock:sync:execute"), stockHandler.HandleSyncSingleStock)
 			stockGroup.POST("/sync/finance", api.RequirePermission("stock:sync:execute"), stockHandler.HandleSyncFinanceData)
+			stockGroup.POST("/sync/finance-all", api.RequirePermission("stock:sync:execute"), stockHandler.HandleSyncAllFinance)
 			stockGroup.GET("/sync/status", stockHandler.HandleSyncStatus)
 		}
 

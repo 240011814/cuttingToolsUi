@@ -126,6 +126,14 @@ export function syncFinanceData(code: string, market?: string) {
   })
 }
 
+/** 同步全部股票财务数据 */
+export function syncAllFinance() {
+  return request<boolean>({
+    url: '/api/stock/sync/finance-all',
+    method: 'post'
+  })
+}
+
 /** 同步单只股票(行情+财务) */
 export function syncSingleStock(code: string, market?: string) {
   return request<boolean>({

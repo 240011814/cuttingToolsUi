@@ -867,6 +867,59 @@ func (s *StockSyncService) SyncFinanceData(code, market string) (int, error) {
 	return len(touchedSources), nil
 }
 
+// SyncAllFinance 全量同步所有活跃股票的财务数据 (串行, 增量: 只补缺失的报告期和来源)
+func (s *StockSyncService) SyncAllFinance() error {
+	log.Printf("[StockSync] 同步全部财务数据...")
+
+	var stocks []model.StockInfo
+	if err := DB.Where("is_active = ?", true).Find(&stocks).Error; err != nil {
+		return fmt.Errorf("查询股票列表失败: %v", err)
+	}
+
+	updated := 0
+	skipped := 0
+	failed := 0
+	bjSkipped := 0
+	indexSkipped := 0
+	consecutiveFails := 0
+	done := 0
+
+	for _, stock := range stocks {
+		done++
+		s.setProgress(done, len(stocks))
+
+		if isBJCode(stock.Code) {
+			bjSkipped++
+			continue
+		}
+		if isIndexCode(stock.Code, s.resolveMarket(stock.Code, stock.Market)) {
+			indexSkipped++
+			continue
+		}
+
+		rows, err := s.SyncFinanceData(stock.Code, stock.Market)
+		if err != nil {
+			failed++
+			consecutiveFails++
+			log.Printf("[StockSync] 同步 %s 财务失败: %v", stock.Code, err)
+			if consecutiveFails >= 20 {
+				return fmt.Errorf("连续20只股票财务同步失败, 中止本轮同步(已处理 %d/%d), 请检查 baostock 服务", done, len(stocks))
+			}
+			continue
+		}
+		consecutiveFails = 0
+		if rows == 0 {
+			skipped++
+		} else {
+			updated++
+		}
+	}
+
+	log.Printf("[StockSync] 同步全部财务数据完成: 共 %d 只, 更新 %d 只, 已最新跳过 %d 只, 北交所跳过 %d 只, 指数跳过 %d 只, 失败 %d 只",
+		len(stocks), updated, skipped, bjSkipped, indexSkipped, failed)
+	return nil
+}
+
 // convertToBaostockCode 将代码转换为baostock格式, 优先使用市场标识 (000003+SH -> sh.000003)
 func (s *StockSyncService) convertToBaostockCode(code, market string) string {
 	switch market {

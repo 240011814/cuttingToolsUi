@@ -13,6 +13,7 @@ import {
   addWatchlist,
   syncStockList,
   syncDailyQuotes,
+  syncAllFinance,
   fetchSyncStatus
 } from '@/service/api'
 
@@ -369,6 +370,17 @@ function handleSyncQuotes() {
   )
 }
 
+function handleSyncFinance() {
+  triggerSync(
+    syncAllFinance,
+    '财务数据同步',
+    () => {
+      message.success('财务数据同步完成')
+      doScreen()
+    }
+  )
+}
+
 onMounted(async () => {
   try {
     const [industriesRes, conceptsRes] = await Promise.all([stockIndustries(), stockConcepts()])
@@ -516,6 +528,7 @@ onUnmounted(() => {
         <div class="space-y-2">
           <NButton size="small" block :loading="syncLoading || syncRunning" :disabled="syncRunning" @click="handleSyncAll">同步股票列表</NButton>
           <NButton size="small" block :loading="syncLoading || syncRunning" :disabled="syncRunning" @click="handleSyncQuotes">同步行情数据</NButton>
+          <NButton size="small" block :loading="syncLoading || syncRunning" :disabled="syncRunning" @click="handleSyncFinance">同步财务数据</NButton>
         </div>
         <div v-if="syncRunning" class="mt-2 text-12px text-gray-400">
           {{ syncTaskLabel }}同步中{{ syncProgressText }}，请稍候...

@@ -301,6 +301,15 @@ func (h *StockHandler) HandleSyncFinanceData(c *gin.Context) {
 	SendSuccess(c, true)
 }
 
+// HandleSyncAllFinance 同步全部股票财务数据
+func (h *StockHandler) HandleSyncAllFinance(c *gin.Context) {
+	if !h.syncService.StartTask("全部财务数据", h.syncService.SyncAllFinance) {
+		SendError(c, "409", "已有同步任务在运行中，请稍后再试")
+		return
+	}
+	SendSuccess(c, true)
+}
+
 // HandleSyncStatus 获取同步任务状态
 func (h *StockHandler) HandleSyncStatus(c *gin.Context) {
 	SendSuccess(c, h.syncService.GetStatus())
