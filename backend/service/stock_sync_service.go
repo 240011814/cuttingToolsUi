@@ -912,14 +912,25 @@ func (s *StockSyncService) SyncSingleStockDaily(code, market string, starts map[
 			startDate = start.Format("2006-01-02")
 		}
 
-		// 指数走指数接口(无换手率/交易状态/估值字段), 个股走股票接口
+		// fields 随周期与证券类型变化, 服务端严格校验: preclose/交易状态/估值仅日线支持(周/月线传了报无效参数), 指数无换手率/交易状态/估值
+		var fields string
+		switch {
+		case isIndex && freq == "daily":
+			fields = "date,open,high,low,close,preclose,volume,amount,pctChg"
+		case isIndex:
+			fields = "date,open,high,low,close,volume,amount,pctChg"
+		case freq == "daily":
+			fields = "date,open,high,low,close,preclose,volume,amount,turn,tradestatus,pctChg,peTTM,pbMRQ,psTTM,pcfNcfTTM,isST"
+		default:
+			fields = "date,open,high,low,close,volume,amount,turn,pctChg"
+		}
 		var url string
 		if isIndex {
-			url = fmt.Sprintf("%s/query_history_index_k_data_plus?code=%s&fields=date,open,high,low,close,preclose,volume,amount,pctChg&start_date=%s&end_date=%s&frequency=%s",
-				s.baostockURL, baostockCode, startDate, endDate, baostockFreq(freq))
+			url = fmt.Sprintf("%s/query_history_index_k_data_plus?code=%s&fields=%s&start_date=%s&end_date=%s&frequency=%s",
+				s.baostockURL, baostockCode, fields, startDate, endDate, baostockFreq(freq))
 		} else {
-			url = fmt.Sprintf("%s/query_history_k_data_plus?code=%s&fields=date,open,high,low,close,preclose,volume,amount,turn,tradestatus,pctChg,peTTM,pbMRQ,psTTM,pcfNcfTTM,isST&start_date=%s&end_date=%s&frequency=%s&adjustflag=3",
-				s.baostockURL, baostockCode, startDate, endDate, baostockFreq(freq))
+			url = fmt.Sprintf("%s/query_history_k_data_plus?code=%s&fields=%s&start_date=%s&end_date=%s&frequency=%s&adjustflag=3",
+				s.baostockURL, baostockCode, fields, startDate, endDate, baostockFreq(freq))
 		}
 
 		body, err := s.httpGetWithDelay(url)
