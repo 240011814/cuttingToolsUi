@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted, onUnmounted, h } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, h } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMessage, NButton } from 'naive-ui'
 import { useAuth } from '@/hooks/business/auth'
@@ -11,9 +11,6 @@ import {
   getFilterConditions,
   deleteFilterCondition,
   addWatchlist,
-  syncStockList,
-  syncDailyQuotes,
-  syncAllFinance,
   fetchSyncStatus
 } from '@/service/api'
 
@@ -28,23 +25,6 @@ const results = ref<Api.Stock.ScreenResult[]>([])
 const total = ref(0)
 const currentPage = ref(1)
 const pageSize = ref(20)
-
-const pagination = reactive({
-  page: currentPage,
-  pageSize: pageSize,
-  itemCount: total,
-  pageSizes: [20, 50, 100],
-  showSizePicker: true,
-  onChange: (page: number) => {
-    currentPage.value = page
-    doScreen()
-  },
-  onUpdatePageSize: (size: number) => {
-    pageSize.value = size
-    currentPage.value = 1
-    doScreen()
-  }
-})
 
 const industryOptions = ref<string[]>([])
 const conceptOptions = ref<{ label: string; value: string }[]>([])
@@ -225,6 +205,17 @@ function handleSorter(options: any) {
   }
 }
 
+function handlePageChange(page: number) {
+  currentPage.value = page
+  doScreen()
+}
+
+function handlePageSizeChange(size: number) {
+  pageSize.value = size
+  currentPage.value = 1
+  doScreen()
+}
+
 function goToDetail(code: string) {
   router.push({ name: 'tool_stockdetail', query: { code } })
 }
@@ -293,96 +284,66 @@ async function handleDeleteFilter(id: number) {
   }
 }
 
-const syncLoading = ref(false)
+// 数据同步状态: 同步由后台定时任务驱动, 页面仅展示状态(运行中进度/上次完成时间/失败原因)
+const syncStatus = ref<Api.Stock.SyncStatus | null>(null)
 const syncRunning = ref(false)
-const syncTaskLabel = ref('')
-const syncProgressText = ref('')
-let syncPollTimer: ReturnType<typeof setInterval> | null = null
+// 轮询频率: 同步任务运行中 3 秒, 空闲 1 分钟
+const SYNC_POLL_RUNNING_MS = 3000
+const SYNC_POLL_IDLE_MS = 60000
+let syncPollTimer: ReturnType<typeof setTimeout> | null = null
+let syncPollDisposed = false
+
+const syncProgressText = computed(() => {
+  const s = syncStatus.value
+  if (!s || s.total <= 0) return ''
+  return ` (${s.progress}/${s.total})`
+})
+
+function formatSyncTime(t: string) {
+  return new Date(t).toLocaleString('zh-CN', { hour12: false })
+}
+
+const syncFinishedText = computed(() => {
+  const t = syncStatus.value?.finishedAt
+  if (!t) return ''
+  const d = new Date(t)
+  // Go 零值时间(0001-01-01)表示从未同步过
+  if (Number.isNaN(d.getTime()) || d.getFullYear() < 2000) return ''
+  return formatSyncTime(t)
+})
 
 function stopSyncPolling() {
+  syncPollDisposed = true
   if (syncPollTimer) {
-    clearInterval(syncPollTimer)
+    clearTimeout(syncPollTimer)
     syncPollTimer = null
   }
 }
 
-function startSyncPolling(onDone?: () => void) {
-  stopSyncPolling()
-  syncRunning.value = true
-  let pendingConfirm = true
-  syncPollTimer = setInterval(async () => {
-    try {
-      const { data } = await fetchSyncStatus()
-      if (!data) return
-      if (data.running) {
-        pendingConfirm = false
-        syncTaskLabel.value = data.task
-        syncProgressText.value = data.total > 0 ? ` (${data.progress}/${data.total})` : ''
-        return
+async function refreshSyncStatus() {
+  try {
+    const { data } = await fetchSyncStatus()
+    if (data) {
+      const wasRunning = syncRunning.value
+      syncStatus.value = data
+      syncRunning.value = data.running
+      if (wasRunning && !data.running) {
+        // 同步任务刚结束: 提示结果并刷新筛选数据
+        if (data.lastError) {
+          message.error(`同步失败: ${data.lastError}`)
+        } else {
+          message.success('数据同步完成，结果已刷新')
+          doScreen()
+        }
       }
-      if (pendingConfirm) {
-        pendingConfirm = false
-        return
-      }
-      stopSyncPolling()
-      syncRunning.value = false
-      syncProgressText.value = ''
-      if (data.lastError) {
-        message.error(`同步失败: ${data.lastError}`)
-      } else if (onDone) {
-        onDone()
-      }
-    } catch {
-      // ignore
     }
-  }, 3000)
-}
-
-async function triggerSync(apiFn: () => Promise<{ error: any }>, label: string, onDone: () => void) {
-  if (syncRunning.value || syncLoading.value) return
-  syncLoading.value = true
-  const { error } = await apiFn()
-  syncLoading.value = false
-  if (error) {
-    message.warning(error.message || `${label}启动失败`)
-    startSyncPolling(onDone)
-    return
+  } catch {
+    // ignore
   }
-  message.success(`${label}已启动，完成后自动刷新`)
-  startSyncPolling(onDone)
-}
-
-function handleSyncAll() {
-  triggerSync(
-    syncStockList,
-    '股票列表同步',
-    () => {
-      message.success('股票列表同步完成')
-      doScreen()
-    }
-  )
-}
-
-function handleSyncQuotes() {
-  triggerSync(
-    syncDailyQuotes,
-    '行情数据同步',
-    () => {
-      message.success('行情数据同步完成')
-      doScreen()
-    }
-  )
-}
-
-function handleSyncFinance() {
-  triggerSync(
-    syncAllFinance,
-    '财务数据同步',
-    () => {
-      message.success('财务数据同步完成')
-      doScreen()
-    }
-  )
+  // 按当前状态调度下次轮询
+  if (!syncPollDisposed) {
+    syncPollTimer = setTimeout(refreshSyncStatus, syncRunning.value ? SYNC_POLL_RUNNING_MS : SYNC_POLL_IDLE_MS)
+  }
 }
 
 onMounted(async () => {
@@ -399,16 +360,7 @@ onMounted(async () => {
   }
   loadSavedFilters()
   doScreen()
-
-  try {
-    const { data } = await fetchSyncStatus()
-    if (data?.running) {
-      message.info('检测到同步任务正在运行')
-      startSyncPolling()
-    }
-  } catch {
-    // ignore
-  }
+  refreshSyncStatus()
 })
 
 onUnmounted(() => {
@@ -526,19 +478,6 @@ onUnmounted(() => {
         <NButton v-if="hasAuth('stock:screen:save')" block @click="handleSaveFilter">保存筛选条件</NButton>
       </div>
 
-      <!-- 数据同步 -->
-      <div v-if="hasAuth('stock:sync:execute')" class="mt-4 pt-4 border-t border-gray-200">
-        <h3 class="text-sm font-bold mb-2">数据同步</h3>
-        <div class="space-y-2">
-          <NButton size="small" block :loading="syncLoading || syncRunning" :disabled="syncRunning" @click="handleSyncAll">同步股票列表</NButton>
-          <NButton size="small" block :loading="syncLoading || syncRunning" :disabled="syncRunning" @click="handleSyncQuotes">同步行情数据</NButton>
-          <NButton size="small" block :loading="syncLoading || syncRunning" :disabled="syncRunning" @click="handleSyncFinance">同步财务数据</NButton>
-        </div>
-        <div v-if="syncRunning" class="mt-2 text-12px text-gray-400">
-          {{ syncTaskLabel }}同步中{{ syncProgressText }}，请稍候...
-        </div>
-      </div>
-
       <!-- 已保存的筛选条件 -->
       <div v-if="savedFilters.length > 0" class="mt-4">
         <h3 class="text-sm font-bold mb-2">已保存的条件</h3>
@@ -574,12 +513,44 @@ onUnmounted(() => {
           :data="results"
           :loading="loading"
           :row-key="screenRowKey"
-          :pagination="pagination"
           :scroll-x="1200"
           size="small"
           striped
           remote
           @update:sorter="handleSorter"
+        />
+      </div>
+
+      <!-- 底部: 数据同步状态(左) + 分页(右) -->
+      <div class="p-3 border-t border-gray-200 flex items-center justify-between gap-4">
+        <div
+          v-if="hasAuth('stock:sync:execute')"
+          class="min-w-0 text-12px leading-5 text-gray-400"
+        >
+          <template v-if="syncStatus">
+            <div v-if="syncRunning" class="flex items-center gap-1 text-blue-500">
+              <span class="i-mdi-loading animate-spin flex-shrink-0" />
+              <span>{{ syncStatus.task }}同步中{{ syncProgressText }}</span>
+            </div>
+            <template v-else>
+              <div v-if="syncStatus.lastError" class="text-red-500 truncate" :title="syncStatus.lastError">
+                上次同步失败: {{ syncStatus.lastError }}
+              </div>
+              <div v-else-if="syncFinishedText">上次同步完成: {{ syncFinishedText }}</div>
+              <div v-else>暂无同步记录</div>
+            </template>
+          </template>
+          <template v-else>状态加载中...</template>
+        </div>
+        <NPagination
+          class="flex-shrink-0"
+          :page="currentPage"
+          :page-size="pageSize"
+          :item-count="total"
+          :page-sizes="[20, 50, 100]"
+          show-size-picker
+          @change="handlePageChange"
+          @update:page-size="handlePageSizeChange"
         />
       </div>
     </div>
