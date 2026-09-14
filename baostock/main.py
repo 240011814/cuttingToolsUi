@@ -102,6 +102,31 @@ def usage() -> JSONResponse:
     return JSONResponse(status_code=HTTPStatus.OK, content=usage_endpoint.handle())
 
 
+# baostock 服务端会不定期重置长连接 (Connection reset/Broken pipe), SDK 内部连接状态
+# 又无法手动重建, 重置后第一次重新登录仍可能失败; 查询异常时 force_disconnect 后自动
+# 重试整个请求, 把瞬时断连在代理内消化掉, 不抛 502 给调用方触发同步任务中断
+MAX_QUERY_ATTEMPTS = 3
+
+
+def _execute_with_retry(endpoint: Any, query: dict[str, list[str]]) -> Any:
+    for attempt in range(1, MAX_QUERY_ATTEMPTS + 1):
+        try:
+            return endpoint.execute(endpoint.parse_params(query))
+        except ValueError:
+            # 参数错误是确定性问题, 重试无意义
+            raise
+        except Exception as error:
+            force_disconnect()
+            if attempt >= MAX_QUERY_ATTEMPTS:
+                raise
+            logging.warning(
+                "query attempt %d/%d failed, force reconnect and retry: %s",
+                attempt,
+                MAX_QUERY_ATTEMPTS,
+                error,
+            )
+
+
 def _handle_query(request: Request, endpoint: Any) -> JSONResponse:
     query = parse_qs(request.url.query)
 
@@ -119,15 +144,20 @@ def _handle_query(request: Request, endpoint: Any) -> JSONResponse:
 
     started = time.monotonic()
     try:
-        payload = endpoint.execute(endpoint.parse_params(query))
+        payload = _execute_with_retry(endpoint, query)
     except ValueError as error:
         return JSONResponse(
             status_code=HTTPStatus.BAD_REQUEST,
             content=make_error_payload(str(error), "invalid_request", usage),
         )
     except Exception as error:
-        # 查询异常后会话状态不可信, 强制断开, 下一个请求重新登录
-        force_disconnect()
+        logging.error(
+            "query failed after %d attempts: %s?%s: %s",
+            MAX_QUERY_ATTEMPTS,
+            request.url.path,
+            request.url.query,
+            error,
+        )
         return JSONResponse(
             status_code=HTTPStatus.BAD_GATEWAY,
             content=make_error_payload(str(error), "baostock_query_failed", usage),
