@@ -239,8 +239,10 @@ func (s *StockSyncService) SyncStockList() error {
 	}
 
 	// 3. 组装数据, 有行业的和无行业的分开, 避免行业接口失败或缺失时把已有行业清空
+	// code 保留完整格式(sz.000003/sh.600000), 股票与指数天然不冲突
 	withIndustry := make([]model.StockInfo, 0, len(resp.Data.Items))
 	withoutIndustry := make([]model.StockInfo, 0)
+	indexCount := 0
 	for _, item := range resp.Data.Items {
 		// 只保留股票与指数, 排除其它/可转债/ETF
 		if item.Code == "" || (item.Type != "1" && item.Type != "2") {
@@ -254,20 +256,23 @@ func (s *StockSyncService) SyncStockList() error {
 			market = "BJ"
 		}
 
-		code := item.Code
-		if idx := strings.Index(code, "."); idx >= 0 {
-			code = code[idx+1:]
+		stockType := 1
+		if item.Type == "2" {
+			stockType = 2
 		}
-
 		stock := model.StockInfo{
-			Code:     code,
+			Code:     item.Code,
 			Name:     item.CodeName,
 			Market:   market,
+			Type:     stockType,
 			IsST:     strings.Contains(item.CodeName, "ST"),
 			IsActive: item.Status == "1",
 		}
 		if t, err := time.Parse("2006-01-02", item.IpoDate); err == nil {
 			stock.ListDate = &t
+		}
+		if stockType == 2 {
+			indexCount++
 		}
 		if industry, ok := industryMap[item.Code]; ok && industry != "" {
 			stock.Industry = industry
@@ -281,17 +286,17 @@ func (s *StockSyncService) SyncStockList() error {
 	}
 
 	if len(withIndustry) > 0 {
-		if err := s.batchUpsertStocks(withIndustry, []string{"name", "market", "industry", "is_st", "is_active", "list_date"}); err != nil {
+		if err := s.batchUpsertStocks(withIndustry, []string{"name", "market", "industry", "is_st", "is_active", "list_date", "type"}); err != nil {
 			return err
 		}
 	}
 	if len(withoutIndustry) > 0 {
-		if err := s.batchUpsertStocks(withoutIndustry, []string{"name", "market", "is_st", "is_active", "list_date"}); err != nil {
+		if err := s.batchUpsertStocks(withoutIndustry, []string{"name", "market", "is_st", "is_active", "list_date", "type"}); err != nil {
 			return err
 		}
 	}
 
-	log.Printf("[StockSync] 同步股票列表完成: %d 只 (含行业 %d 只)", len(withIndustry)+len(withoutIndustry), len(withIndustry))
+	log.Printf("[StockSync] 同步股票列表完成: %d 只 (含行业 %d 只), 指数 %d 只", len(withIndustry)+len(withoutIndustry), len(withIndustry), indexCount)
 	return nil
 }
 
@@ -534,10 +539,6 @@ func (s *StockSyncService) SyncDailyQuotes(force bool) error {
 			continue
 		}
 
-		freqs := weeklyMonthlyFreqs
-		if isIndexCode(stock.Code, s.resolveMarket(stock.Code, stock.Market)) {
-			freqs = klineFrequencies
-		}
 		starts := latestMap[stock.Code]
 		if starts == nil {
 			starts = map[string]time.Time{}
@@ -545,6 +546,12 @@ func (s *StockSyncService) SyncDailyQuotes(force bool) error {
 		if force {
 			// 强制全量: 各周期清零起点
 			starts = map[string]time.Time{}
+		}
+
+		freqs := weeklyMonthlyFreqs
+		// 指数走逐股全周期; 普通股票无日K水位时(如同代码翻转清除了旧数据)也补拉日K全量, force 时日K由按日全量重放负责
+		if isIndexCode(stock.Code) || (!force && starts["daily"].IsZero()) {
+			freqs = klineFrequencies
 		}
 
 		rows, err := s.SyncSingleStockDaily(stock.Code, stock.Market, starts, latestTradeDay, freqs)
@@ -774,9 +781,6 @@ func (s *StockSyncService) fetchDailyDayRows(day string) ([]model.StockDaily, ma
 	isSTByCode := make(map[string]bool) // 官方逐日 isST, 用于每日更新 stock_info
 	for _, item := range resp.Data.Items {
 		code := item.Code
-		if idx := strings.Index(code, "."); idx >= 0 {
-			code = code[idx+1:]
-		}
 		if code == "" || isBJCode(code) {
 			continue
 		}
@@ -895,8 +899,8 @@ func (s *StockSyncService) SyncSingleStockDaily(code, market string, starts map[
 		return 0, fmt.Errorf("北交所股票 %s 暂不支持同步(baostock 无该市场数据)", code)
 	}
 	market = s.resolveMarket(code, market)
-	baostockCode := s.convertToBaostockCode(code, market)
-	isIndex := isIndexCode(code, market)
+	baostockCode := s.convertToBaostockCode(code)
+	isIndex := isIndexCode(code)
 	endDate := time.Now().Format("2006-01-02")
 
 	total := 0
@@ -1051,12 +1055,12 @@ func (s *StockSyncService) SyncFinanceData(code, market string) (int, error) {
 		return 0, fmt.Errorf("北交所股票 %s 暂不支持同步(baostock 无该市场数据)", code)
 	}
 	market = s.resolveMarket(code, market)
-	if isIndexCode(code, market) {
+	if isIndexCode(code) {
 		log.Printf("[StockSync] %s 是指数, 无财务数据, 跳过", code)
 		s.refreshFinanceState(code, time.Time{}, "skipped", "指数无财务数据")
 		return 0, nil
 	}
-	baostockCode := s.convertToBaostockCode(code, market)
+	baostockCode := s.convertToBaostockCode(code)
 
 	// 1. 批量查本地: 已有报告期、来源标记、关键数据列(用于推断实际已有来源)
 	type storedRow struct {
@@ -1396,7 +1400,7 @@ func (s *StockSyncService) SyncAllFinance() error {
 			bjSkipped++
 			continue
 		}
-		if isIndexCode(stock.Code, s.resolveMarket(stock.Code, stock.Market)) {
+		if isIndexCode(stock.Code) {
 			indexSkipped++
 			continue
 		}
@@ -1424,31 +1428,33 @@ func (s *StockSyncService) SyncAllFinance() error {
 	return nil
 }
 
-// convertToBaostockCode 将代码转换为baostock格式, 优先使用市场标识 (000003+SH -> sh.000003)
-func (s *StockSyncService) convertToBaostockCode(code, market string) string {
-	switch market {
+// convertToBaostockCode code 已是 baostock 完整格式(sz.000003/sh.600000), 原样返回; 无前缀的异常数据按规则兜底
+func (s *StockSyncService) convertToBaostockCode(code string) string {
+	if strings.Contains(code, ".") {
+		return code
+	}
+	switch s.resolveMarket(code, "") {
 	case "SH":
 		return "sh." + code
 	case "BJ":
 		return "bj." + code
-	case "SZ":
-		return "sz." + code
-	}
-	// 无市场信息时按代码规则推断(仅对无歧义的代码有效)
-	if len(code) == 6 && code[:1] == "6" {
-		return "sh." + code
 	}
 	return "sz." + code
 }
 
-// resolveMarket 解析股票的市场标识: 优先用传入值, 其次查数据库, 最后按代码推断
+// resolveMarket 解析市场标识: 优先用传入值, 其次按完整代码前缀, 最后按代码规则推断
 func (s *StockSyncService) resolveMarket(code, market string) string {
 	if market != "" {
 		return market
 	}
-	var m string
-	if err := DB.Model(&model.StockInfo{}).Select("market").Where("code = ?", code).Scan(&m).Error; err == nil && m != "" {
-		return m
+	if strings.HasPrefix(code, "sh.") {
+		return "SH"
+	}
+	if strings.HasPrefix(code, "bj.") {
+		return "BJ"
+	}
+	if strings.HasPrefix(code, "sz.") {
+		return "SZ"
 	}
 	if len(code) == 6 {
 		if code[0] == '6' {
@@ -1461,26 +1467,17 @@ func (s *StockSyncService) resolveMarket(code, market string) string {
 	return "SZ"
 }
 
-// isIndexCode 指数代码: 上证指数 sh.000xxx / 深证指数 sz.399xxx (个股与指数代码有重叠, 必须结合市场判断)
-func isIndexCode(code, market string) bool {
-	if len(code) != 6 {
-		return false
-	}
-	if market == "SH" && strings.HasPrefix(code, "000") {
-		return true
-	}
-	if market == "SZ" && strings.HasPrefix(code, "399") {
-		return true
-	}
-	return false
+// isIndexCode 指数代码: 上证指数 sh.000xxx / 深证指数 sz.399xxx (完整代码前缀区分, 无歧义)
+func isIndexCode(code string) bool {
+	return strings.HasPrefix(code, "sh.000") || strings.HasPrefix(code, "sz.399")
 }
 
 // isBJCode 判断是否北交所代码 (baostock 无北交所数据)
 func isBJCode(code string) bool {
-	if len(code) != 6 {
-		return false
+	if strings.HasPrefix(code, "bj.") {
+		return true
 	}
-	return code[0] == '4' || code[0] == '8' || strings.HasPrefix(code, "92")
+	return len(code) == 6 && (code[0] == '4' || code[0] == '8' || strings.HasPrefix(code, "92"))
 }
 
 // isSameDate 判断两个时间是否同一天

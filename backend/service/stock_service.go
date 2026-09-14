@@ -27,7 +27,7 @@ func (s *StockService) Screen(req model.StockScreenRequest) (*model.StockScreenR
 
 	// 构建基础查询：关联 stock_info + 最新行情 + 最新财务
 	query := DB.Table("stock_info AS si").
-		Select(`si.code, si.name, si.market, si.industry,
+		Select(`si.code, si.name, si.market, si.type, si.industry,
 			sd.close AS price, sd.change_pct AS change_pct, sd.turnover_rate, sd.amount,
 			CASE WHEN si.total_share > 0 THEN ROUND(sd.close * si.total_share / 10000, 2)
 			     WHEN si.total_market_cap > 0 THEN ROUND(si.total_market_cap / 100000000, 2)
@@ -46,8 +46,11 @@ func (s *StockService) Screen(req model.StockScreenRequest) (*model.StockScreenR
 			SELECT MAX(report_date) FROM stock_finance WHERE code = si.code
 		)`)
 
-	// 基础过滤
+	// 基础过滤: 仅活跃证券(排除退市股); 证券类型不传=全部(股票+指数)
 	query = query.Where("si.is_active = ?", true)
+	if len(req.SecurityTypes) > 0 {
+		query = query.Where("si.type IN ?", req.SecurityTypes)
+	}
 
 	// 名称/代码搜索
 	if req.Keyword != "" {
@@ -104,10 +107,11 @@ func (s *StockService) Screen(req model.StockScreenRequest) (*model.StockScreenR
 	// 分页
 	offset := (req.Page - 1) * req.PageSize
 	var results []struct {
-		Code           string  `gorm:"column:code"`
-		Name           string  `gorm:"column:name"`
-		Market         string  `gorm:"column:market"`
-		Industry       string  `gorm:"column:industry"`
+		Code           string   `gorm:"column:code"`
+		Name           string   `gorm:"column:name"`
+		Market         string   `gorm:"column:market"`
+		Type           int      `gorm:"column:type"`
+		Industry       string   `gorm:"column:industry"`
 		Price          *float64 `gorm:"column:price"`
 		ChangePct      *float64 `gorm:"column:change_pct"`
 		TurnoverRate   *float64 `gorm:"column:turnover_rate"`
@@ -139,6 +143,7 @@ func (s *StockService) Screen(req model.StockScreenRequest) (*model.StockScreenR
 			Code:           r.Code,
 			Name:           r.Name,
 			Market:         r.Market,
+			Type:           r.Type,
 			Industry:       r.Industry,
 			Price:          r.Price,
 			ChangePct:      r.ChangePct,
@@ -243,7 +248,7 @@ func senrichTechIndicators(list []model.StockScreenResult, codes []string) {
 	}
 
 	type techResult struct {
-		Code  string  `gorm:"column:code"`
+		Code  string   `gorm:"column:code"`
 		Ma5   *float64 `gorm:"column:ma5"`
 		Ma10  *float64 `gorm:"column:ma10"`
 		Ma20  *float64 `gorm:"column:ma20"`
@@ -316,10 +321,11 @@ func senrichConcepts(list []model.StockScreenResult, codes []string) {
 // GetDetail 获取个股详情
 func (s *StockService) GetDetail(code string) (*model.StockScreenResult, error) {
 	var result struct {
-		Code           string  `gorm:"column:code"`
-		Name           string  `gorm:"column:name"`
-		Market         string  `gorm:"column:market"`
-		Industry       string  `gorm:"column:industry"`
+		Code           string   `gorm:"column:code"`
+		Name           string   `gorm:"column:name"`
+		Market         string   `gorm:"column:market"`
+		Type           int      `gorm:"column:type"`
+		Industry       string   `gorm:"column:industry"`
 		Price          *float64 `gorm:"column:price"`
 		ChangePct      *float64 `gorm:"column:change_pct"`
 		TurnoverRate   *float64 `gorm:"column:turnover_rate"`
@@ -333,19 +339,19 @@ func (s *StockService) GetDetail(code string) (*model.StockScreenResult, error) 
 		NetProfitYoy   *float64 `gorm:"column:net_profit_yoy"`
 		GrossMargin    *float64 `gorm:"column:gross_margin"`
 		NetMargin      *float64 `gorm:"column:net_margin"`
-	DebtRatio      *float64 `gorm:"column:debt_ratio"`
-	CurrentRatio   *float64 `gorm:"column:current_ratio"`
-	QuickRatio     *float64 `gorm:"column:quick_ratio"`
-	CashRatio      *float64 `gorm:"column:cash_ratio"`
-	NrTurnRatio    *float64 `gorm:"column:nr_turn_ratio"`
-	InvTurnRatio   *float64 `gorm:"column:inv_turn_ratio"`
-	YoyEquity      *float64 `gorm:"column:yoy_equity"`
-	YoyAsset       *float64 `gorm:"column:yoy_asset"`
-	CfoToOr        *float64 `gorm:"column:cfo_to_or"`
+		DebtRatio      *float64 `gorm:"column:debt_ratio"`
+		CurrentRatio   *float64 `gorm:"column:current_ratio"`
+		QuickRatio     *float64 `gorm:"column:quick_ratio"`
+		CashRatio      *float64 `gorm:"column:cash_ratio"`
+		NrTurnRatio    *float64 `gorm:"column:nr_turn_ratio"`
+		InvTurnRatio   *float64 `gorm:"column:inv_turn_ratio"`
+		YoyEquity      *float64 `gorm:"column:yoy_equity"`
+		YoyAsset       *float64 `gorm:"column:yoy_asset"`
+		CfoToOr        *float64 `gorm:"column:cfo_to_or"`
 	}
 
 	err := DB.Table("stock_info AS si").
-		Select(`si.code, si.name, si.market, si.industry,
+		Select(`si.code, si.name, si.market, si.type, si.industry,
 			sd.close AS price, sd.change_pct, sd.turnover_rate, sd.amount,
 			CASE WHEN si.total_share > 0 THEN ROUND(sd.close * si.total_share / 10000, 2)
 			     WHEN si.total_market_cap > 0 THEN ROUND(si.total_market_cap / 100000000, 2)
@@ -375,6 +381,7 @@ func (s *StockService) GetDetail(code string) (*model.StockScreenResult, error) 
 		Code:           result.Code,
 		Name:           result.Name,
 		Market:         result.Market,
+		Type:           result.Type,
 		Industry:       result.Industry,
 		Price:          result.Price,
 		ChangePct:      result.ChangePct,

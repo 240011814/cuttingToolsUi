@@ -15,6 +15,7 @@ declare namespace Api {
       conceptNames?: string[]
       industries?: string[]
       markets?: string[]
+      securityTypes?: number[]
       excludeSt?: boolean
       keyword?: string
     }
@@ -23,6 +24,7 @@ declare namespace Api {
       code: string
       name: string
       market: string
+      type: number
       industry: string
       price: number | null
       changePct: number | null

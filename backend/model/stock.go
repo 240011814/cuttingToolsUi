@@ -6,21 +6,22 @@ import (
 
 // StockInfo 股票基础信息
 type StockInfo struct {
-	ID              uint       `gorm:"primaryKey;autoIncrement" json:"id"`
-	Code            string     `gorm:"size:10;not null;uniqueIndex" json:"code"`
-	Name            string     `gorm:"size:50;not null" json:"name"`
-	Market          string     `gorm:"size:10;default:SZ" json:"market"`
-	Industry        string     `gorm:"size:50" json:"industry"`
-	Area            string     `gorm:"size:50" json:"area"`
-	ListDate        *time.Time `json:"listDate"`
-	IsST            bool       `gorm:"default:false" json:"isSt"`
-	IsActive        bool       `gorm:"default:true" json:"isActive"`
-	TotalShare      *float64   `json:"totalShare"`
-	FloatShare      *float64   `json:"floatShare"`
-	TotalMarketCap  *float64   `json:"totalMarketCap"`
-	FloatMarketCap  *float64   `json:"floatMarketCap"`
-	CreatedAt       time.Time  `json:"createdAt"`
-	UpdatedAt       time.Time  `json:"updatedAt"`
+	ID             uint       `gorm:"primaryKey;autoIncrement" json:"id"`
+	Code           string     `gorm:"size:16;not null;uniqueIndex" json:"code"`
+	Name           string     `gorm:"size:50;not null" json:"name"`
+	Market         string     `gorm:"size:10;default:SZ" json:"market"`
+	Type           int        `gorm:"default:1" json:"type"`
+	Industry       string     `gorm:"size:50" json:"industry"`
+	Area           string     `gorm:"size:50" json:"area"`
+	ListDate       *time.Time `json:"listDate"`
+	IsST           bool       `gorm:"default:false" json:"isSt"`
+	IsActive       bool       `json:"isActive"`
+	TotalShare     *float64   `json:"totalShare"`
+	FloatShare     *float64   `json:"floatShare"`
+	TotalMarketCap *float64   `json:"totalMarketCap"`
+	FloatMarketCap *float64   `json:"floatMarketCap"`
+	CreatedAt      time.Time  `json:"createdAt"`
+	UpdatedAt      time.Time  `json:"updatedAt"`
 }
 
 func (StockInfo) TableName() string {
@@ -29,26 +30,26 @@ func (StockInfo) TableName() string {
 
 // StockDaily 股票K线 (frequency: daily/weekly/monthly)
 type StockDaily struct {
-	ID           uint       `gorm:"primaryKey;autoIncrement" json:"id"`
-	Code         string     `gorm:"size:10;not null" json:"code"`
-	Frequency    string     `gorm:"size:10;not null;default:daily" json:"frequency"`
-	TradeDate    time.Time  `gorm:"not null" json:"tradeDate"`
-	Open         *float64   `json:"open"`
-	High         *float64   `json:"high"`
-	Low          *float64   `json:"low"`
-	Close        *float64   `json:"close"`
-	Preclose     *float64   `json:"preclose"`
-	Volume       *float64   `json:"volume"`
-	TradeStatus  *int8      `json:"tradeStatus"`
-	Amount       *float64   `json:"amount"`
-	TurnoverRate *float64   `json:"turnoverRate"`
-	ChangePct    *float64   `json:"changePct"`
-	PeTtm        *float64   `json:"peTtm"`
-	PbMrq        *float64   `json:"pbMrq"`
-	PsTtm        *float64   `json:"psTtm"`
-	PcfNcfTtm    *float64   `json:"pcfNcfTtm"`
-	Amplitude    *float64   `json:"amplitude"`
-	CreatedAt    time.Time  `json:"createdAt"`
+	ID           uint      `gorm:"primaryKey;autoIncrement" json:"id"`
+	Code         string    `gorm:"size:16;not null" json:"code"`
+	Frequency    string    `gorm:"size:10;not null;default:daily" json:"frequency"`
+	TradeDate    time.Time `gorm:"not null" json:"tradeDate"`
+	Open         *float64  `json:"open"`
+	High         *float64  `json:"high"`
+	Low          *float64  `json:"low"`
+	Close        *float64  `json:"close"`
+	Preclose     *float64  `json:"preclose"`
+	Volume       *float64  `json:"volume"`
+	TradeStatus  *int8     `json:"tradeStatus"`
+	Amount       *float64  `json:"amount"`
+	TurnoverRate *float64  `json:"turnoverRate"`
+	ChangePct    *float64  `json:"changePct"`
+	PeTtm        *float64  `json:"peTtm"`
+	PbMrq        *float64  `json:"pbMrq"`
+	PsTtm        *float64  `json:"psTtm"`
+	PcfNcfTtm    *float64  `json:"pcfNcfTtm"`
+	Amplitude    *float64  `json:"amplitude"`
+	CreatedAt    time.Time `json:"createdAt"`
 }
 
 func (StockDaily) TableName() string {
@@ -59,7 +60,7 @@ func (StockDaily) TableName() string {
 // 数据表(stock_daily/stock_finance)是真相, 此表是同步水位缓存+观测: 用于断点续跑、失败记录与状态展示
 type StockSyncState struct {
 	ID              uint       `gorm:"primaryKey;autoIncrement" json:"id"`
-	Code            string     `gorm:"size:10;not null;uniqueIndex" json:"code"`
+	Code            string     `gorm:"size:16;not null;uniqueIndex" json:"code"`
 	KlineDailyTo    *time.Time `json:"klineDailyTo"`
 	KlineWeeklyTo   *time.Time `json:"klineWeeklyTo"`
 	KlineMonthlyTo  *time.Time `json:"klineMonthlyTo"`
@@ -95,39 +96,39 @@ func (SyncWatermark) TableName() string {
 
 // StockFinance 股票财务数据
 type StockFinance struct {
-	ID             uint     `gorm:"primaryKey;autoIncrement" json:"id"`
-	Code           string   `gorm:"size:10;not null" json:"code"`
+	ID             uint      `gorm:"primaryKey;autoIncrement" json:"id"`
+	Code           string    `gorm:"size:16;not null" json:"code"`
 	ReportDate     time.Time `gorm:"not null" json:"reportDate"`
-	ReportType     string   `gorm:"size:20" json:"reportType"`
-	PeTtm          *float64 `json:"peTtm"`
-	Pb             *float64 `json:"pb"`
-	PsTtm          *float64 `json:"psTtm"`
-	Roe            *float64 `json:"roe"`
-	Roa            *float64 `json:"roa"`
-	GrossMargin    *float64 `json:"grossMargin"`
-	NetMargin      *float64 `json:"netMargin"`
-	Revenue        *float64 `json:"revenue"`
-	RevenueYoy     *float64 `json:"revenueYoy"`
-	NetProfit      *float64 `json:"netProfit"`
-	NetProfitYoy   *float64 `json:"netProfitYoy"`
-	DebtRatio      *float64 `json:"debtRatio"`
-	CurrentRatio   *float64 `json:"currentRatio"`
-	QuickRatio     *float64 `json:"quickRatio"`
-	CashRatio      *float64 `json:"cashRatio"`
-	NrTurnRatio    *float64 `json:"nrTurnRatio"`
-	InvTurnRatio   *float64 `json:"invTurnRatio"`
-	CaTurnRatio    *float64 `json:"caTurnRatio"`
-	AssetTurnRatio *float64 `json:"assetTurnRatio"`
-	YoyEquity      *float64 `json:"yoyEquity"`
-	YoyAsset       *float64 `json:"yoyAsset"`
-	YoyEps         *float64 `json:"yoyEps"`
-	CfoToOr        *float64 `json:"cfoToOr"`
-	CfoToNp        *float64 `json:"cfoToNp"`
-	Eps            *float64 `json:"eps"`
-	EpsDeducted    *float64 `json:"epsDeducted"`
-	Bps            *float64 `json:"bps"`
-	OcfPerShare    *float64 `json:"ocfPerShare"`
-	FinanceSources string   `gorm:"size:8;not null;default:''" json:"financeSources"`
+	ReportType     string    `gorm:"size:20" json:"reportType"`
+	PeTtm          *float64  `json:"peTtm"`
+	Pb             *float64  `json:"pb"`
+	PsTtm          *float64  `json:"psTtm"`
+	Roe            *float64  `json:"roe"`
+	Roa            *float64  `json:"roa"`
+	GrossMargin    *float64  `json:"grossMargin"`
+	NetMargin      *float64  `json:"netMargin"`
+	Revenue        *float64  `json:"revenue"`
+	RevenueYoy     *float64  `json:"revenueYoy"`
+	NetProfit      *float64  `json:"netProfit"`
+	NetProfitYoy   *float64  `json:"netProfitYoy"`
+	DebtRatio      *float64  `json:"debtRatio"`
+	CurrentRatio   *float64  `json:"currentRatio"`
+	QuickRatio     *float64  `json:"quickRatio"`
+	CashRatio      *float64  `json:"cashRatio"`
+	NrTurnRatio    *float64  `json:"nrTurnRatio"`
+	InvTurnRatio   *float64  `json:"invTurnRatio"`
+	CaTurnRatio    *float64  `json:"caTurnRatio"`
+	AssetTurnRatio *float64  `json:"assetTurnRatio"`
+	YoyEquity      *float64  `json:"yoyEquity"`
+	YoyAsset       *float64  `json:"yoyAsset"`
+	YoyEps         *float64  `json:"yoyEps"`
+	CfoToOr        *float64  `json:"cfoToOr"`
+	CfoToNp        *float64  `json:"cfoToNp"`
+	Eps            *float64  `json:"eps"`
+	EpsDeducted    *float64  `json:"epsDeducted"`
+	Bps            *float64  `json:"bps"`
+	OcfPerShare    *float64  `json:"ocfPerShare"`
+	FinanceSources string    `gorm:"size:8;not null;default:''" json:"financeSources"`
 	CreatedAt      time.Time `json:"createdAt"`
 	UpdatedAt      time.Time `json:"updatedAt"`
 }
@@ -139,7 +140,7 @@ func (StockFinance) TableName() string {
 // StockConcept 股票概念关联
 type StockConcept struct {
 	ID          uint      `gorm:"primaryKey;autoIncrement" json:"id"`
-	Code        string    `gorm:"size:10;not null" json:"code"`
+	Code        string    `gorm:"size:16;not null" json:"code"`
 	ConceptName string    `gorm:"size:50;not null" json:"conceptName"`
 	ConceptCode string    `gorm:"size:20" json:"conceptCode"`
 	ConceptType string    `gorm:"size:20;default:industry" json:"conceptType"`
@@ -171,7 +172,7 @@ func (StockFilterCondition) TableName() string {
 type StockWatchlist struct {
 	ID        uint      `gorm:"primaryKey;autoIncrement" json:"id"`
 	UserID    uint      `gorm:"not null;index" json:"userId"`
-	Code      string    `gorm:"size:10;not null" json:"code"`
+	Code      string    `gorm:"size:16;not null" json:"code"`
 	Name      string    `gorm:"size:50" json:"name"`
 	GroupName string    `gorm:"size:50;default:默认" json:"groupName"`
 	Note      string    `gorm:"size:200" json:"note"`
@@ -193,16 +194,17 @@ type FilterCondition struct {
 
 // StockScreenRequest 筛选请求
 type StockScreenRequest struct {
-	Conditions   []FilterCondition `json:"conditions"`
-	SortBy       string            `json:"sortBy"`
-	SortOrder    string            `json:"sortOrder"`
-	Page         int               `json:"page"`
-	PageSize     int               `json:"pageSize"`
-	ConceptNames []string          `json:"conceptNames"`
-	Industries   []string          `json:"industries"`
-	Markets      []string          `json:"markets"`
-	ExcludeST    bool              `json:"excludeSt"`
-	Keyword      string            `json:"keyword"`
+	Conditions    []FilterCondition `json:"conditions"`
+	SortBy        string            `json:"sortBy"`
+	SortOrder     string            `json:"sortOrder"`
+	Page          int               `json:"page"`
+	PageSize      int               `json:"pageSize"`
+	ConceptNames  []string          `json:"conceptNames"`
+	Industries    []string          `json:"industries"`
+	Markets       []string          `json:"markets"`
+	SecurityTypes []int             `json:"securityTypes"`
+	ExcludeST     bool              `json:"excludeSt"`
+	Keyword       string            `json:"keyword"`
 }
 
 // StockScreenResult 筛选结果项
@@ -210,6 +212,7 @@ type StockScreenResult struct {
 	Code           string   `json:"code"`
 	Name           string   `json:"name"`
 	Market         string   `json:"market"`
+	Type           int      `json:"type"`
 	Industry       string   `json:"industry"`
 	Price          *float64 `json:"price"`
 	ChangePct      *float64 `json:"changePct"`

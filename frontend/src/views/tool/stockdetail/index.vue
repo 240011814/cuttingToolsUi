@@ -79,10 +79,17 @@ const financeColumns = [
   { title: '现金流/净利', key: 'cfoToNp', width: 80, render: (row: Api.Stock.FinanceHistory) => row.cfoToNp?.toFixed(2) || '-' }
 ]
 
+const displayCode = computed(() => (code.value.includes('.') ? code.value.split('.')[1] : code.value))
+
 const realtimeUrl = computed(() => {
   if (!code.value) return ''
-  const market = code.value.startsWith('6') ? 'sh' : 'sz'
-  return `https://quote.eastmoney.com/${market}${code.value}.html`
+  const digits = displayCode.value
+  const market = code.value.startsWith('sh.') || digits.startsWith('6')
+    ? 'sh'
+    : code.value.startsWith('bj.') || digits.startsWith('4') || digits.startsWith('8')
+        ? 'bj'
+        : 'sz'
+  return `https://quote.eastmoney.com/${market}${digits}.html`
 })
 
 async function loadDetail() {
@@ -233,10 +240,12 @@ function goBack() {
   router.push({ name: 'tool_stockscreen' })
 }
 
+const isIndex = computed(() => detail.value?.type === 2)
+
 const infoItems = computed(() => {
   if (!detail.value) return []
   const d = detail.value
-  return [
+  const all = [
     { label: '代码', value: d.code, tip: '' },
     { label: '名称', value: d.name, tip: '' },
     { label: '市场', value: d.market, tip: '' },
@@ -248,6 +257,10 @@ const infoItems = computed(() => {
     { label: '总市值', value: d.marketCap ? `${d.marketCap.toFixed(2)}亿` : '-', tip: '公式: 股价×总股本。<50亿小盘，50-200亿中盘，>1000亿超大盘' },
     { label: '流通市值', value: d.floatMarketCap ? `${d.floatMarketCap.toFixed(2)}亿` : '-', tip: '' }
   ]
+  if (d.type === 2) {
+    return all.filter(i => !['行业', '换手率', '总市值', '流通市值'].includes(i.label))
+  }
+  return all
 })
 
 const financeItems = computed(() => {
@@ -304,14 +317,19 @@ const financeStatusMeta = computed(() => {
 
 const syncItems = computed(() => {
   const st = syncState.value
-  return [
+  const items = [
     { label: '日K已到', value: fmtSyncDate(st?.klineDailyTo) },
     { label: '周K已到', value: fmtSyncDate(st?.klineWeeklyTo) },
     { label: '月K已到', value: fmtSyncDate(st?.klineMonthlyTo) },
-    { label: 'K线同步时间', value: fmtSyncDateTime(st?.klineSyncedAt) },
-    { label: '财务已到', value: fmtSyncDate(st?.financeTo) },
-    { label: '财务同步时间', value: fmtSyncDateTime(st?.financeSyncedAt) }
+    { label: 'K线同步时间', value: fmtSyncDateTime(st?.klineSyncedAt) }
   ]
+  if (!isIndex.value) {
+    items.push(
+      { label: '财务已到', value: fmtSyncDate(st?.financeTo) },
+      { label: '财务同步时间', value: fmtSyncDateTime(st?.financeSyncedAt) }
+    )
+  }
+  return items
 })
 
 // 财务图表指标分组
@@ -559,7 +577,7 @@ onUnmounted(() => {
           <div class="flex items-center gap-4">
             <div>
               <h1 class="text-2xl font-bold">{{ detail.name }}</h1>
-              <p class="text-gray-500">{{ detail.code }} | {{ detail.market }}</p>
+              <p class="text-gray-500">{{ displayCode }} | {{ detail.market }}</p>
             </div>
             <div v-if="detail.price" class="ml-auto text-right">
               <p class="text-3xl font-bold" :class="detail.changePct && detail.changePct >= 0 ? 'text-red-500' : 'text-green-500'">
@@ -590,8 +608,8 @@ onUnmounted(() => {
                 </div>
               </div>
 
-              <!-- 财务指标 -->
-              <div class="p-4 bg-white rounded-lg shadow">
+              <!-- 财务指标 (指数无财务, 不显示) -->
+              <div v-if="!isIndex" class="p-4 bg-white rounded-lg shadow">
                 <h2 class="text-lg font-bold mb-3">财务指标</h2>
                 <div class="grid grid-cols-2 gap-2">
                   <div v-for="item in financeItems" :key="item.label" class="flex justify-between items-center">
@@ -603,27 +621,27 @@ onUnmounted(() => {
                   </div>
                 </div>
               </div>
-            </div>
 
-            <!-- 数据同步状态 -->
-            <div class="mt-4 p-4 bg-white rounded-lg shadow">
-              <h2 class="text-lg font-bold mb-3">数据同步状态</h2>
-              <div class="grid grid-cols-2 gap-2">
-                <div v-for="item in syncItems" :key="item.label" class="flex justify-between items-center">
-                  <span class="text-gray-500">{{ item.label }}</span>
-                  <span class="font-medium">{{ item.value }}</span>
+              <!-- 数据同步状态 (指数与基本信息同行, 股票独占整行) -->
+              <div :class="isIndex ? '' : 'lg:col-span-2'" class="p-4 bg-white rounded-lg shadow">
+                <h2 class="text-lg font-bold mb-3">数据同步状态</h2>
+                <div class="grid grid-cols-2 gap-2">
+                  <div v-for="item in syncItems" :key="item.label" class="flex justify-between items-center">
+                    <span class="text-gray-500">{{ item.label }}</span>
+                    <span class="font-medium">{{ item.value }}</span>
+                  </div>
                 </div>
-              </div>
-              <div class="flex flex-wrap gap-x-8 gap-y-2 mt-3">
-                <div class="flex items-center gap-2">
-                  <span class="text-gray-500">K线状态</span>
-                  <NTag :type="klineStatusMeta.type" size="small">{{ klineStatusMeta.label }}</NTag>
-                  <span v-if="syncState?.klineError" class="text-12px text-red-500 cursor-help" :title="syncState.klineError">?</span>
-                </div>
-                <div class="flex items-center gap-2">
-                  <span class="text-gray-500">财务状态</span>
-                  <NTag :type="financeStatusMeta.type" size="small">{{ financeStatusMeta.label }}</NTag>
-                  <span v-if="syncState?.financeError" class="text-12px text-red-500 cursor-help" :title="syncState.financeError">?</span>
+                <div class="flex flex-wrap gap-x-8 gap-y-2 mt-3">
+                  <div class="flex items-center gap-2">
+                    <span class="text-gray-500">K线状态</span>
+                    <NTag :type="klineStatusMeta.type" size="small">{{ klineStatusMeta.label }}</NTag>
+                    <span v-if="syncState?.klineError" class="text-12px text-red-500 cursor-help" :title="syncState.klineError">?</span>
+                  </div>
+                  <div v-if="!isIndex" class="flex items-center gap-2">
+                    <span class="text-gray-500">财务状态</span>
+                    <NTag :type="financeStatusMeta.type" size="small">{{ financeStatusMeta.label }}</NTag>
+                    <span v-if="syncState?.financeError" class="text-12px text-red-500 cursor-help" :title="syncState.financeError">?</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -681,8 +699,8 @@ onUnmounted(() => {
               </NSpin>
             </div>
 
-            <!-- 历史财务数据 -->
-            <div v-if="financeHistory.length > 0" class="mt-4 p-4 bg-white rounded-lg shadow">
+            <!-- 历史财务数据 (指数无财务, 不显示) -->
+            <div v-if="!isIndex && financeHistory.length > 0" class="mt-4 p-4 bg-white rounded-lg shadow">
               <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
                 <h2 class="text-lg font-bold">历史财务数据 (共{{ financeHistory.length }}期)</h2>
                 <div class="flex items-center gap-2">

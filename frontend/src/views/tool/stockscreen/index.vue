@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted, h } from 'vue'
 import { useRouter } from 'vue-router'
-import { useMessage, NButton } from 'naive-ui'
+import { useMessage, NButton, NTag } from 'naive-ui'
 import { useAuth } from '@/hooks/business/auth'
 import {
   stockScreen,
@@ -34,11 +34,16 @@ function screenRowKey(row: Api.Stock.ScreenResult) {
   return row.code
 }
 
+function displayCode(code: string) {
+  return code.includes('.') ? code.split('.')[1] : code
+}
+
 const filterForm = reactive({
   conditions: [] as Api.Stock.FilterCondition[],
   conceptNames: [] as string[],
   industries: [] as string[],
   markets: [] as string[],
+  securityTypes: [] as number[],
   excludeSt: true,
   sortBy: 'code',
   sortOrder: 'asc' as 'asc' | 'desc',
@@ -72,14 +77,24 @@ const marketOptions = [
   { label: '北交所', value: 'BJ' }
 ]
 
+const securityTypeOptions = [
+  { label: '股票', value: 1 },
+  { label: '指数', value: 2 }
+]
+
 const columns = [
   { title: '代码', key: 'code', width: 80, fixed: 'left' as const,
     render: (row: Api.Stock.ScreenResult) => h('a', {
       class: 'text-blue-500 cursor-pointer hover:underline',
       onClick: () => goToDetail(row.code)
-    }, row.code)
+    }, displayCode(row.code))
   },
   { title: '名称', key: 'name', width: 100, fixed: 'left' as const },
+  { title: '类型', key: 'type', width: 60,
+    render: (row: Api.Stock.ScreenResult) => row.type === 2
+      ? h(NTag, { size: 'small', type: 'info', bordered: false }, { default: () => '指数' })
+      : '股票'
+  },
   { title: '现价', key: 'price', width: 80, render: (row: Api.Stock.ScreenResult) => row.price?.toFixed(2) || '-' },
   { title: '涨跌%', key: 'changePct', width: 80, sorter: true,
     render: (row: Api.Stock.ScreenResult) => {
@@ -179,6 +194,7 @@ async function doScreen() {
       conceptNames: filterForm.conceptNames,
       industries: filterForm.industries,
       markets: filterForm.markets,
+      securityTypes: filterForm.securityTypes,
       excludeSt: filterForm.excludeSt,
       sortBy: filterForm.sortBy,
       sortOrder: filterForm.sortOrder,
@@ -410,6 +426,18 @@ onUnmounted(() => {
             />
           </div>
 
+          <!-- 证券类型筛选 -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">证券类型</label>
+            <NSelect
+              v-model:value="filterForm.securityTypes"
+              :options="securityTypeOptions"
+              multiple
+              placeholder="不选=全部"
+              clearable
+            />
+          </div>
+
           <!-- 市场筛选 -->
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">上市板块</label>
@@ -502,7 +530,7 @@ onUnmounted(() => {
       <!-- 结果统计 -->
       <div class="p-3 border-b border-gray-200 flex items-center justify-between">
         <span class="text-sm text-gray-600">
-          共筛选出 <strong>{{ total }}</strong> 只股票
+          共筛选出 <strong>{{ total }}</strong> 条证券
         </span>
       </div>
 
