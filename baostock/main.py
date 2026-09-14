@@ -170,7 +170,7 @@ log_config = {
     "version": 1,
     "formatters": {
         "access": {
-            "format":   "%(levelname)s:    %(asctime)s| %(message)s"
+            "format": "%(levelname)s:    %(asctime)s| %(message)s"
         }
     },
     "handlers": {
@@ -187,9 +187,10 @@ log_config = {
     }
 }
 
+
 def main() -> None:
     logging.info("baostock api running on http://%s:%s", HOST, PORT)
-    uvicorn.run(app, host=HOST, port=PORT, log_level="info",log_config=log_config)
+    uvicorn.run(app, host=HOST, port=PORT, log_level="info", log_config=log_config)
 
 
 if __name__ == "__main__":
