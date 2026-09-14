@@ -1058,30 +1058,53 @@ func (s *StockSyncService) SyncFinanceData(code, market string) (int, error) {
 	}
 	baostockCode := s.convertToBaostockCode(code, market)
 
-	// 1. 批量查本地: 已有报告期、各报告期已同步的数据来源、已入库营收
+	// 1. 批量查本地: 已有报告期、来源标记、关键数据列(用于推断实际已有来源)
 	type storedRow struct {
 		ReportDate     time.Time `gorm:"column:report_date"`
 		Revenue        *float64  `gorm:"column:revenue"`
+		Roe            *float64  `gorm:"column:roe"`
+		NetProfit      *float64  `gorm:"column:net_profit"`
+		DebtRatio      *float64  `gorm:"column:debt_ratio"`
+		CurrentRatio   *float64  `gorm:"column:current_ratio"`
+		NrTurnRatio    *float64  `gorm:"column:nr_turn_ratio"`
+		AssetTurnRatio *float64  `gorm:"column:asset_turn_ratio"`
+		CfoToOr        *float64  `gorm:"column:cfo_to_or"`
+		NetProfitYoy   *float64  `gorm:"column:net_profit_yoy"`
+		YoyEquity      *float64  `gorm:"column:yoy_equity"`
 		FinanceSources string    `gorm:"column:finance_sources"`
 	}
 	var stored []storedRow
-	if err := DB.Model(&model.StockFinance{}).Select("report_date, revenue, finance_sources").Where("code = ?", code).Find(&stored).Error; err != nil {
+	if err := DB.Model(&model.StockFinance{}).
+		Select("report_date, revenue, roe, net_profit, debt_ratio, current_ratio, nr_turn_ratio, asset_turn_ratio, cfo_to_or, net_profit_yoy, yoy_equity, finance_sources").
+		Where("code = ?", code).Find(&stored).Error; err != nil {
 		return 0, fmt.Errorf("查询已有财务数据失败: %v", err)
 	}
 	quarterOf := func(t time.Time) [2]int {
 		return [2]int{t.Year(), (int(t.Month()) + 2) / 3}
 	}
-	// 兼容旧数据: 无来源标记的行视为已有利润+偿债(旧逻辑只同步这两类)
+	// 来源以 finance_sources 标记为准, 并按数据列补齐(只增不减): 数据表是真相,
+	// 旧数据/曾被覆盖的标记(如利润列有值但标记缺 P)按实际数据推断, 避免重复拉取;
+	// 反之标记齐全的来源即使列全空也不重拉(baostock 本身无值, 重拉无意义)
+	effectiveSources := func(marks string, r storedRow) string {
+		src := marks
+		add := func(c byte, has bool) {
+			if has && strings.IndexByte(src, c) < 0 {
+				src += string(c)
+			}
+		}
+		add('P', r.Roe != nil || r.NetProfit != nil)
+		add('B', r.DebtRatio != nil || r.CurrentRatio != nil)
+		add('O', r.NrTurnRatio != nil || r.AssetTurnRatio != nil)
+		add('C', r.CfoToOr != nil)
+		add('G', r.NetProfitYoy != nil || r.YoyEquity != nil)
+		return src
+	}
 	storedSources := make(map[[2]int]string, len(stored))
 	dateByQuarter := make(map[[2]int]time.Time, len(stored))
 	revenueByQuarter := make(map[[2]int]float64, len(stored))
 	for _, r := range stored {
 		pair := quarterOf(r.ReportDate)
-		src := r.FinanceSources
-		if src == "" {
-			src = "PB"
-		}
-		storedSources[pair] = src
+		storedSources[pair] = effectiveSources(r.FinanceSources, r)
 		dateByQuarter[pair] = r.ReportDate
 		if r.Revenue != nil {
 			revenueByQuarter[pair] = *r.Revenue
@@ -1184,9 +1207,19 @@ func (s *StockSyncService) SyncFinanceData(code, market string) (int, error) {
 				f := getFinanceRow(statDate, reportDate)
 				switch ep.Code {
 				case "P":
-					f.Roe = parseFloatPtr(item["roeAvg"])
-					f.GrossMargin = parseFloatPtr(item["gpMargin"])
-					f.NetMargin = parseFloatPtr(item["npMargin"])
+					// baostock 盈利接口比率返回小数(0.047=4.7%), 统一转成百分比存储, 与成长/营收同比口径一致
+					if v := parseFloatPtr(item["roeAvg"]); v != nil {
+						roe := *v * 100
+						f.Roe = &roe
+					}
+					if v := parseFloatPtr(item["gpMargin"]); v != nil {
+						gp := *v * 100
+						f.GrossMargin = &gp
+					}
+					if v := parseFloatPtr(item["npMargin"]); v != nil {
+						nm := *v * 100
+						f.NetMargin = &nm
+					}
 					f.Eps = parseFloatPtr(item["epsTTM"])
 					if v := parseFloatPtr(item["MBRevenue"]); v != nil {
 						revenue := *v / 10000
@@ -1236,7 +1269,11 @@ func (s *StockSyncService) SyncFinanceData(code, market string) (int, error) {
 				case "B":
 					f.CurrentRatio = parseFloatPtr(item["currentRatio"])
 					f.QuickRatio = parseFloatPtr(item["quickRatio"])
-					f.DebtRatio = parseFloatPtr(item["liabilityToAsset"])
+					// 资产负债率同样转成百分比存储
+					if v := parseFloatPtr(item["liabilityToAsset"]); v != nil {
+						debt := *v * 100
+						f.DebtRatio = &debt
+					}
 					f.CashRatio = parseFloatPtr(item["cashRatio"])
 				}
 				touchedSources[statDate] += ep.Code
@@ -1301,11 +1338,18 @@ func (s *StockSyncService) SyncFinanceData(code, market string) (int, error) {
 		}
 	}
 
-	// 6. 更新各报告期的数据来源标记
+	// 6. 更新各报告期的数据来源标记 (与库中原有标记合并: 只写本次来源会覆盖旧标记,
+	// 导致旧数据行每轮在"缺G"与"缺PB"之间乒乓重复拉取)
 	if len(touchedSources) > 0 {
 		list := make([]*model.StockFinance, 0, len(touchedSources))
 		for sd, src := range touchedSources {
-			list = append(list, &model.StockFinance{Code: code, ReportDate: touchedDates[sd], FinanceSources: src})
+			merged := storedSources[quarterOf(touchedDates[sd])]
+			for _, c := range src {
+				if !strings.ContainsRune(merged, c) {
+					merged += string(c)
+				}
+			}
+			list = append(list, &model.StockFinance{Code: code, ReportDate: touchedDates[sd], FinanceSources: merged})
 		}
 		if err := DB.Clauses(clause.OnConflict{
 			Columns:   []clause.Column{{Name: "code"}, {Name: "report_date"}},
