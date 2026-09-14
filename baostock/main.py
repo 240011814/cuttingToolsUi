@@ -166,10 +166,30 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException) 
         content=make_error_payload(str(exc.detail), code, usage_counter.get_stats()),
     )
 
+log_config = {
+    "version": 1,
+    "formatters": {
+        "access": {
+            "format":   "%(levelname)s:    %(asctime)s| %(message)s"
+        }
+    },
+    "handlers": {
+        "access": {
+            "class": "logging.StreamHandler",
+            "formatter": "access",
+        }
+    },
+    "loggers": {
+        "uvicorn.access": {
+            "handlers": ["access"],
+            "level": "INFO",
+        }
+    }
+}
 
 def main() -> None:
     logging.info("baostock api running on http://%s:%s", HOST, PORT)
-    uvicorn.run(app, host=HOST, port=PORT, log_level="info")
+    uvicorn.run(app, host=HOST, port=PORT, log_level="info",log_config=log_config)
 
 
 if __name__ == "__main__":
