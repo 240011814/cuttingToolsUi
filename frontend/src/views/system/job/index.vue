@@ -38,6 +38,7 @@ const form = ref({
   params: "",
   enabled: false,
   maxRetries: 0,
+  notifyEmail: "",
   remark: "",
 });
 
@@ -226,6 +227,7 @@ function openCreate() {
     params: "",
     enabled: false,
     maxRetries: 0,
+    notifyEmail: "",
     remark: "",
   };
   showEditModal.value = true;
@@ -240,6 +242,7 @@ function openEdit(row: Api.Job.JobDefinition) {
     params: row.params || "",
     enabled: row.enabled,
     maxRetries: row.maxRetries,
+    notifyEmail: row.notifyEmail || "",
     remark: row.remark || "",
   };
   showEditModal.value = true;
@@ -258,6 +261,10 @@ async function handleSave() {
       return;
     }
   }
+  if (form.value.notifyEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.value.notifyEmail.trim())) {
+    message.warning("失败通知邮箱格式不正确");
+    return;
+  }
 
   saving.value = true;
   try {
@@ -268,6 +275,7 @@ async function handleSave() {
       params: form.value.params || null,
       enabled: form.value.enabled,
       maxRetries: form.value.maxRetries,
+      notifyEmail: form.value.notifyEmail.trim(),
       remark: form.value.remark,
     };
     const { error } =
@@ -391,6 +399,12 @@ onMounted(async () => {
           <NInputNumber v-model:value="form.maxRetries" :min="0" :max="10" class="w-40">
             <template #suffix>次</template>
           </NInputNumber>
+        </NFormItem>
+        <NFormItem label="失败通知邮箱">
+          <NInput
+            v-model:value="form.notifyEmail"
+            placeholder="任务失败(重试耗尽)时告警邮箱, 留空不发送"
+          />
         </NFormItem>
         <NFormItem label="备注">
           <NInput v-model:value="form.remark" placeholder="任务说明(可选)" />

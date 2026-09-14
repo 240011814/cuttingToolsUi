@@ -18,9 +18,10 @@ type JobScheduler struct {
 	mu        sync.Mutex
 	tasks     map[string]taskEntry  // 已注册的可调度任务
 	cronJobs  map[string]gocron.Job // cron-def:{id} -> job
+	alertSvc  *JobAlertService      // 任务失败邮件告警 (可为 nil)
 }
 
-func NewJobScheduler() (*JobScheduler, error) {
+func NewJobScheduler(alertSvc *JobAlertService) (*JobScheduler, error) {
 	s, err := gocron.NewScheduler()
 	if err != nil {
 		return nil, err
@@ -30,6 +31,7 @@ func NewJobScheduler() (*JobScheduler, error) {
 		scheduler: s,
 		tasks:     make(map[string]taskEntry),
 		cronJobs:  make(map[string]gocron.Job),
+		alertSvc:  alertSvc,
 	}
 
 	return js, nil
@@ -335,6 +337,7 @@ func (js *JobScheduler) runDefinition(defID uint, triggerType string, attempt in
 		run.Error = fmt.Sprintf("任务方法未注册: %s", def.TaskName)
 		DB.Create(&run)
 		log.Printf("[JobScheduler] 定时任务 %s 执行失败: %s", def.Name, run.Error)
+		js.alertSvc.NotifyJobFailed(&def, run.Error, attempt, triggerType, finishAt)
 		return
 	}
 	DB.Create(&run)
@@ -364,7 +367,9 @@ func (js *JobScheduler) runDefinition(defID uint, triggerType string, attempt in
 		log.Printf("[JobScheduler] 定时任务 %s 执行失败: %v", def.Name, err)
 
 		// 失败重试: 延迟 attempt 分钟后单次调度
+		willRetry := false
 		if attempt <= def.MaxRetries {
+			willRetry = true
 			retryAt := time.Now().Add(time.Duration(attempt) * time.Minute)
 			if _, err := js.scheduler.NewJob(
 				gocron.OneTimeJob(gocron.OneTimeJobStartDateTime(retryAt)),
@@ -376,6 +381,10 @@ func (js *JobScheduler) runDefinition(defID uint, triggerType string, attempt in
 			} else {
 				log.Printf("[JobScheduler] 定时任务 %s 将于 %v 重试(第%d次)", def.Name, retryAt, attempt+1)
 			}
+		}
+		// 重试耗尽仍失败: 定义配置了通知邮箱则发送告警 (NotifyJobFailed 内部忽略空邮箱/nil 服务)
+		if !willRetry {
+			js.alertSvc.NotifyJobFailed(&def, run.Error, attempt, triggerType, finishAt)
 		}
 		// 只有首次调度触发才推进生命周期, 重试不推进
 		if attempt == 1 {
@@ -472,6 +481,7 @@ func (js *JobScheduler) ensureNextOccurrenceLocked(def *model.JobDefinition) *mo
 		Params:         def.Params,
 		Enabled:        true,
 		MaxRetries:     def.MaxRetries,
+		NotifyEmail:    def.NotifyEmail,
 		Remark:         def.Remark,
 		CreatedBy:      def.CreatedBy,
 	}

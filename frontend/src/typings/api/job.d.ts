@@ -14,6 +14,7 @@ declare namespace Api {
       params: string | null
       enabled: boolean
       maxRetries: number
+      notifyEmail: string | null
       remark: string | null
       createdBy: number | null
       createdAt: string
@@ -40,6 +41,7 @@ declare namespace Api {
       params?: string | null
       enabled?: boolean
       maxRetries?: number
+      notifyEmail?: string
       remark?: string
     }
 
@@ -50,6 +52,7 @@ declare namespace Api {
       params?: string | null
       enabled?: boolean
       maxRetries?: number
+      notifyEmail?: string | null
       remark?: string
     }
   }

@@ -79,7 +79,8 @@ func main() {
 	emailNotifier := service.NewEmailNotifier(systemConfigService)
 
 	// Job Scheduler
-	jobScheduler, err := service.NewJobScheduler()
+	jobAlertService := service.NewJobAlertService(emailNotifier)
+	jobScheduler, err := service.NewJobScheduler(jobAlertService)
 	if err != nil {
 		log.Printf("Warning: Failed to create job scheduler: %v", err)
 	}

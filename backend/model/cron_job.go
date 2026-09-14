@@ -40,6 +40,7 @@ type JobDefinition struct {
 	Params         json.RawMessage `gorm:"type:json" json:"params"`
 	Enabled        bool            `gorm:"default:false" json:"enabled"`
 	MaxRetries     int             `gorm:"default:0" json:"maxRetries"`
+	NotifyEmail    string          `gorm:"column:notify_email;size:255" json:"notifyEmail"`
 	Remark         string          `gorm:"size:255" json:"remark"`
 	CreatedBy      *uint           `json:"createdBy"`
 	CreatedAt      time.Time       `json:"createdAt"`
@@ -75,21 +76,23 @@ type TaskMeta struct {
 }
 
 type CreateJobDefinitionRequest struct {
-	Name       string          `json:"name" binding:"required"`
-	TaskName   string          `json:"taskName" binding:"required"`
-	CronExpr   string          `json:"cronExpr" binding:"required"`
-	Params     json.RawMessage `json:"params"`
-	Enabled    *bool           `json:"enabled"`
-	MaxRetries int             `json:"maxRetries"`
-	Remark     string          `json:"remark"`
+	Name        string          `json:"name" binding:"required"`
+	TaskName    string          `json:"taskName" binding:"required"`
+	CronExpr    string          `json:"cronExpr" binding:"required"`
+	Params      json.RawMessage `json:"params"`
+	Enabled     *bool           `json:"enabled"`
+	MaxRetries  int             `json:"maxRetries"`
+	NotifyEmail string          `json:"notifyEmail"`
+	Remark      string          `json:"remark"`
 }
 
 type UpdateJobDefinitionRequest struct {
-	Name       *string         `json:"name"`
-	TaskName   *string         `json:"taskName"`
-	CronExpr   *string         `json:"cronExpr"`
-	Params     json.RawMessage `json:"params"`
-	Enabled    *bool           `json:"enabled"`
-	MaxRetries *int            `json:"maxRetries"`
-	Remark     *string         `json:"remark"`
+	Name        *string         `json:"name"`
+	TaskName    *string         `json:"taskName"`
+	CronExpr    *string         `json:"cronExpr"`
+	Params      json.RawMessage `json:"params"`
+	Enabled     *bool           `json:"enabled"`
+	MaxRetries  *int            `json:"maxRetries"`
+	NotifyEmail *string         `json:"notifyEmail"`
+	Remark      *string         `json:"remark"`
 }

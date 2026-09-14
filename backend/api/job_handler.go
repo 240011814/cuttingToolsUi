@@ -5,6 +5,7 @@ import (
 	"backend/service"
 	"encoding/json"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -84,6 +85,7 @@ func (h *JobHandler) HandleCreateJob(c *gin.Context) {
 		Params:       req.Params,
 		Enabled:      req.Enabled != nil && *req.Enabled,
 		MaxRetries:   req.MaxRetries,
+		NotifyEmail:  strings.TrimSpace(req.NotifyEmail),
 		Remark:       req.Remark,
 		CreatedBy:    &userID,
 	}
@@ -159,6 +161,9 @@ func (h *JobHandler) HandleUpdateJob(c *gin.Context) {
 	}
 	if req.MaxRetries != nil {
 		updates["max_retries"] = *req.MaxRetries
+	}
+	if req.NotifyEmail != nil {
+		updates["notify_email"] = strings.TrimSpace(*req.NotifyEmail)
 	}
 	if req.Remark != nil {
 		updates["remark"] = *req.Remark
