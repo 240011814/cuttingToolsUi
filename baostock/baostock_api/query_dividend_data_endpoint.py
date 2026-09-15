@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from .request import get_required_query_param
-from .shared import baostock_lock, bs
+from .shared import BaostockQueryError, baostock_lock, bs
 
 
 @dataclass(frozen=True)
@@ -56,7 +56,7 @@ def execute(params: QueryDividendDataParams) -> dict[str, object]:
             )
 
             if result.error_code != "0":
-                raise RuntimeError(result.error_msg or "query_dividend_data failed")
+                raise BaostockQueryError(result.error_msg or "query_dividend_data failed")
 
             items: list[dict[str, str]] = []
             while result.next():

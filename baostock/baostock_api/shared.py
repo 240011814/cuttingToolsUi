@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import socket
 import threading
@@ -124,22 +125,31 @@ class UsageCounter:
             )
 
 
+class BaostockQueryError(RuntimeError):
+    """baostock 服务端返回的确定性错误(参数/限额等), 连接本身正常, 重试无意义"""
+
+
 usage_counter = UsageCounter(USAGE_FILE, DAILY_LIMIT)
-baostock_lock = threading.Lock()
+
+# 单一全局锁: 串行化所有 baostock SDK 调用(login/query/logout)。
+# 旧实现用 baostock_lock + _session_lock 两把锁: force_disconnect 在持 _session_lock 时做
+# 真实网络 logout, 而等待 login 的线程在持 baostock_lock 时等 _session_lock, 一旦 logout
+# 卡住就形成锁序倒置, 全服务僵死。合并为一把可重入锁后, 全链路只有一种获取顺序, 消除死锁。
+baostock_lock = threading.RLock()
 
 # --- baostock 会话保持 ---
 # endpoints 每个请求都 login/logout, 两次网络握手既慢又容易触发服务端卡顿;
 # 包装 login/logout: 已登录时 login 复用会话, logout 不再真正登出, 查询异常时强制断开重连
 _real_login = bs.login
 _real_logout = bs.logout
-_session_lock = threading.Lock()
 _logged_in = False
 _login_result: Any = None
 
 
 def _patched_login() -> Any:
     global _logged_in, _login_result
-    with _session_lock:
+    # 调用方(endpoint)已持有 baostock_lock, RLock 可重入; 独立调用时也能自我串行化
+    with baostock_lock:
         if _logged_in:
             return _login_result
         result = _real_login()
@@ -155,16 +165,22 @@ def _patched_logout() -> None:
 
 
 def force_disconnect() -> None:
-    """查询异常后调用: 强制断开会话, 下一个请求重新登录"""
+    """查询异常后调用: 强制断开会话, 下一个请求重新登录
+
+    logout 仍在本锁内执行: SDK 只有一条全局连接, 若在锁外 logout, 会与锁内正在
+    login/query 的线程并发操作同一连接, 制造新的状态错乱。死锁已由"合并为单锁"消除;
+    若 logout 自身卡死, 交由健康检查看门狗(后续项)自愈。
+    """
     global _logged_in, _login_result
-    with _session_lock:
-        if _logged_in:
-            try:
-                _real_logout()
-            except Exception:
-                pass
+    with baostock_lock:
+        if not _logged_in and _login_result is None:
+            return
         _logged_in = False
         _login_result = None
+        try:
+            _real_logout()
+        except Exception as error:
+            logging.error("force disconnect logout failed: %s", error)
 
 
 bs.login = _patched_login

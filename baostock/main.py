@@ -47,6 +47,7 @@ from baostock_api.shared import (
     DAILY_LIMIT,
     HOST,
     PORT,
+    BaostockQueryError,
     DailyLimitExceeded,
     force_disconnect,
     make_error_payload,
@@ -107,24 +108,34 @@ def usage() -> JSONResponse:
 # 重试整个请求, 把瞬时断连在代理内消化掉, 不抛 502 给调用方触发同步任务中断
 MAX_QUERY_ATTEMPTS = 3
 
+# 瞬时错误重试之间的退避(秒), 按尝试次数递增, 避免连续猛打正在重置连接的服务端
+RETRY_BACKOFF_SECONDS = (0.5, 1.0)
+
 
 def _execute_with_retry(endpoint: Any, query: dict[str, list[str]]) -> Any:
     for attempt in range(1, MAX_QUERY_ATTEMPTS + 1):
         try:
             return endpoint.execute(endpoint.parse_params(query))
         except ValueError:
-            # 参数错误是确定性问题, 重试无意义
+            # 本地参数错误是确定性问题, 重试无意义
+            raise
+        except BaostockQueryError:
+            # 服务端返回的确定性错误(参数错误/限额等), 连接本身正常, 重连重试也无效
             raise
         except Exception as error:
+            # 其余视为瞬时错误(连接重置/登录失败等), 断开重连后重试
             force_disconnect()
             if attempt >= MAX_QUERY_ATTEMPTS:
                 raise
+            backoff = RETRY_BACKOFF_SECONDS[min(attempt - 1, len(RETRY_BACKOFF_SECONDS) - 1)]
             logging.warning(
-                "query attempt %d/%d failed, force reconnect and retry: %s",
+                "query attempt %d/%d failed, force reconnect and retry in %.1fs: %s",
                 attempt,
                 MAX_QUERY_ATTEMPTS,
+                backoff,
                 error,
             )
+            time.sleep(backoff)
 
 
 def _handle_query(request: Request, endpoint: Any) -> JSONResponse:

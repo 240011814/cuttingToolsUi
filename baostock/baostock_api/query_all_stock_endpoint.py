@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from .request import get_optional_query_param
-from .shared import baostock_lock, bs
+from .shared import BaostockQueryError, baostock_lock, bs
 
 
 @dataclass(frozen=True)
@@ -40,7 +40,7 @@ def execute(params: QueryAllStockParams) -> dict[str, object]:
             result = bs.query_all_stock(day=params.day)
 
             if result.error_code != "0":
-                raise RuntimeError(result.error_msg or "query_all_stock failed")
+                raise BaostockQueryError(result.error_msg or "query_all_stock failed")
 
             items: list[BaostockAllStockItem] = []
             while result.next():
