@@ -78,11 +78,20 @@
 
 ## 项目概述
 
-AI 驱动的切割优化与英语学习管理平台，基于 SoybeanAdmin (Vue 3) 模板构建。
+多模块的 AI 应用平台 (Admin 后台)，基于 SoybeanAdmin (Vue 3) 模板构建，涵盖：
+
+- **AI 与英语学习**: AI 对话/Agent、课程、词汇、笔记、错题本、训练、历史
+- **切割优化**: 切割方案与记录管理
+- **彩票 / 工具箱**: 彩票数据、A 股行情与选股 (`tool/stockdetail`、`tool/stockscreen`)
+- **系统管理**: 用户、角色权限 (RBAC)、AI 模型/场景配置、定时任务与提醒
+- **能力集成**: OpenAI API + Mem0 记忆服务、Telegram 通知、邮件通知
+
+技术栈:
 
 - **前端**: Vue 3 + TypeScript + Naive UI + UnoCSS + Pinia (端口 9527)
 - **后端**: Go + Gin + GORM + MySQL (端口 8080)
-- **AI 集成**: OpenAI API + Mem0 记忆服务
+- **后端架构**: `api` (领域处理器) → `service` (业务逻辑) → `model` (GORM 模型) 三层; 全局 DB 在 `service/db.go`, 迁移用 Goose (`//go:embed`), 中间件 `AuthMiddleware` (JWT) + `RequirePermission` (RBAC)
+- **A 股数据源**: `baostock/` Python FastAPI 代理 (端口 3002), 封装 baostock SDK, Go 后端串行调用做增量同步
 
 ## 常用命令
 
