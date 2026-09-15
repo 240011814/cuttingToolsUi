@@ -153,6 +153,7 @@ declare namespace Api {
       klineDailyTo: string | null
       klineWeeklyTo: string | null
       klineMonthlyTo: string | null
+      klineHourlyTo: string | null
       klineStatus: 'pending' | 'ok' | 'failed'
       klineError: string | null
       klineSyncedAt: string | null

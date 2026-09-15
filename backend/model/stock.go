@@ -64,6 +64,7 @@ type StockSyncState struct {
 	KlineDailyTo    *time.Time `json:"klineDailyTo"`
 	KlineWeeklyTo   *time.Time `json:"klineWeeklyTo"`
 	KlineMonthlyTo  *time.Time `json:"klineMonthlyTo"`
+	KlineHourlyTo   *time.Time `json:"klineHourlyTo"`
 	KlineStatus     string     `gorm:"size:20;not null;default:pending" json:"klineStatus"`
 	KlineError      string     `gorm:"size:255" json:"klineError"`
 	KlineSyncedAt   *time.Time `json:"klineSyncedAt"`

@@ -316,16 +316,23 @@ func (s *StockSyncService) batchUpsertStocks(stocks []model.StockInfo, updateCol
 	return nil
 }
 
-// klineFrequencies 同步的K线周期
-var klineFrequencies = []string{"daily", "weekly", "monthly"}
+// klineFrequencies 全部K线周期 (供单股同步调用)
+// "60"=小时线, baostock frequency 参数, 仅收盘后数据完整
+var klineFrequencies = []string{"daily", "weekly", "monthly", "60"}
 
-// weeklyMonthlyFreqs 批量同步走逐股路径的周期 (日K按日全量, 不在此列)
-var weeklyMonthlyFreqs = []string{"weekly", "monthly"}
+// weeklyMonthlyFreqs 普通股票逐股增量周期 (日K按日全量已覆盖, 此处补周/月/小时)
+var weeklyMonthlyFreqs = []string{"weekly", "monthly", "60"}
+
+// indexKlineFreqs 指数逐股全周期 (指数日K不在按日全量接口返回中; 指数小时线待验证 baostock 支持后加入)
+var indexKlineFreqs = []string{"daily", "weekly", "monthly"}
 
 // KlineFrequencies 暴露全部K线周期 (供单股同步调用)
 func KlineFrequencies() []string {
 	return klineFrequencies
 }
+
+// marketCloseHour A股收盘时间(小时), 小时线目标日判断用
+const marketCloseHour = 15
 
 // stockDailyUpsertCols K线 upsert 更新的数据列 (按日全量与逐股路径共用, 避免两处漂移)
 var stockDailyUpsertCols = []string{"open", "high", "low", "close", "preclose", "volume", "amount", "turnover_rate", "change_pct", "trade_status", "pe_ttm", "pb_mrq", "ps_ttm", "pcf_ncf_ttm"}
@@ -337,13 +344,16 @@ func baostockFreq(freq string) string {
 		return "w"
 	case "monthly":
 		return "m"
+	case "60":
+		return "60"
 	default:
 		return "d"
 	}
 }
 
 // freqIsCurrent 判断某周期K线是否已到最新 (周/月线只含已完成周期, 按6天/31天窗口判断)
-func freqIsCurrent(st time.Time, freq string, latestTradeDay time.Time) bool {
+// latestTradeDay=最新交易日, hourlyDay=小时线已完成的目标交易日(盘中为上一交易日); 均按本地时区零点
+func freqIsCurrent(st time.Time, freq string, latestTradeDay, hourlyDay time.Time) bool {
 	if st.IsZero() || latestTradeDay.IsZero() {
 		return false
 	}
@@ -352,9 +362,33 @@ func freqIsCurrent(st time.Time, freq string, latestTradeDay time.Time) bool {
 		return !st.Before(latestTradeDay.AddDate(0, 0, -6))
 	case "monthly":
 		return !st.Before(latestTradeDay.AddDate(0, 0, -31))
+	case "60":
+		// 收盘后当日最后一根应为 15:00, 要求已同步到该收盘bar, 否则视为未完成(下次重拉,
+		// 可自愈 baostock 收盘后延迟发布最后一根的情况)
+		return !hourlyDay.IsZero() && !st.Before(hourlyDay.Add(marketCloseHour*time.Hour))
 	default:
 		return isSameDate(st, latestTradeDay)
 	}
+}
+
+// parseTradeDay 解析交易日日期串为本地时区零点 (与 DSN loc=Local 一致, 避免日/时线时间基准漂移)
+func parseTradeDay(s string) (time.Time, error) {
+	return time.ParseInLocation("2006-01-02", s, time.Local)
+}
+
+// parseKlineBarTime 解析K线时间: 分钟线优先用 time 字段(格式 YYYYMMDDHHmmssSSS), 其余用 date 字段
+func parseKlineBarTime(date, clock string) (time.Time, bool) {
+	if len(clock) >= 14 {
+		if t, err := time.ParseInLocation("20060102150405", clock[:14], time.Local); err == nil {
+			return t, true
+		}
+	}
+	if date != "" {
+		if t, err := parseTradeDay(date); err == nil {
+			return t, true
+		}
+	}
+	return time.Time{}, false
 }
 
 // GetStoredKlineStarts 查询某只股票各周期K线在库中的最新交易日 (零值表示该周期无数据)
@@ -382,11 +416,38 @@ func (s *StockSyncService) LatestTradeDay() time.Time {
 	if err != nil {
 		return time.Time{}
 	}
-	t, err := time.Parse("2006-01-02", day)
+	t, err := parseTradeDay(day)
 	if err != nil {
 		return time.Time{}
 	}
 	return t
+}
+
+// LatestCompletedTradeDay 小时线目标日: 已收盘取最新交易日, 盘中(交易未结束)取上一交易日
+// 判断依据: 今天在交易日历中且当前早于收盘时间, 则回退到上一交易日; 失败/无数据返回零值
+func (s *StockSyncService) LatestCompletedTradeDay() time.Time {
+	tradeDays, err := s.fetchTradeDays("1990-01-01", time.Now().Format("2006-01-02"))
+	if err != nil || len(tradeDays) == 0 {
+		return time.Time{}
+	}
+	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.Local)
+	tradingEnded := !now.Before(today.Add(marketCloseHour * time.Hour))
+	latest := time.Time{}
+	for _, day := range tradeDays { // 升序, 含未来交易日
+		t, err := parseTradeDay(day)
+		if err != nil {
+			continue
+		}
+		if t.After(today) {
+			break
+		}
+		if isSameDate(t, today) && !tradingEnded {
+			break // 今日尚未收盘, 不计入已完成交易日
+		}
+		latest = t
+	}
+	return latest
 }
 
 // HasStoredStockData 判断该股票在库中是否已有行情或财务数据
@@ -423,6 +484,8 @@ func (s *StockSyncService) refreshKlineState(code string, freqDates map[string]t
 			st.KlineWeeklyTo = &d
 		case "monthly":
 			st.KlineMonthlyTo = &d
+		case "60":
+			st.KlineHourlyTo = &d
 		}
 	}
 	now := time.Now()
@@ -495,11 +558,14 @@ func (s *StockSyncService) SyncDailyQuotes(force bool) error {
 		return err
 	}
 
-	// 阶段2: 周/月K逐股增量 (指数的日K不在按日接口返回中, 也走逐股)
+	// 阶段2: 周/月/小时K逐股增量 (指数的日K不在按日接口返回中, 也走逐股)
 	var stocks []model.StockInfo
 	if err := DB.Where("is_active = ?", true).Find(&stocks).Error; err != nil {
 		return fmt.Errorf("查询股票列表失败: %v", err)
 	}
+
+	// 小时线目标日: 收盘取最新交易日, 盘中回落到上一交易日(与日K发布状态解耦, 收盘即认可当日)
+	hourlyDay := s.LatestCompletedTradeDay()
 
 	// 每只股票每个周期在库中的最新交易日: 从同步状态表读水位(同步完成时维护, 与数据表一致),
 	// 状态表缺失的股票按无数据处理, 拉全量后自动补建状态
@@ -509,7 +575,7 @@ func (s *StockSyncService) SyncDailyQuotes(force bool) error {
 	}
 	latestMap := make(map[string]map[string]time.Time, len(states))
 	for _, st := range states {
-		m := make(map[string]time.Time, 3)
+		m := make(map[string]time.Time, 4)
 		if st.KlineDailyTo != nil {
 			m["daily"] = *st.KlineDailyTo
 		}
@@ -518,6 +584,9 @@ func (s *StockSyncService) SyncDailyQuotes(force bool) error {
 		}
 		if st.KlineMonthlyTo != nil {
 			m["monthly"] = *st.KlineMonthlyTo
+		}
+		if st.KlineHourlyTo != nil {
+			m["60"] = *st.KlineHourlyTo
 		}
 		latestMap[st.Code] = m
 	}
@@ -548,13 +617,18 @@ func (s *StockSyncService) SyncDailyQuotes(force bool) error {
 			starts = map[string]time.Time{}
 		}
 
+		isIndex := isIndexCode(stock.Code)
+		// 普通股票无日K水位时(如同代码翻转清除了旧数据)也补拉日K全量, force 时日K由按日全量重放负责
+		needDaily := isIndex || (!force && starts["daily"].IsZero())
 		freqs := weeklyMonthlyFreqs
-		// 指数走逐股全周期; 普通股票无日K水位时(如同代码翻转清除了旧数据)也补拉日K全量, force 时日K由按日全量重放负责
-		if isIndexCode(stock.Code) || (!force && starts["daily"].IsZero()) {
+		if isIndex {
+			// 指数走逐股全周期 (指数小时线暂不同步, 待验证 baostock 指数分钟线支持)
+			freqs = indexKlineFreqs
+		} else if needDaily {
 			freqs = klineFrequencies
 		}
 
-		rows, err := s.SyncSingleStockDaily(stock.Code, stock.Market, starts, latestTradeDay, freqs)
+		rows, err := s.SyncSingleStockDaily(stock.Code, stock.Market, starts, latestTradeDay, hourlyDay, freqs)
 		if err != nil {
 			failed++
 			consecutiveFails++
@@ -565,7 +639,7 @@ func (s *StockSyncService) SyncDailyQuotes(force bool) error {
 			continue
 		}
 		consecutiveFails = 0
-		if len(freqs) == len(klineFrequencies) && rows > 0 {
+		if needDaily && rows > 0 {
 			indexDailyFetched++
 		}
 		if rows == 0 {
@@ -575,7 +649,7 @@ func (s *StockSyncService) SyncDailyQuotes(force bool) error {
 		}
 	}
 
-	log.Printf("[StockSync] 同步行情数据完成: 周/月K逐股 %d 只, 更新 %d 只, 已最新跳过 %d 只, 指数补日K %d 只, 北交所跳过 %d 只, 失败 %d 只",
+	log.Printf("[StockSync] 同步行情数据完成: 周/月/小时K逐股 %d 只, 更新 %d 只, 已最新跳过 %d 只, 指数补日K %d 只, 北交所跳过 %d 只, 失败 %d 只",
 		len(stocks), updated, skipped, indexDailyFetched, bjSkipped, failed)
 	return nil
 }
@@ -607,7 +681,7 @@ func (s *StockSyncService) SyncDailyKByDate(force bool) (time.Time, error) {
 
 	pending := make([]string, 0, 8)
 	for _, day := range tradeDays {
-		t, err := time.Parse("2006-01-02", day)
+		t, err := parseTradeDay(day)
 		if err != nil {
 			continue
 		}
@@ -649,7 +723,7 @@ func (s *StockSyncService) SyncDailyKByDate(force bool) (time.Time, error) {
 		if err := s.storeDailyDayRows(rows, isST, day, knownCodes); err != nil {
 			return latest, fmt.Errorf("写入 %s 日K失败: %v", day, err)
 		}
-		latest, _ = time.Parse("2006-01-02", day)
+		latest, _ = parseTradeDay(day)
 		s.saveWatermark(watermarkDailyK, latest, "ok", "")
 		log.Printf("[StockSync] 日K %s 已同步: %d 条", day, len(rows))
 	}
@@ -772,7 +846,7 @@ func (s *StockSyncService) fetchDailyDayRows(day string) ([]model.StockDaily, ma
 		return nil, nil, fmt.Errorf("获取日K数据失败")
 	}
 
-	tradeDate, err := time.Parse("2006-01-02", day)
+	tradeDate, err := parseTradeDay(day)
 	if err != nil {
 		return nil, nil, fmt.Errorf("交易日格式错误: %s", day)
 	}
@@ -826,7 +900,7 @@ func (s *StockSyncService) storeDailyDayRows(rows []model.StockDaily, isST map[s
 	}
 
 	// 已知股票批量推进日K水位 (一次性, 不覆盖周/月列)
-	dayT, _ := time.Parse("2006-01-02", day)
+	dayT, _ := parseTradeDay(day)
 	now := time.Now()
 	seen := make(map[string]bool)
 	states := make([]model.StockSyncState, 0, len(rows))
@@ -894,21 +968,25 @@ func (s *StockSyncService) updateSTFlags(isST map[string]bool, knownCodes map[st
 
 // SyncSingleStockDaily 同步单只股票/指数的K线 (指定周期, 每周期1次API调用, 批量写入), 返回总写入条数
 // starts 为各周期在库中的最新交易日(零值=该周期拉取全部历史); latestTradeDay 为最近交易日(用于跳过已最新周期, 零值=不跳过)
-func (s *StockSyncService) SyncSingleStockDaily(code, market string, starts map[string]time.Time, latestTradeDay time.Time, freqs []string) (int, error) {
+// hourlyDay 为小时线已完成的目标交易日(零值=无已完成交易日, 跳过小时线): 盘中传上一交易日, 不拉当日未完成bar
+func (s *StockSyncService) SyncSingleStockDaily(code, market string, starts map[string]time.Time, latestTradeDay, hourlyDay time.Time, freqs []string) (int, error) {
 	if isBJCode(code) {
 		return 0, fmt.Errorf("北交所股票 %s 暂不支持同步(baostock 无该市场数据)", code)
 	}
 	market = s.resolveMarket(code, market)
 	baostockCode := s.convertToBaostockCode(code)
 	isIndex := isIndexCode(code)
-	endDate := time.Now().Format("2006-01-02")
 
 	total := 0
 	fetched := make([]string, 0, len(freqs))
 	freqDates := make(map[string]time.Time, len(freqs)) // 本次各周期已同步到的最新交易日
 	for _, freq := range freqs {
+		if freq == "60" && isIndex {
+			// 指数小时线暂不同步 (待验证 baostock 指数分钟线支持后放开)
+			continue
+		}
 		start := starts[freq]
-		if freqIsCurrent(start, freq, latestTradeDay) {
+		if freqIsCurrent(start, freq, latestTradeDay, hourlyDay) {
 			continue
 		}
 		startDate := "1990-01-01"
@@ -916,9 +994,21 @@ func (s *StockSyncService) SyncSingleStockDaily(code, market string, starts map[
 			startDate = start.Format("2006-01-02")
 		}
 
+		// 结束日: 小时线钳到已完成交易日, 避免盘中把当日未完成的bar写入
+		endDate := time.Now().Format("2006-01-02")
+		if freq == "60" {
+			if hourlyDay.IsZero() {
+				continue
+			}
+			endDate = hourlyDay.Format("2006-01-02")
+		}
+
 		// fields 随周期与证券类型变化, 服务端严格校验: preclose/交易状态/估值仅日线支持(周/月线传了报无效参数), 指数无换手率/交易状态/估值
 		var fields string
 		switch {
+		case freq == "60":
+			// 分钟线: 服务端只接受 date/time/OHLC/volume/amount (无 preclose/tradestatus/估值/换手)
+			fields = "date,time,open,high,low,close,volume,amount"
 		case isIndex && freq == "daily":
 			fields = "date,open,high,low,close,preclose,volume,amount,pctChg"
 		case isIndex:
@@ -948,6 +1038,7 @@ func (s *StockSyncService) SyncSingleStockDaily(code, market string, starts map[
 			Data struct {
 				Items []struct {
 					Date        string `json:"date"`
+					Time        string `json:"time"`
 					Open        string `json:"open"`
 					High        string `json:"high"`
 					Low         string `json:"low"`
@@ -977,11 +1068,9 @@ func (s *StockSyncService) SyncSingleStockDaily(code, market string, starts map[
 
 		dailies := make([]model.StockDaily, 0, len(resp.Data.Items))
 		for _, item := range resp.Data.Items {
-			if item.Date == "" {
-				continue
-			}
-			tradeDate, err := time.Parse("2006-01-02", item.Date)
-			if err != nil {
+			// 分钟线时间在 time 字段(带时分), 日/周/月线在 date 字段
+			tradeDate, ok := parseKlineBarTime(item.Date, item.Time)
+			if !ok {
 				continue
 			}
 			dailies = append(dailies, model.StockDaily{
@@ -1024,8 +1113,12 @@ func (s *StockSyncService) SyncSingleStockDaily(code, market string, starts map[
 			}
 		}
 
+		layout := "2006-01-02"
+		if freq == "60" {
+			layout = "2006-01-02 15:04"
+		}
 		freqDates[freq] = dailies[len(dailies)-1].TradeDate
-		fetched = append(fetched, fmt.Sprintf("%s=%d条(%s~%s)", freq, len(dailies), dailies[0].TradeDate.Format("2006-01-02"), dailies[len(dailies)-1].TradeDate.Format("2006-01-02")))
+		fetched = append(fetched, fmt.Sprintf("%s=%d条(%s~%s)", freq, len(dailies), dailies[0].TradeDate.Format(layout), dailies[len(dailies)-1].TradeDate.Format(layout)))
 		total += len(dailies)
 	}
 	s.refreshKlineState(code, freqDates, nil)

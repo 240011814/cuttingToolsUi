@@ -447,15 +447,24 @@ func (s *StockService) GetFinanceHistory(code string, limit int) ([]model.StockF
 	return finances, nil
 }
 
-// GetKline 获取K线数据 (period: daily/weekly/monthly)
+// GetKline 获取K线数据 (period: daily/weekly/monthly/60, 60=小时线)
 func (s *StockService) GetKline(code string, period string, count int) ([]map[string]interface{}, error) {
-	if count <= 0 || count > 500 {
-		count = 120
+	frequency := strings.ToLower(period)
+	switch frequency {
+	case "weekly", "monthly":
+	case "60", "hourly", "hour":
+		frequency = "60"
+	default:
+		frequency = "daily"
 	}
 
-	frequency := strings.ToLower(period)
-	if frequency != "weekly" && frequency != "monthly" {
-		frequency = "daily"
+	// 小时线粒度更细, 允许取更多根
+	maxCount := 500
+	if frequency == "60" {
+		maxCount = 2000
+	}
+	if count <= 0 || count > maxCount {
+		count = 120
 	}
 
 	var dailies []model.StockDaily
@@ -467,12 +476,18 @@ func (s *StockService) GetKline(code string, period string, count int) ([]map[st
 		return nil, err
 	}
 
+	// 小时线带时分, 日/周/月线只到日
+	dateLayout := "2006-01-02"
+	if frequency == "60" {
+		dateLayout = "2006-01-02 15:04"
+	}
+
 	// 计算MA
 	result := make([]map[string]interface{}, 0, len(dailies))
 	for i := len(dailies) - 1; i >= 0; i-- {
 		d := dailies[i]
 		item := map[string]interface{}{
-			"date":         d.TradeDate.Format("2006-01-02"),
+			"date":         d.TradeDate.Format(dateLayout),
 			"open":         d.Open,
 			"high":         d.High,
 			"low":          d.Low,

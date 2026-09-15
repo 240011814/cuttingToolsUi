@@ -307,7 +307,9 @@ func (h *StockHandler) HandleSyncSingleStock(c *gin.Context) {
 			starts = h.syncService.GetStoredKlineStarts(code)
 			latestTradeDay = h.syncService.LatestTradeDay()
 		}
-		kRows, kErr := h.syncService.SyncSingleStockDaily(code, market, starts, latestTradeDay, service.KlineFrequencies())
+		// 小时线目标日独立于 force: 盘中回落到上一交易日, 不拉当日未完成的bar
+		hourlyDay := h.syncService.LatestCompletedTradeDay()
+		kRows, kErr := h.syncService.SyncSingleStockDaily(code, market, starts, latestTradeDay, hourlyDay, service.KlineFrequencies())
 		fRows, fErr := h.syncService.SyncFinanceData(code, market)
 
 		var errs []string
