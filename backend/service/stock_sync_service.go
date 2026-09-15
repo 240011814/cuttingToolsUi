@@ -242,10 +242,15 @@ func (s *StockSyncService) SyncStockList() error {
 	// code 保留完整格式(sz.000003/sh.600000), 股票与指数天然不冲突
 	withIndustry := make([]model.StockInfo, 0, len(resp.Data.Items))
 	withoutIndustry := make([]model.StockInfo, 0)
+	excluded := make([]string, 0) // 非股票/非指数(其它/可转债/ETF), 用于清理历史遗留行
 	indexCount := 0
 	for _, item := range resp.Data.Items {
-		// 只保留股票与指数, 排除其它/可转债/ETF
-		if item.Code == "" || (item.Type != "1" && item.Type != "2") {
+		if item.Code == "" {
+			continue
+		}
+		// 只保留股票与指数, 其它/可转债/ETF 记录代码供后续下线
+		if item.Type != "1" && item.Type != "2" {
+			excluded = append(excluded, item.Code)
 			continue
 		}
 
@@ -296,8 +301,35 @@ func (s *StockSyncService) SyncStockList() error {
 		}
 	}
 
+	// 历史遗留清理: 旧版同步无类型过滤, 曾把 ETF/可转债/其它写入 stock_info(9/14 加 type 列时默认成 1,
+	// 且不会被本方法的 upsert 触及), 导致它们被当作"股票"展示; 这里按 baostock 类型标记下线(Screen 只查 is_active=true)
+	if n, err := s.deactivateSecurities(excluded); err != nil {
+		log.Printf("[StockSync] 清理非股票/指数证券失败: %v", err)
+	} else if n > 0 {
+		log.Printf("[StockSync] 已下线非股票/指数证券 %d 只", n)
+	}
+
 	log.Printf("[StockSync] 同步股票列表完成: %d 只 (含行业 %d 只), 指数 %d 只", len(withIndustry)+len(withoutIndustry), len(withIndustry), indexCount)
 	return nil
+}
+
+// deactivateSecurities 把 baostock 明确为非股票/非指数的证券在 stock_info 标记下线, 返回受影响行数
+// 只置 is_active=false, 保留历史行与其K线数据(删除由人工决定), 可被后续同步重新覆盖
+func (s *StockSyncService) deactivateSecurities(codes []string) (int64, error) {
+	if len(codes) == 0 {
+		return 0, nil
+	}
+	const batchSize = 1000
+	var affected int64
+	for i := 0; i < len(codes); i += batchSize {
+		end := min(i+batchSize, len(codes))
+		res := DB.Model(&model.StockInfo{}).Where("code IN ?", codes[i:end]).Update("is_active", false)
+		if res.Error != nil {
+			return affected, res.Error
+		}
+		affected += res.RowsAffected
+	}
+	return affected, nil
 }
 
 // batchUpsertStocks 按批次 upsert 股票列表, 减少数据库交互次数
