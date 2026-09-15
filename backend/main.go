@@ -27,6 +27,11 @@ func main() {
 		log.Fatalf("Failed to initialize Database: %v", err)
 	}
 
+	// ClickHouse (分析库, 可选): 初始化失败不阻断启动, 相关同步自动跳过
+	if err := service.InitClickHouse(cfg); err != nil {
+		log.Printf("Warning: ClickHouse 初始化失败(将跳过 CH 同步): %v", err)
+	}
+
 	tools.SetDB(service.DB)
 
 	systemConfigService := service.NewSystemConfigService()

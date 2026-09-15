@@ -15,10 +15,15 @@ import (
 type StockHandler struct {
 	svc         *service.StockService
 	syncService *service.StockSyncService
+	chService   *service.StockChSyncService
 }
 
 func NewStockHandler(svc *service.StockService, baostockURL string) *StockHandler {
-	return &StockHandler{svc: svc, syncService: service.NewStockSyncService(baostockURL)}
+	return &StockHandler{
+		svc:         svc,
+		syncService: service.NewStockSyncService(baostockURL),
+		chService:   service.NewStockChSyncService(),
+	}
 }
 
 // SyncService 暴露同步服务(供定时任务注册使用)
@@ -29,6 +34,7 @@ func (h *StockHandler) SyncService() *service.StockSyncService {
 // RegisterCronTasks 注册股票相关的后台定时任务
 func (h *StockHandler) RegisterCronTasks(js *service.JobScheduler) {
 	sync := h.syncService
+	ch := h.chService
 
 	js.RegisterTask("stock.sync_stock_list", "同步股票列表", json.RawMessage(`{}`), func(_ *model.JobDefinition, _ json.RawMessage) error {
 		return sync.RunExclusive("股票列表(定时)", sync.SyncStockList)
@@ -53,6 +59,31 @@ func (h *StockHandler) RegisterCronTasks(js *service.JobScheduler) {
 
 	js.RegisterTask("stock.sync_finance_all", "同步全部股票财务数据(增量)", json.RawMessage(`{}`), func(_ *model.JobDefinition, _ json.RawMessage) error {
 		return sync.RunExclusive("全部财务数据(定时)", sync.SyncAllFinance)
+	})
+
+	js.RegisterTask("stock.sync_clickhouse", "同步行情/财务到ClickHouse(增量)", json.RawMessage(`{"full": false}`), func(_ *model.JobDefinition, params json.RawMessage) error {
+		full := false
+		if len(params) > 0 {
+			var p struct {
+				Full bool `json:"full"`
+			}
+			if err := json.Unmarshal(params, &p); err == nil {
+				full = p.Full
+			}
+		}
+		task := "ClickHouse同步(定时)"
+		if full {
+			task = "ClickHouse全量重建(定时)"
+		}
+		return sync.RunExclusive(task, func() error {
+			if !service.ChEnabled() {
+				return nil
+			}
+			if full {
+				return ch.SyncFull()
+			}
+			return ch.SyncIncremental()
+		})
 	})
 }
 

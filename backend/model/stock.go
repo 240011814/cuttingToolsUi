@@ -84,6 +84,7 @@ func (StockSyncState) TableName() string {
 type SyncWatermark struct {
 	Name      string     `gorm:"size:50;primaryKey" json:"name"`
 	LastDate  *time.Time `json:"lastDate"`
+	LastTime  *time.Time `json:"lastTime"`
 	Status    string     `gorm:"size:20;not null;default:pending" json:"status"`
 	Error     string     `gorm:"size:255" json:"error"`
 	SyncedAt  *time.Time `json:"syncedAt"`

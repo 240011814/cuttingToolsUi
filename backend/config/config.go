@@ -2,15 +2,17 @@ package config
 
 import (
 	"os"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
 
 type Config struct {
-	Database DatabaseConfig `yaml:"database"`
-	Auth     AuthConfig     `yaml:"auth"`
-	AI       AIConfig       `yaml:"ai"`
-	Baostock BaostockConfig `yaml:"baostock"`
+	Database   DatabaseConfig   `yaml:"database"`
+	Auth       AuthConfig       `yaml:"auth"`
+	AI         AIConfig         `yaml:"ai"`
+	Baostock   BaostockConfig   `yaml:"baostock"`
+	ClickHouse ClickHouseConfig `yaml:"clickhouse"`
 }
 
 type DatabaseConfig struct {
@@ -31,6 +33,16 @@ type AIConfig struct {
 
 type BaostockConfig struct {
 	URL string `yaml:"url"`
+}
+
+// ClickHouseConfig ClickHouse 分析库配置 (MySQL->CH 数据复制的下游副本)
+type ClickHouseConfig struct {
+	Enabled  bool   `yaml:"enabled"` // 未启用时跳过连接与同步
+	Host     string `yaml:"host"`    // 原生协议端口 9000
+	Port     string `yaml:"port"`
+	User     string `yaml:"user"`
+	Password string `yaml:"password"`
+	Database string `yaml:"database"`
 }
 
 // LoadConfig 从指定的文件路径加载配置，并融合环境变量（环境变量优先级更高）
@@ -73,6 +85,26 @@ func LoadConfig(path string) (*Config, error) {
 		config.Baostock.URL = envURL
 	}
 
+	// ClickHouse ENV
+	if v := os.Getenv("CH_ENABLED"); v == "1" || strings.EqualFold(v, "true") {
+		config.ClickHouse.Enabled = true
+	}
+	if v := os.Getenv("CH_HOST"); v != "" {
+		config.ClickHouse.Host = v
+	}
+	if v := os.Getenv("CH_PORT"); v != "" {
+		config.ClickHouse.Port = v
+	}
+	if v := os.Getenv("CH_USER"); v != "" {
+		config.ClickHouse.User = v
+	}
+	if v := os.Getenv("CH_PASSWORD"); v != "" {
+		config.ClickHouse.Password = v
+	}
+	if v := os.Getenv("CH_DATABASE"); v != "" {
+		config.ClickHouse.Database = v
+	}
+
 	// 3. 提供默认值兜底
 	if config.Database.Host == "" {
 		config.Database.Host = "127.0.0.1"
@@ -88,6 +120,18 @@ func LoadConfig(path string) (*Config, error) {
 	}
 	if config.Baostock.URL == "" {
 		config.Baostock.URL = "http://127.0.0.1:3002"
+	}
+	if config.ClickHouse.Host == "" {
+		config.ClickHouse.Host = "127.0.0.1"
+	}
+	if config.ClickHouse.Port == "" {
+		config.ClickHouse.Port = "9000"
+	}
+	if config.ClickHouse.User == "" {
+		config.ClickHouse.User = "default"
+	}
+	if config.ClickHouse.Database == "" {
+		config.ClickHouse.Database = "default"
 	}
 
 	return &config, nil
