@@ -479,6 +479,9 @@ function goBack() {
 }
 
 const isIndex = computed(() => detail.value?.type === 2);
+const isEtf = computed(() => detail.value?.type === 5);
+// 指数与 ETF 均无财务数据, 相关区块不显示; 小时K指数不支持(ETF支持)
+const noFinance = computed(() => isIndex.value || isEtf.value);
 
 const infoItems = computed(() => {
   if (!detail.value) return [];
@@ -518,7 +521,7 @@ const infoItems = computed(() => {
       tip: "",
     },
   ];
-  if (d.type === 2) {
+  if (d.type === 2 || d.type === 5) {
     return all.filter((i) => !["行业", "换手率", "总市值", "流通市值"].includes(i.label));
   }
   return all;
@@ -644,7 +647,7 @@ const financeStatusMeta = computed(() => {
     ok: { label: "已同步", type: "success" },
     failed: { label: "同步失败", type: "error" },
     pending: { label: "未同步", type: "default" },
-    skipped: { label: "指数无财务", type: "info" },
+    skipped: { label: "无财务数据", type: "info" },
   };
   return meta[s] || meta.pending;
 });
@@ -660,7 +663,7 @@ const syncItems = computed(() => {
     items.push({ label: "小时K已到", value: fmtSyncDateTime(st?.klineHourlyTo) });
   }
   items.push({ label: "K线同步时间", value: fmtSyncDateTime(st?.klineSyncedAt) });
-  if (!isIndex.value) {
+  if (!noFinance.value) {
     items.push(
       { label: "财务已到", value: fmtSyncDate(st?.financeTo) },
       { label: "财务同步时间", value: fmtSyncDateTime(st?.financeSyncedAt) }
@@ -1009,8 +1012,8 @@ onUnmounted(() => {
                 </div>
               </div>
 
-              <!-- 财务指标 (指数无财务, 不显示) -->
-              <div v-if="!isIndex" class="p-4 bg-white rounded-lg shadow">
+              <!-- 财务指标 (指数/ETF无财务, 不显示) -->
+              <div v-if="!noFinance" class="p-4 bg-white rounded-lg shadow">
                 <h2 class="text-lg font-bold mb-3">财务指标</h2>
                 <div class="grid grid-cols-2 gap-2">
                   <div
@@ -1033,7 +1036,7 @@ onUnmounted(() => {
 
               <!-- 数据同步状态 (指数与基本信息同行, 股票独占整行) -->
               <div
-                :class="isIndex ? '' : 'lg:col-span-2'"
+                :class="noFinance ? '' : 'lg:col-span-2'"
                 class="p-4 bg-white rounded-lg shadow"
               >
                 <h2 class="text-lg font-bold mb-3">数据同步状态</h2>
@@ -1061,7 +1064,7 @@ onUnmounted(() => {
                       :title="syncState.klineError"
                     >?</span>
                   </div>
-                  <div v-if="!isIndex" class="flex items-center gap-2">
+                  <div v-if="!noFinance" class="flex items-center gap-2">
                     <span class="text-gray-500">财务状态</span>
                     <NTag :type="financeStatusMeta.type" size="small">
                       {{
@@ -1163,9 +1166,9 @@ onUnmounted(() => {
               </NSpin>
             </div>
 
-            <!-- 历史财务数据 (指数无财务, 不显示) -->
+            <!-- 历史财务数据 (指数/ETF无财务, 不显示) -->
             <div
-              v-if="!isIndex && financeHistory.length > 0"
+              v-if="!noFinance && financeHistory.length > 0"
               class="mt-4 p-4 bg-white rounded-lg shadow"
             >
               <div class="flex items-center justify-between mb-3 flex-wrap gap-2">

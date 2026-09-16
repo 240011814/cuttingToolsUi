@@ -10,7 +10,7 @@ type StockInfo struct {
 	Code           string     `gorm:"size:16;not null;uniqueIndex" json:"code"`
 	Name           string     `gorm:"size:50;not null" json:"name"`
 	Market         string     `gorm:"size:10;default:SZ" json:"market"`
-	Type           int        `gorm:"default:1" json:"type"`
+	Type           int        `gorm:"default:1" json:"type"` // 证券类型: 1股票 2指数 5ETF
 	Industry       string     `gorm:"size:50" json:"industry"`
 	Area           string     `gorm:"size:50" json:"area"`
 	ListDate       *time.Time `json:"listDate"`

@@ -79,7 +79,8 @@ const marketOptions = [
 
 const securityTypeOptions = [
   { label: '股票', value: 1 },
-  { label: '指数', value: 2 }
+  { label: '指数', value: 2 },
+  { label: 'ETF', value: 5 }
 ]
 
 const columns = [
@@ -91,9 +92,11 @@ const columns = [
   },
   { title: '名称', key: 'name', width: 100, fixed: 'left' as const },
   { title: '类型', key: 'type', width: 60,
-    render: (row: Api.Stock.ScreenResult) => row.type === 2
-      ? h(NTag, { size: 'small', type: 'info', bordered: false }, { default: () => '指数' })
-      : '股票'
+    render: (row: Api.Stock.ScreenResult) => {
+      if (row.type === 2) return h(NTag, { size: 'small', type: 'info', bordered: false }, { default: () => '指数' })
+      if (row.type === 5) return h(NTag, { size: 'small', type: 'warning', bordered: false }, { default: () => 'ETF' })
+      return '股票'
+    }
   },
   { title: '现价', key: 'price', width: 80, render: (row: Api.Stock.ScreenResult) => row.price?.toFixed(2) || '-' },
   { title: '涨跌%', key: 'changePct', width: 80, sorter: true,

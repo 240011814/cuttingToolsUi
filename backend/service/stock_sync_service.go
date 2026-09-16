@@ -244,11 +244,12 @@ func (s *StockSyncService) SyncStockList() error {
 	withoutIndustry := make([]model.StockInfo, 0)
 	excluded := make([]string, 0) // 其它/可转债(非股票/指数/ETF), 用于清理历史遗留行
 	indexCount := 0
+	etfCount := 0
 	for _, item := range resp.Data.Items {
 		if item.Code == "" {
 			continue
 		}
-		// 保留股票(1)/指数(2)/ETF(5): ETF 归入股票(type=1)统一处理; 其它/可转债记录代码供后续下线
+		// 保留股票(1)/指数(2)/ETF(5), 其它/可转债记录代码供后续下线
 		if item.Type != "1" && item.Type != "2" && item.Type != "5" {
 			excluded = append(excluded, item.Code)
 			continue
@@ -262,8 +263,11 @@ func (s *StockSyncService) SyncStockList() error {
 		}
 
 		stockType := 1
-		if item.Type == "2" {
+		switch item.Type {
+		case "2":
 			stockType = 2
+		case "5":
+			stockType = 5
 		}
 		stock := model.StockInfo{
 			Code:     item.Code,
@@ -278,6 +282,9 @@ func (s *StockSyncService) SyncStockList() error {
 		}
 		if stockType == 2 {
 			indexCount++
+		}
+		if stockType == 5 {
+			etfCount++
 		}
 		if industry, ok := industryMap[item.Code]; ok && industry != "" {
 			stock.Industry = industry
@@ -309,7 +316,7 @@ func (s *StockSyncService) SyncStockList() error {
 		log.Printf("[StockSync] 已下线非股票/指数证券 %d 只", n)
 	}
 
-	log.Printf("[StockSync] 同步股票列表完成: %d 只 (含行业 %d 只), 指数 %d 只", len(withIndustry)+len(withoutIndustry), len(withIndustry), indexCount)
+	log.Printf("[StockSync] 同步股票列表完成: %d 只 (含行业 %d 只), 指数 %d 只, ETF %d 只", len(withIndustry)+len(withoutIndustry), len(withIndustry), indexCount, etfCount)
 	return nil
 }
 
@@ -650,8 +657,8 @@ func (s *StockSyncService) SyncDailyQuotes(force bool) error {
 		}
 
 		isIndex := isIndexCode(stock.Code)
-		// ETF 不在按日全量接口返回中, 日K需逐股; 普通股票无日K水位时(如同代码翻转清除了旧数据)也补拉日K全量
-		needDaily := isIndex || isETFCode(stock.Code) || (!force && starts["daily"].IsZero())
+		// ETF(type=5 或代码前缀识别)不在按日全量接口返回中, 日K需逐股; 普通股票无日K水位时(如同代码翻转清除了旧数据)也补拉日K全量
+		needDaily := isIndex || stock.Type == 5 || isETFCode(stock.Code) || (!force && starts["daily"].IsZero())
 		freqs := weeklyMonthlyFreqs
 		if isIndex {
 			// 指数走逐股全周期 (指数小时线暂不同步, 待验证 baostock 指数分钟线支持)
@@ -1180,9 +1187,9 @@ func (s *StockSyncService) SyncFinanceData(code, market string) (int, error) {
 		return 0, fmt.Errorf("北交所股票 %s 暂不支持同步(baostock 无该市场数据)", code)
 	}
 	market = s.resolveMarket(code, market)
-	if isIndexCode(code) {
-		log.Printf("[StockSync] %s 是指数, 无财务数据, 跳过", code)
-		s.refreshFinanceState(code, time.Time{}, "skipped", "指数无财务数据")
+	if isIndexCode(code) || isETFCode(code) {
+		log.Printf("[StockSync] %s 是指数/ETF, 无财务数据, 跳过", code)
+		s.refreshFinanceState(code, time.Time{}, "skipped", "无财务数据")
 		return 0, nil
 	}
 	baostockCode := s.convertToBaostockCode(code)
@@ -1525,7 +1532,7 @@ func (s *StockSyncService) SyncAllFinance() error {
 			bjSkipped++
 			continue
 		}
-		if isIndexCode(stock.Code) {
+		if isIndexCode(stock.Code) || stock.Type == 5 || isETFCode(stock.Code) {
 			indexSkipped++
 			continue
 		}
@@ -1548,7 +1555,7 @@ func (s *StockSyncService) SyncAllFinance() error {
 		}
 	}
 
-	log.Printf("[StockSync] 同步全部财务数据完成: 共 %d 只, 更新 %d 只, 已最新跳过 %d 只, 北交所跳过 %d 只, 指数跳过 %d 只, 失败 %d 只",
+	log.Printf("[StockSync] 同步全部财务数据完成: 共 %d 只, 更新 %d 只, 已最新跳过 %d 只, 北交所跳过 %d 只, 指数/ETF跳过 %d 只, 失败 %d 只",
 		len(stocks), updated, skipped, bjSkipped, indexSkipped, failed)
 	return nil
 }
