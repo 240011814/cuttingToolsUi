@@ -151,16 +151,43 @@ _logged_in = False
 _login_result: Any = None
 
 
+def _close_socket() -> None:
+    """关闭并清空全局 socket, 保证重连前不残留半开连接
+
+    服务端重置长连接后, SDK logout 若在 send/recv 处失败就不会执行它内部的 .close(),
+    旧连接会一直停在 CLOSE_WAIT; 此时若直接 connect() 新连接, baostock 服务端可能因
+    同一账号旧会话尚未释放而拒绝, 表现就是 "服务器连接失败" -> Broken pipe 连环失败。
+    因此每次重连前先把旧 socket 真正关掉。
+    """
+    sock = getattr(bs_context, "default_socket", None)
+    setattr(bs_context, "default_socket", None)
+    if sock is None:
+        return
+    try:
+        sock.close()
+    except Exception as error:
+        logging.error("close baostock socket failed: %s", error)
+
+
 def _patched_login() -> Any:
     global _logged_in, _login_result
     # 调用方(endpoint)已持有 baostock_lock, RLock 可重入; 独立调用时也能自我串行化
     with baostock_lock:
         if _logged_in:
             return _login_result
-        result = _real_login()
+        # 重连前先释放旧连接, 避免服务端因残留会话拒绝新连接
+        _close_socket()
+        try:
+            result = _real_login()
+        except Exception:
+            _close_socket()
+            raise
         if result.error_code == "0":
             _logged_in = True
             _login_result = result
+        else:
+            # 登录失败时 socket 可能已建立但会话无效, 一并清掉, 下个请求从零开始
+            _close_socket()
         return result
 
 
@@ -186,6 +213,9 @@ def force_disconnect() -> None:
             _real_logout()
         except Exception as error:
             logging.error("force disconnect logout failed: %s", error)
+        finally:
+            # logout 失败时 SDK 不会关闭 socket, 这里兜底关闭, 否则半开连接会拖累重连
+            _close_socket()
 
 
 bs.login = _patched_login

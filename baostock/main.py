@@ -108,8 +108,9 @@ def usage() -> JSONResponse:
 # 重试整个请求, 把瞬时断连在代理内消化掉, 不抛 502 给调用方触发同步任务中断
 MAX_QUERY_ATTEMPTS = 3
 
-# 瞬时错误重试之间的退避(秒), 按尝试次数递增, 避免连续猛打正在重置连接的服务端
-RETRY_BACKOFF_SECONDS = (0.5, 1.0)
+# 瞬时错误重试之间的退避(秒), 按尝试次数递增。服务端重置长连接后需要一点时间释放旧会话,
+# 退避太短会导致连续几次重连都被拒(打印"服务器连接失败")进而连环 502, 故给到秒级
+RETRY_BACKOFF_SECONDS = (1.0, 3.0)
 
 
 def _execute_with_retry(endpoint: Any, query: dict[str, list[str]]) -> Any:
