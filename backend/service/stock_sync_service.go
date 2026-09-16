@@ -242,14 +242,14 @@ func (s *StockSyncService) SyncStockList() error {
 	// code 保留完整格式(sz.000003/sh.600000), 股票与指数天然不冲突
 	withIndustry := make([]model.StockInfo, 0, len(resp.Data.Items))
 	withoutIndustry := make([]model.StockInfo, 0)
-	excluded := make([]string, 0) // 非股票/非指数(其它/可转债/ETF), 用于清理历史遗留行
+	excluded := make([]string, 0) // 其它/可转债(非股票/指数/ETF), 用于清理历史遗留行
 	indexCount := 0
 	for _, item := range resp.Data.Items {
 		if item.Code == "" {
 			continue
 		}
-		// 只保留股票与指数, 其它/可转债/ETF 记录代码供后续下线
-		if item.Type != "1" && item.Type != "2" {
+		// 保留股票(1)/指数(2)/ETF(5): ETF 归入股票(type=1)统一处理; 其它/可转债记录代码供后续下线
+		if item.Type != "1" && item.Type != "2" && item.Type != "5" {
 			excluded = append(excluded, item.Code)
 			continue
 		}
@@ -650,8 +650,8 @@ func (s *StockSyncService) SyncDailyQuotes(force bool) error {
 		}
 
 		isIndex := isIndexCode(stock.Code)
-		// 普通股票无日K水位时(如同代码翻转清除了旧数据)也补拉日K全量, force 时日K由按日全量重放负责
-		needDaily := isIndex || (!force && starts["daily"].IsZero())
+		// ETF 不在按日全量接口返回中, 日K需逐股; 普通股票无日K水位时(如同代码翻转清除了旧数据)也补拉日K全量
+		needDaily := isIndex || isETFCode(stock.Code) || (!force && starts["daily"].IsZero())
 		freqs := weeklyMonthlyFreqs
 		if isIndex {
 			// 指数走逐股全周期 (指数小时线暂不同步, 待验证 baostock 指数分钟线支持)
@@ -681,7 +681,7 @@ func (s *StockSyncService) SyncDailyQuotes(force bool) error {
 		}
 	}
 
-	log.Printf("[StockSync] 同步行情数据完成: 周/月/小时K逐股 %d 只, 更新 %d 只, 已最新跳过 %d 只, 指数补日K %d 只, 北交所跳过 %d 只, 失败 %d 只",
+	log.Printf("[StockSync] 同步行情数据完成: 周/月/小时K逐股 %d 只, 更新 %d 只, 已最新跳过 %d 只, 指数/ETF补日K %d 只, 北交所跳过 %d 只, 失败 %d 只",
 		len(stocks), updated, skipped, indexDailyFetched, bjSkipped, failed)
 	return nil
 }
@@ -1595,6 +1595,16 @@ func (s *StockSyncService) resolveMarket(code, market string) string {
 // isIndexCode 指数代码: 上证指数 sh.000xxx / 深证指数 sz.399xxx (完整代码前缀区分, 无歧义)
 func isIndexCode(code string) bool {
 	return strings.HasPrefix(code, "sh.000") || strings.HasPrefix(code, "sz.399")
+}
+
+// isETFCode ETF/场内基金代码: 沪市 sh.5* / 深市 sz.15x、sz.16x、sz.18x
+// baostock 把它们归为 type=5, 但本项目按需求与股票同表(type=1)处理; 这些代码不在按日全量接口
+// query_daily_history_k_astock 返回中(那是 A 股口径), 日K必须走逐股同步
+func isETFCode(code string) bool {
+	if strings.HasPrefix(code, "sh.5") {
+		return true
+	}
+	return strings.HasPrefix(code, "sz.15") || strings.HasPrefix(code, "sz.16") || strings.HasPrefix(code, "sz.18")
 }
 
 // isBJCode 判断是否北交所代码 (baostock 无北交所数据)

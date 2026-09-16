@@ -5,6 +5,8 @@ import logging
 import os
 import socket
 import threading
+import time
+import zlib
 from dataclasses import asdict, dataclass
 from datetime import date
 from pathlib import Path
@@ -22,6 +24,10 @@ except ModuleNotFoundError as error:
         "Create/use apps/baostock-api/.venv and run "
         "'apps/baostock-api/.venv/bin/pip install -r apps/baostock-api/requirements.txt'."
     ) from error
+
+import baostock.common.contants as bs_cons
+import baostock.common.context as bs_context
+import baostock.util.socketutil as bs_socketutil
 
 
 HOST = os.environ.get("BAOSTOCK_API_HOST", "127.0.0.1")
@@ -185,6 +191,61 @@ def force_disconnect() -> None:
 
 bs.login = _patched_login
 bs.logout = _patched_logout
+
+
+# --- baostock 收包兜底 ---
+# SDK socketutil.send_msg 的收包循环有个致命缺陷: recv() 返回 b"" (对端断开/半关闭) 时,
+# receive 永远不增长, 尾部分隔符判断恒为假 -> 死循环空转(单核 100%, 4 核即 25% CPU),
+# 而它是在持有 baostock_lock 时被调用的 -> 锁永不释放, 所有请求连锁挂死(只有 /health 能响应)。
+# socket.setdefaulttimeout 救不了: 对端 EOF 后 socket 立即可读且返回 0 字节, recv 不再阻塞。
+# 旧版 baostock 服务端重置长连接时若为半关闭(FIN)而非 RST, 就会走到这里, 即本次卡死成因。
+# 这里替换为带 EOF 检测 + 总超时上限的版本, 并把异常抛出(而非 SDK 那样静默返回 None),
+# 让 _execute_with_retry 能感知瞬时断连并 force_disconnect 后重试。
+SEND_MSG_DEADLINE_SECONDS = 60
+_RECV_CHUNK = 8192
+_MESSAGE_END = b"<![CDATA[]]>\n"
+
+
+def _patched_send_msg(msg: str) -> str:
+    with baostock_lock:
+        default_socket = getattr(bs_context, "default_socket", None)
+        if default_socket is None:
+            raise ConnectionError("baostock socket not connected (login required)")
+
+        default_socket.send(bytes(msg + "\n", encoding="utf-8"))
+
+        receive = b""
+        deadline = time.monotonic() + SEND_MSG_DEADLINE_SECONDS
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError("baostock response deadline exceeded")
+            default_socket.settimeout(remaining)
+            recv = default_socket.recv(_RECV_CHUNK)
+            if not recv:
+                # 对端关闭连接: recv 会一直秒返回 b"", 必须在此终止, 否则空转占锁
+                raise ConnectionError("baostock connection closed by peer")
+            receive += recv
+            if receive[-len(_MESSAGE_END) :] == _MESSAGE_END:
+                break
+
+        head_bytes = receive[0 : bs_cons.MESSAGE_HEADER_LENGTH]
+        head_str = bytes.decode(head_bytes)
+        head_arr = head_str.split(bs_cons.MESSAGE_SPLIT)
+        if head_arr[1] in bs_cons.COMPRESSED_MESSAGE_TYPE_TUPLE:
+            head_inner_length = int(head_arr[2])
+            body_str = bytes.decode(
+                zlib.decompress(
+                    receive[
+                        bs_cons.MESSAGE_HEADER_LENGTH : bs_cons.MESSAGE_HEADER_LENGTH + head_inner_length
+                    ]
+                )
+            )
+            return head_str + body_str
+        return bytes.decode(receive)
+
+
+bs_socketutil.send_msg = _patched_send_msg
 
 
 def make_error_payload(message: str, code: str, usage: UsageStats) -> dict[str, Any]:
