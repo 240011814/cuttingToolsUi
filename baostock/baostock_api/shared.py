@@ -18,16 +18,15 @@ socket.setdefaulttimeout(60)
 
 try:
     import baostock as bs  # noqa: F401
+    import baostock.common.contants as bs_cons
+    import baostock.common.context as bs_context
+    import baostock.util.socketutil as bs_socketutil
 except ModuleNotFoundError as error:
     raise SystemExit(
         "Missing Python dependency 'baostock'. "
         "Create/use apps/baostock-api/.venv and run "
         "'apps/baostock-api/.venv/bin/pip install -r apps/baostock-api/requirements.txt'."
     ) from error
-
-import baostock.common.contants as bs_cons
-import baostock.common.context as bs_context
-import baostock.util.socketutil as bs_socketutil
 
 
 HOST = os.environ.get("BAOSTOCK_API_HOST", "127.0.0.1")
@@ -226,10 +225,10 @@ def _patched_send_msg(msg: str) -> str:
                 # 对端关闭连接: recv 会一直秒返回 b"", 必须在此终止, 否则空转占锁
                 raise ConnectionError("baostock connection closed by peer")
             receive += recv
-            if receive[-len(_MESSAGE_END) :] == _MESSAGE_END:
+            if receive[-len(_MESSAGE_END):] == _MESSAGE_END:
                 break
 
-        head_bytes = receive[0 : bs_cons.MESSAGE_HEADER_LENGTH]
+        head_bytes = receive[0:bs_cons.MESSAGE_HEADER_LENGTH]
         head_str = bytes.decode(head_bytes)
         head_arr = head_str.split(bs_cons.MESSAGE_SPLIT)
         if head_arr[1] in bs_cons.COMPRESSED_MESSAGE_TYPE_TUPLE:
@@ -237,7 +236,7 @@ def _patched_send_msg(msg: str) -> str:
             body_str = bytes.decode(
                 zlib.decompress(
                     receive[
-                        bs_cons.MESSAGE_HEADER_LENGTH : bs_cons.MESSAGE_HEADER_LENGTH + head_inner_length
+                        bs_cons.MESSAGE_HEADER_LENGTH:bs_cons.MESSAGE_HEADER_LENGTH + head_inner_length
                     ]
                 )
             )
