@@ -225,6 +225,8 @@ log_config = {
         "uvicorn.access": {
             "handlers": ["access"],
             "level": "INFO",
+            # 不向 root 传播: 否则 access 记录会同时被本 handler 和 root(basicConfig, 带 [baostock-api] 前缀)处理, 日志打印两遍
+            "propagate": False,
         }
     }
 }
