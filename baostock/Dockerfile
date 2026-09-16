@@ -31,9 +31,4 @@ RUN mkdir -p /app/data
 
 EXPOSE 3002
 
-# /health 在锁卡死(持锁超 LOCK_STUCK_SECONDS)时返回 503, 探测失败 -> unhealthy
-# 注意: docker 自身不会重启 unhealthy 容器, 自动拉起需 autoheal sidecar 或外部编排
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-  CMD python -c "import os,urllib.request; urllib.request.urlopen('http://127.0.0.1:' + os.environ.get('BAOSTOCK_API_PORT', '3002') + '/health', timeout=8)"
-
 CMD ["python", "main.py"]
