@@ -77,5 +77,42 @@ declare namespace Api {
       rate1: number | null
       rate2: number | null
     }
+
+    /** GDP数据 */
+    interface GDP {
+      id: number
+      quarter: string
+      gdpYoy: number | null
+      gdpCumulative: number | null
+      gdpCumulativeYoy: number | null
+    }
+
+    /** CPI数据 */
+    interface CPI {
+      id: number
+      month: string
+      cpiYoy: number | null
+      cpiMom: number | null
+      cpiCumulativeYoy: number | null
+    }
+
+    /** PMI数据 */
+    interface PMI {
+      id: number
+      month: string
+      pmiManufacturing: number | null
+      pmiManufacturingYoy: number | null
+      pmiNonManufacturing: number | null
+      pmiNonManufacturingYoy: number | null
+    }
+
+    /** PPI数据 */
+    interface PPI {
+      id: number
+      month: string
+      ppiYoy: number | null
+      ppiMom: number | null
+      ppiCumulativeYoy: number | null
+    }
   }
 }

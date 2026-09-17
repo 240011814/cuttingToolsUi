@@ -316,6 +316,10 @@ func main() {
 			stockGroup.GET("/macro/money-supply-month", api.RequirePermission("stock:macro:view"), stockHandler.HandleGetMacroMoneySupplyMonth)
 			stockGroup.GET("/macro/money-supply-year", api.RequirePermission("stock:macro:view"), stockHandler.HandleGetMacroMoneySupplyYear)
 			stockGroup.GET("/macro/lpr", api.RequirePermission("stock:macro:view"), stockHandler.HandleGetMacroLPR)
+			stockGroup.GET("/macro/gdp", api.RequirePermission("stock:macro:view"), stockHandler.HandleGetMacroGDP)
+			stockGroup.GET("/macro/cpi", api.RequirePermission("stock:macro:view"), stockHandler.HandleGetMacroCPI)
+			stockGroup.GET("/macro/pmi", api.RequirePermission("stock:macro:view"), stockHandler.HandleGetMacroPMI)
+			stockGroup.GET("/macro/ppi", api.RequirePermission("stock:macro:view"), stockHandler.HandleGetMacroPPI)
 			stockGroup.POST("/macro/sync", api.RequirePermission("stock:sync:execute"), stockHandler.HandleSyncMacro)
 
 			// 筛选条件管理

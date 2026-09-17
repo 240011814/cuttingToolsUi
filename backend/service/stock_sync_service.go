@@ -1656,7 +1656,7 @@ func parseIntPtr(s string) *int8 {
 func (s *StockSyncService) httpGet(url string) ([]byte, error) {
 	var lastErr error
 	for retry := 0; retry < 100; retry++ {
-		delay := time.Duration(3*(1<<(retry-1))) * time.Second
+		delay := time.Duration(3<<max(retry, 0)) * time.Second
 		log.Printf("[StockSync] 请求 %s (重试 %d, 延迟 %v)", url, retry, delay)
 		if delay >= 60 * time.Second {
 			delay = 60 * time.Second

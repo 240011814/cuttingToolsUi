@@ -14,7 +14,7 @@ import (
 // 数据量小(利率/准备金率约几十条, 货币供应量数百条), 每次全量拉取后 upsert 幂等写入
 // baostock 每日调用限额, 五个接口各占 1 次调用
 
-// SyncMacroData 同步宏观经济数据: 存款利率/贷款利率/存款准备金率/货币供应量(月度/年度)/LPR
+// SyncMacroData 同步宏观经济数据: 存款利率/贷款利率/存款准备金率/货币供应量(月度/年度)/LPR/GDP/CPI/PMI/PPI
 func (s *StockSyncService) SyncMacroData(force bool) error {
 	log.Printf("[StockSync] 同步宏观经济数据... (force=%v)", force)
 	if err := s.syncDepositRate(); err != nil {
@@ -33,6 +33,18 @@ func (s *StockSyncService) SyncMacroData(force bool) error {
 		return err
 	}
 	if err := s.syncLPR(); err != nil {
+		return err
+	}
+	if err := s.syncGDP(); err != nil {
+		return err
+	}
+	if err := s.syncCPI(); err != nil {
+		return err
+	}
+	if err := s.syncPMI(); err != nil {
+		return err
+	}
+	if err := s.syncPPI(); err != nil {
 		return err
 	}
 	log.Printf("[StockSync] 同步宏观经济数据完成")
@@ -450,5 +462,219 @@ func (s *StockSyncService) syncLPR() error {
 		}
 	}
 	log.Printf("[StockSync] LPR同步: %d 条", len(rows))
+	return nil
+}
+
+// syncGDP 同步GDP数据 (query_gdp, 1次调用全量)
+func (s *StockSyncService) syncGDP() error {
+	url := fmt.Sprintf("%s/query_gdp", s.baostockURL)
+	body, err := s.httpGetWithDelay(url)
+	if err != nil {
+		return fmt.Errorf("获取GDP失败: %v", err)
+	}
+
+	var resp struct {
+		Ok   bool `json:"ok"`
+		Data struct {
+			Items []struct {
+				Quarter              string `json:"季度"`
+				GdpYoy               string `json:"国内生产总值_同比增长"`
+				GdpCumulative        string `json:"国内生产总值_累计值"`
+				GdpCumulativeYoy     string `json:"国内生产总值_累计同比增长"`
+			} `json:"items"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return fmt.Errorf("解析GDP失败: %v", err)
+	}
+	if !resp.Ok {
+		return fmt.Errorf("获取GDP失败")
+	}
+
+	rows := make([]model.MacroGDP, 0, len(resp.Data.Items))
+	for _, item := range resp.Data.Items {
+		if item.Quarter == "" {
+			continue
+		}
+		rows = append(rows, model.MacroGDP{
+			Quarter:           item.Quarter,
+			GdpYoy:           parseFloatPtr(item.GdpYoy),
+			GdpCumulative:    parseFloatPtr(item.GdpCumulative),
+			GdpCumulativeYoy: parseFloatPtr(item.GdpCumulativeYoy),
+		})
+	}
+	if len(rows) == 0 {
+		log.Printf("[StockSync] GDP无数据")
+		return nil
+	}
+
+	if err := DB.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "quarter"}},
+		DoUpdates: clause.AssignmentColumns([]string{"gdp_yoy", "gdp_cumulative", "gdp_cumulative_yoy"}),
+	}).Create(&rows).Error; err != nil {
+		return fmt.Errorf("写入GDP失败: %v", err)
+	}
+	log.Printf("[StockSync] GDP同步: %d 条", len(rows))
+	return nil
+}
+
+// syncCPI 同步CPI数据 (query_cpi, 1次调用全量)
+func (s *StockSyncService) syncCPI() error {
+	url := fmt.Sprintf("%s/query_cpi", s.baostockURL)
+	body, err := s.httpGetWithDelay(url)
+	if err != nil {
+		return fmt.Errorf("获取CPI失败: %v", err)
+	}
+
+	var resp struct {
+		Ok   bool `json:"ok"`
+		Data struct {
+			Items []struct {
+				Month              string `json:"月份"`
+				CpiYoy             string `json:"全国_同比增长"`
+				CpiMom             string `json:"全国_环比增长"`
+				CpiCumulativeYoy   string `json:"全国_累计同比增长"`
+			} `json:"items"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return fmt.Errorf("解析CPI失败: %v", err)
+	}
+	if !resp.Ok {
+		return fmt.Errorf("获取CPI失败")
+	}
+
+	rows := make([]model.MacroCPI, 0, len(resp.Data.Items))
+	for _, item := range resp.Data.Items {
+		if item.Month == "" {
+			continue
+		}
+		rows = append(rows, model.MacroCPI{
+			Month:            item.Month,
+			CpiYoy:           parseFloatPtr(item.CpiYoy),
+			CpiMom:           parseFloatPtr(item.CpiMom),
+			CpiCumulativeYoy: parseFloatPtr(item.CpiCumulativeYoy),
+		})
+	}
+	if len(rows) == 0 {
+		log.Printf("[StockSync] CPI无数据")
+		return nil
+	}
+
+	if err := DB.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "month"}},
+		DoUpdates: clause.AssignmentColumns([]string{"cpi_yoy", "cpi_mom", "cpi_cumulative_yoy"}),
+	}).Create(&rows).Error; err != nil {
+		return fmt.Errorf("写入CPI失败: %v", err)
+	}
+	log.Printf("[StockSync] CPI同步: %d 条", len(rows))
+	return nil
+}
+
+// syncPMI 同步PMI数据 (query_pmi, 1次调用全量)
+func (s *StockSyncService) syncPMI() error {
+	url := fmt.Sprintf("%s/query_pmi", s.baostockURL)
+	body, err := s.httpGetWithDelay(url)
+	if err != nil {
+		return fmt.Errorf("获取PMI失败: %v", err)
+	}
+
+	var resp struct {
+		Ok   bool `json:"ok"`
+		Data struct {
+			Items []struct {
+				Month                  string `json:"月份"`
+				PmiManufacturing       string `json:"制造业-指数"`
+				PmiManufacturingYoy    string `json:"制造业-同比增长"`
+				PmiNonManufacturing    string `json:"非制造业-指数"`
+				PmiNonManufacturingYoy string `json:"非制造业-同比增长"`
+			} `json:"items"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return fmt.Errorf("解析PMI失败: %v", err)
+	}
+	if !resp.Ok {
+		return fmt.Errorf("获取PMI失败")
+	}
+
+	rows := make([]model.MacroPMI, 0, len(resp.Data.Items))
+	for _, item := range resp.Data.Items {
+		if item.Month == "" {
+			continue
+		}
+		rows = append(rows, model.MacroPMI{
+			Month:                  item.Month,
+			PmiManufacturing:       parseFloatPtr(item.PmiManufacturing),
+			PmiManufacturingYoy:    parseFloatPtr(item.PmiManufacturingYoy),
+			PmiNonManufacturing:    parseFloatPtr(item.PmiNonManufacturing),
+			PmiNonManufacturingYoy: parseFloatPtr(item.PmiNonManufacturingYoy),
+		})
+	}
+	if len(rows) == 0 {
+		log.Printf("[StockSync] PMI无数据")
+		return nil
+	}
+
+	if err := DB.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "month"}},
+		DoUpdates: clause.AssignmentColumns([]string{"pmi_manufacturing", "pmi_manufacturing_yoy", "pmi_non_manufacturing", "pmi_non_manufacturing_yoy"}),
+	}).Create(&rows).Error; err != nil {
+		return fmt.Errorf("写入PMI失败: %v", err)
+	}
+	log.Printf("[StockSync] PMI同步: %d 条", len(rows))
+	return nil
+}
+
+// syncPPI 同步PPI数据 (query_ppi, 1次调用全量)
+func (s *StockSyncService) syncPPI() error {
+	url := fmt.Sprintf("%s/query_ppi", s.baostockURL)
+	body, err := s.httpGetWithDelay(url)
+	if err != nil {
+		return fmt.Errorf("获取PPI失败: %v", err)
+	}
+
+	var resp struct {
+		Ok   bool `json:"ok"`
+		Data struct {
+			Items []struct {
+				Month              string `json:"月份"`
+				PpiYoy             string `json:"工业生产者出厂价格指数_同比增长"`
+				PpiMom             string `json:"工业生产者出厂价格指数_环比增长"`
+				PpiCumulativeYoy   string `json:"工业生产者出厂价格指数_累计同比增长"`
+			} `json:"items"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return fmt.Errorf("解析PPI失败: %v", err)
+	}
+	if !resp.Ok {
+		return fmt.Errorf("获取PPI失败")
+	}
+
+	rows := make([]model.MacroPPI, 0, len(resp.Data.Items))
+	for _, item := range resp.Data.Items {
+		if item.Month == "" {
+			continue
+		}
+		rows = append(rows, model.MacroPPI{
+			Month:            item.Month,
+			PpiYoy:           parseFloatPtr(item.PpiYoy),
+			PpiMom:           parseFloatPtr(item.PpiMom),
+			PpiCumulativeYoy: parseFloatPtr(item.PpiCumulativeYoy),
+		})
+	}
+	if len(rows) == 0 {
+		log.Printf("[StockSync] PPI无数据")
+		return nil
+	}
+
+	if err := DB.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "month"}},
+		DoUpdates: clause.AssignmentColumns([]string{"ppi_yoy", "ppi_mom", "ppi_cumulative_yoy"}),
+	}).Create(&rows).Error; err != nil {
+		return fmt.Errorf("写入PPI失败: %v", err)
+	}
+	log.Printf("[StockSync] PPI同步: %d 条", len(rows))
 	return nil
 }

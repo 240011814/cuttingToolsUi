@@ -123,3 +123,64 @@ type MacroLPR struct {
 func (MacroLPR) TableName() string {
 	return "macro_lpr"
 }
+
+// MacroGDP GDP数据 (akshare macro_china_gdp)
+type MacroGDP struct {
+	ID              uint      `gorm:"primaryKey;autoIncrement" json:"id"`
+	Quarter         string    `gorm:"not null;uniqueIndex" json:"quarter"`
+	GdpYoy          *float64  `gorm:"column:gdp_yoy" json:"gdpYoy"`
+	GdpCumulative   *float64  `gorm:"column:gdp_cumulative" json:"gdpCumulative"`
+	GdpCumulativeYoy *float64 `gorm:"column:gdp_cumulative_yoy" json:"gdpCumulativeYoy"`
+	CreatedAt       time.Time `json:"createdAt"`
+	UpdatedAt       time.Time `json:"updatedAt"`
+}
+
+func (MacroGDP) TableName() string {
+	return "macro_gdp"
+}
+
+// MacroCPI CPI数据 (akshare macro_china_cpi)
+type MacroCPI struct {
+	ID              uint      `gorm:"primaryKey;autoIncrement" json:"id"`
+	Month           string    `gorm:"not null;uniqueIndex" json:"month"`
+	CpiYoy          *float64  `gorm:"column:cpi_yoy" json:"cpiYoy"`
+	CpiMom          *float64  `gorm:"column:cpi_mom" json:"cpiMom"`
+	CpiCumulativeYoy *float64 `gorm:"column:cpi_cumulative_yoy" json:"cpiCumulativeYoy"`
+	CreatedAt       time.Time `json:"createdAt"`
+	UpdatedAt       time.Time `json:"updatedAt"`
+}
+
+func (MacroCPI) TableName() string {
+	return "macro_cpi"
+}
+
+// MacroPMI PMI数据 (akshare macro_china_pmi)
+type MacroPMI struct {
+	ID              uint      `gorm:"primaryKey;autoIncrement" json:"id"`
+	Month           string    `gorm:"not null;uniqueIndex" json:"month"`
+	PmiManufacturing *float64 `gorm:"column:pmi_manufacturing" json:"pmiManufacturing"`
+	PmiManufacturingYoy *float64 `gorm:"column:pmi_manufacturing_yoy" json:"pmiManufacturingYoy"`
+	PmiNonManufacturing *float64 `gorm:"column:pmi_non_manufacturing" json:"pmiNonManufacturing"`
+	PmiNonManufacturingYoy *float64 `gorm:"column:pmi_non_manufacturing_yoy" json:"pmiNonManufacturingYoy"`
+	CreatedAt       time.Time `json:"createdAt"`
+	UpdatedAt       time.Time `json:"updatedAt"`
+}
+
+func (MacroPMI) TableName() string {
+	return "macro_pmi"
+}
+
+// MacroPPI PPI数据 (akshare macro_china_ppi)
+type MacroPPI struct {
+	ID              uint      `gorm:"primaryKey;autoIncrement" json:"id"`
+	Month           string    `gorm:"not null;uniqueIndex" json:"month"`
+	PpiYoy          *float64  `gorm:"column:ppi_yoy" json:"ppiYoy"`
+	PpiMom          *float64  `gorm:"column:ppi_mom" json:"ppiMom"`
+	PpiCumulativeYoy *float64 `gorm:"column:ppi_cumulative_yoy" json:"ppiCumulativeYoy"`
+	CreatedAt       time.Time `json:"createdAt"`
+	UpdatedAt       time.Time `json:"updatedAt"`
+}
+
+func (MacroPPI) TableName() string {
+	return "macro_ppi"
+}

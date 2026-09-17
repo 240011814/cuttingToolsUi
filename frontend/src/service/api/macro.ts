@@ -48,6 +48,38 @@ export function getLPR() {
   })
 }
 
+/** GDP数据 */
+export function getGDP() {
+  return request<Api.Macro.GDP[]>({
+    url: '/api/stock/macro/gdp',
+    method: 'get'
+  })
+}
+
+/** CPI数据 */
+export function getCPI() {
+  return request<Api.Macro.CPI[]>({
+    url: '/api/stock/macro/cpi',
+    method: 'get'
+  })
+}
+
+/** PMI数据 */
+export function getPMI() {
+  return request<Api.Macro.PMI[]>({
+    url: '/api/stock/macro/pmi',
+    method: 'get'
+  })
+}
+
+/** PPI数据 */
+export function getPPI() {
+  return request<Api.Macro.PPI[]>({
+    url: '/api/stock/macro/ppi',
+    method: 'get'
+  })
+}
+
 /** 同步宏观经济数据 */
 export function syncMacroData() {
   return request<boolean>({

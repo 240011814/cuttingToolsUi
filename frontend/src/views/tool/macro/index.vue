@@ -10,7 +10,11 @@ import {
   getMoneySupplyMonth,
   getMoneySupplyYear,
   getReserveRatios,
-  syncMacroData
+  syncMacroData,
+  getGDP,
+  getCPI,
+  getPMI,
+  getPPI
 } from '@/service/api'
 import DepositRatePanel from './modules/deposit-rate.vue'
 import LoanRatePanel from './modules/loan-rate.vue'
@@ -18,6 +22,10 @@ import LprPanel from './modules/lpr.vue'
 import MoneySupplyMonthPanel from './modules/money-supply-month.vue'
 import MoneySupplyYearPanel from './modules/money-supply-year.vue'
 import ReserveRatioPanel from './modules/reserve-ratio.vue'
+import GDPPanel from './modules/gdp.vue'
+import CPIPanel from './modules/cpi.vue'
+import PMIPanel from './modules/pmi.vue'
+import PPIPanel from './modules/ppi.vue'
 
 defineOptions({ name: 'ToolMacro' })
 
@@ -32,17 +40,25 @@ const reserveRatios = ref<Api.Macro.ReserveRatio[]>([])
 const moneySupplyMonth = ref<Api.Macro.MoneySupplyMonth[]>([])
 const moneySupplyYear = ref<Api.Macro.MoneySupplyYear[]>([])
 const lprData = ref<Api.Macro.LPR[]>([])
+const gdpData = ref<Api.Macro.GDP[]>([])
+const cpiData = ref<Api.Macro.CPI[]>([])
+const pmiData = ref<Api.Macro.PMI[]>([])
+const ppiData = ref<Api.Macro.PPI[]>([])
 
 async function loadAll() {
   loading.value = true
   try {
-    const [drRes, lrRes, rrRes, msmRes, msyRes, lprRes] = await Promise.all([
+    const [drRes, lrRes, rrRes, msmRes, msyRes, lprRes, gdpRes, cpiRes, pmiRes, ppiRes] = await Promise.all([
       getDepositRates(),
       getLoanRates(),
       getReserveRatios(),
       getMoneySupplyMonth(),
       getMoneySupplyYear(),
-      getLPR()
+      getLPR(),
+      getGDP(),
+      getCPI(),
+      getPMI(),
+      getPPI()
     ])
     if (drRes.data) depositRates.value = drRes.data
     if (lrRes.data) loanRates.value = lrRes.data
@@ -50,6 +66,10 @@ async function loadAll() {
     if (msmRes.data) moneySupplyMonth.value = msmRes.data
     if (msyRes.data) moneySupplyYear.value = msyRes.data
     if (lprRes.data) lprData.value = lprRes.data
+    if (gdpRes.data) gdpData.value = gdpRes.data
+    if (cpiRes.data) cpiData.value = cpiRes.data
+    if (pmiRes.data) pmiData.value = pmiRes.data
+    if (ppiRes.data) ppiData.value = ppiRes.data
   } catch (e: any) {
     message.error(e.message || '加载宏观经济数据失败')
   } finally {
@@ -163,6 +183,18 @@ onUnmounted(() => {
         </NTabPane>
         <NTabPane name="year" tab="货币供应量(年底余额)">
           <MoneySupplyYearPanel :data="moneySupplyYear" :loading="loading" />
+        </NTabPane>
+        <NTabPane name="gdp" tab="GDP">
+          <GDPPanel :data="gdpData" :loading="loading" />
+        </NTabPane>
+        <NTabPane name="cpi" tab="CPI">
+          <CPIPanel :data="cpiData" :loading="loading" />
+        </NTabPane>
+        <NTabPane name="pmi" tab="PMI">
+          <PMIPanel :data="pmiData" :loading="loading" />
+        </NTabPane>
+        <NTabPane name="ppi" tab="PPI">
+          <PPIPanel :data="ppiData" :loading="loading" />
         </NTabPane>
       </NTabs>
     </NCard>

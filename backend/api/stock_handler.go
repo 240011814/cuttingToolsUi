@@ -489,6 +489,46 @@ func (h *StockHandler) HandleGetMacroLPR(c *gin.Context) {
 	SendSuccess(c, result)
 }
 
+// HandleGetMacroGDP GDP数据
+func (h *StockHandler) HandleGetMacroGDP(c *gin.Context) {
+	result, err := h.svc.GetGDP()
+	if err != nil {
+		SendError(c, "500", "获取GDP失败: "+err.Error())
+		return
+	}
+	SendSuccess(c, result)
+}
+
+// HandleGetMacroCPI CPI数据
+func (h *StockHandler) HandleGetMacroCPI(c *gin.Context) {
+	result, err := h.svc.GetCPI()
+	if err != nil {
+		SendError(c, "500", "获取CPI失败: "+err.Error())
+		return
+	}
+	SendSuccess(c, result)
+}
+
+// HandleGetMacroPMI PMI数据
+func (h *StockHandler) HandleGetMacroPMI(c *gin.Context) {
+	result, err := h.svc.GetPMI()
+	if err != nil {
+		SendError(c, "500", "获取PMI失败: "+err.Error())
+		return
+	}
+	SendSuccess(c, result)
+}
+
+// HandleGetMacroPPI PPI数据
+func (h *StockHandler) HandleGetMacroPPI(c *gin.Context) {
+	result, err := h.svc.GetPPI()
+	if err != nil {
+		SendError(c, "500", "获取PPI失败: "+err.Error())
+		return
+	}
+	SendSuccess(c, result)
+}
+
 // HandleSyncMacro 同步宏观经济数据(存款准备金率/货币供应量)
 func (h *StockHandler) HandleSyncMacro(c *gin.Context) {
 	if !h.syncService.StartTask("宏观经济数据", func() error {

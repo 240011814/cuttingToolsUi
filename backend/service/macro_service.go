@@ -43,3 +43,31 @@ func (s *StockService) GetLPR() ([]model.MacroLPR, error) {
 	err := DB.Order("trade_date ASC").Find(&list).Error
 	return list, err
 }
+
+// GetGDP 查询GDP数据 (按季度升序)
+func (s *StockService) GetGDP() ([]model.MacroGDP, error) {
+	var list []model.MacroGDP
+	err := DB.Order("quarter ASC").Find(&list).Error
+	return list, err
+}
+
+// GetCPI 查询CPI数据 (按月份升序)
+func (s *StockService) GetCPI() ([]model.MacroCPI, error) {
+	var list []model.MacroCPI
+	err := DB.Order("month ASC").Find(&list).Error
+	return list, err
+}
+
+// GetPMI 查询PMI数据 (按月份升序)
+func (s *StockService) GetPMI() ([]model.MacroPMI, error) {
+	var list []model.MacroPMI
+	err := DB.Order("month ASC").Find(&list).Error
+	return list, err
+}
+
+// GetPPI 查询PPI数据 (按月份升序)
+func (s *StockService) GetPPI() ([]model.MacroPPI, error) {
+	var list []model.MacroPPI
+	err := DB.Order("month ASC").Find(&list).Error
+	return list, err
+}
