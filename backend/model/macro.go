@@ -106,3 +106,20 @@ type MacroLoanRate struct {
 func (MacroLoanRate) TableName() string {
 	return "macro_loan_rate"
 }
+
+// MacroLPR 贷款市场报价利率 LPR (baostock 代理调用东财 RPTA_WEB_RATE)
+// LPR1Y/LPR5Y 自 2019-08 起月度发布; RATE_1/RATE_2 为 2015 年前基准贷款利率(冻结后不变)
+type MacroLPR struct {
+	ID        uint      `gorm:"primaryKey;autoIncrement" json:"id"`
+	TradeDate time.Time `gorm:"not null;uniqueIndex" json:"tradeDate"`
+	Lpr1Y     *float64  `gorm:"column:lpr_1y" json:"lpr1Year"`
+	Lpr5Y     *float64  `gorm:"column:lpr_5y" json:"lpr5Year"`
+	Rate1     *float64  `gorm:"column:rate_1" json:"rate1"`
+	Rate2     *float64  `gorm:"column:rate_2" json:"rate2"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+
+func (MacroLPR) TableName() string {
+	return "macro_lpr"
+}

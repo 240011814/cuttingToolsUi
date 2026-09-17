@@ -67,5 +67,15 @@ declare namespace Api {
       mortgageRateBelow5Year: number | null
       mortgageRateAbove5Year: number | null
     }
+
+    /** 贷款市场报价利率 LPR (数值为百分比) */
+    interface LPR {
+      id: number
+      tradeDate: string
+      lpr1Year: number | null
+      lpr5Year: number | null
+      rate1: number | null
+      rate2: number | null
+    }
   }
 }

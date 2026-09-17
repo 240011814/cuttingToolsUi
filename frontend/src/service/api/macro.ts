@@ -40,6 +40,14 @@ export function getMoneySupplyYear() {
   })
 }
 
+/** 贷款市场报价利率 LPR 历史 */
+export function getLPR() {
+  return request<Api.Macro.LPR[]>({
+    url: '/api/stock/macro/lpr',
+    method: 'get'
+  })
+}
+
 /** 同步宏观经济数据 */
 export function syncMacroData() {
   return request<boolean>({

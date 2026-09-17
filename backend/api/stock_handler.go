@@ -479,6 +479,16 @@ func (h *StockHandler) HandleGetMacroLoanRates(c *gin.Context) {
 	SendSuccess(c, result)
 }
 
+// HandleGetMacroLPR 贷款市场报价利率 LPR 历史
+func (h *StockHandler) HandleGetMacroLPR(c *gin.Context) {
+	result, err := h.svc.GetLPR()
+	if err != nil {
+		SendError(c, "500", "获取LPR失败: "+err.Error())
+		return
+	}
+	SendSuccess(c, result)
+}
+
 // HandleSyncMacro 同步宏观经济数据(存款准备金率/货币供应量)
 func (h *StockHandler) HandleSyncMacro(c *gin.Context) {
 	if !h.syncService.StartTask("宏观经济数据", func() error {

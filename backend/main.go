@@ -315,6 +315,7 @@ func main() {
 			stockGroup.GET("/macro/reserve-ratio", api.RequirePermission("stock:macro:view"), stockHandler.HandleGetMacroReserveRatios)
 			stockGroup.GET("/macro/money-supply-month", api.RequirePermission("stock:macro:view"), stockHandler.HandleGetMacroMoneySupplyMonth)
 			stockGroup.GET("/macro/money-supply-year", api.RequirePermission("stock:macro:view"), stockHandler.HandleGetMacroMoneySupplyYear)
+			stockGroup.GET("/macro/lpr", api.RequirePermission("stock:macro:view"), stockHandler.HandleGetMacroLPR)
 			stockGroup.POST("/macro/sync", api.RequirePermission("stock:sync:execute"), stockHandler.HandleSyncMacro)
 
 			// 筛选条件管理

@@ -1,0 +1,17 @@
+-- +goose Up
+
+CREATE TABLE macro_lpr (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    trade_date DATE NOT NULL,
+    lpr_1y DOUBLE NULL,
+    lpr_5y DOUBLE NULL,
+    rate_1 DOUBLE NULL,
+    rate_2 DOUBLE NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_trade_date (trade_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- +goose Down
+
+DROP TABLE IF EXISTS macro_lpr;

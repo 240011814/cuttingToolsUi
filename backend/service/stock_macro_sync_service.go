@@ -14,7 +14,7 @@ import (
 // 数据量小(利率/准备金率约几十条, 货币供应量数百条), 每次全量拉取后 upsert 幂等写入
 // baostock 每日调用限额, 五个接口各占 1 次调用
 
-// SyncMacroData 同步宏观经济数据: 存款利率/贷款利率/存款准备金率/货币供应量(月度/年度)
+// SyncMacroData 同步宏观经济数据: 存款利率/贷款利率/存款准备金率/货币供应量(月度/年度)/LPR
 func (s *StockSyncService) SyncMacroData(force bool) error {
 	log.Printf("[StockSync] 同步宏观经济数据... (force=%v)", force)
 	if err := s.syncDepositRate(); err != nil {
@@ -30,6 +30,9 @@ func (s *StockSyncService) SyncMacroData(force bool) error {
 		return err
 	}
 	if err := s.syncMoneySupplyYear(); err != nil {
+		return err
+	}
+	if err := s.syncLPR(); err != nil {
 		return err
 	}
 	log.Printf("[StockSync] 同步宏观经济数据完成")
@@ -383,5 +386,69 @@ func (s *StockSyncService) syncMoneySupplyYear() error {
 		return fmt.Errorf("写入货币供应量(年度)失败: %v", err)
 	}
 	log.Printf("[StockSync] 货币供应量(年度)同步: %d 条", len(rows))
+	return nil
+}
+
+// syncLPR 同步贷款市场报价利率 LPR (query_lpr, 1次调用全量, 底层东财 RPTA_WEB_RATE)
+// 包含 LPR1Y/LPR5Y(2019-08 起) 与基准贷款利率 RATE_1/RATE_2(1991 起)
+func (s *StockSyncService) syncLPR() error {
+	url := fmt.Sprintf("%s/query_lpr", s.baostockURL)
+	body, err := s.httpGetWithDelay(url)
+	if err != nil {
+		return fmt.Errorf("获取LPR失败: %v", err)
+	}
+
+	var resp struct {
+		Ok   bool `json:"ok"`
+		Data struct {
+			Items []struct {
+				TRADE_DATE string `json:"TRADE_DATE"`
+				LPR1Y      string `json:"LPR1Y"`
+				LPR5Y      string `json:"LPR5Y"`
+				RATE_1     string `json:"RATE_1"`
+				RATE_2     string `json:"RATE_2"`
+			} `json:"items"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return fmt.Errorf("解析LPR失败: %v", err)
+	}
+	if !resp.Ok {
+		return fmt.Errorf("获取LPR失败")
+	}
+
+	rows := make([]model.MacroLPR, 0, len(resp.Data.Items))
+	for _, item := range resp.Data.Items {
+		tradeDate, err := parseTradeDay(item.TRADE_DATE)
+		if err != nil {
+			continue
+		}
+		rows = append(rows, model.MacroLPR{
+			TradeDate: tradeDate,
+			Lpr1Y:     parseFloatPtr(item.LPR1Y),
+			Lpr5Y:     parseFloatPtr(item.LPR5Y),
+			Rate1:     parseFloatPtr(item.RATE_1),
+			Rate2:     parseFloatPtr(item.RATE_2),
+		})
+	}
+	if len(rows) == 0 {
+		log.Printf("[StockSync] LPR无数据")
+		return nil
+	}
+
+	const batchSize = 500
+	for i := 0; i < len(rows); i += batchSize {
+		end := min(i+batchSize, len(rows))
+		batch := rows[i:end]
+		if err := DB.Clauses(clause.OnConflict{
+			Columns: []clause.Column{{Name: "trade_date"}},
+			DoUpdates: clause.AssignmentColumns([]string{
+				"lpr_1y", "lpr_5y", "rate_1", "rate_2",
+			}),
+		}).Create(&batch).Error; err != nil {
+			return fmt.Errorf("写入LPR失败: %v", err)
+		}
+	}
+	log.Printf("[StockSync] LPR同步: %d 条", len(rows))
 	return nil
 }

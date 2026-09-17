@@ -6,6 +6,7 @@ import {
   fetchSyncStatus,
   getDepositRates,
   getLoanRates,
+  getLPR,
   getMoneySupplyMonth,
   getMoneySupplyYear,
   getReserveRatios,
@@ -13,6 +14,7 @@ import {
 } from '@/service/api'
 import DepositRatePanel from './modules/deposit-rate.vue'
 import LoanRatePanel from './modules/loan-rate.vue'
+import LprPanel from './modules/lpr.vue'
 import MoneySupplyMonthPanel from './modules/money-supply-month.vue'
 import MoneySupplyYearPanel from './modules/money-supply-year.vue'
 import ReserveRatioPanel from './modules/reserve-ratio.vue'
@@ -29,22 +31,25 @@ const loanRates = ref<Api.Macro.LoanRate[]>([])
 const reserveRatios = ref<Api.Macro.ReserveRatio[]>([])
 const moneySupplyMonth = ref<Api.Macro.MoneySupplyMonth[]>([])
 const moneySupplyYear = ref<Api.Macro.MoneySupplyYear[]>([])
+const lprData = ref<Api.Macro.LPR[]>([])
 
 async function loadAll() {
   loading.value = true
   try {
-    const [drRes, lrRes, rrRes, msmRes, msyRes] = await Promise.all([
+    const [drRes, lrRes, rrRes, msmRes, msyRes, lprRes] = await Promise.all([
       getDepositRates(),
       getLoanRates(),
       getReserveRatios(),
       getMoneySupplyMonth(),
-      getMoneySupplyYear()
+      getMoneySupplyYear(),
+      getLPR()
     ])
     if (drRes.data) depositRates.value = drRes.data
     if (lrRes.data) loanRates.value = lrRes.data
     if (rrRes.data) reserveRatios.value = rrRes.data
     if (msmRes.data) moneySupplyMonth.value = msmRes.data
     if (msyRes.data) moneySupplyYear.value = msyRes.data
+    if (lprRes.data) lprData.value = lprRes.data
   } catch (e: any) {
     message.error(e.message || '加载宏观经济数据失败')
   } finally {
@@ -147,6 +152,9 @@ onUnmounted(() => {
         </NTabPane>
         <NTabPane name="loan-rate" tab="贷款利率">
           <LoanRatePanel :data="loanRates" :loading="loading" />
+        </NTabPane>
+        <NTabPane name="lpr" tab="LPR贷款市场报价利率">
+          <LprPanel :data="lprData" :loading="loading" />
         </NTabPane>
         <NTabPane name="reserve" tab="存款准备金率">
           <ReserveRatioPanel :data="reserveRatios" :loading="loading" />

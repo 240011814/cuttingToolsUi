@@ -36,3 +36,10 @@ func (s *StockService) GetLoanRates() ([]model.MacroLoanRate, error) {
 	err := DB.Order("pub_date ASC").Find(&list).Error
 	return list, err
 }
+
+// GetLPR 查询贷款市场报价利率历史 (按交易日期升序)
+func (s *StockService) GetLPR() ([]model.MacroLPR, error) {
+	var list []model.MacroLPR
+	err := DB.Order("trade_date ASC").Find(&list).Error
+	return list, err
+}
