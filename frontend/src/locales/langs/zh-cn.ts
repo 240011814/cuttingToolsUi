@@ -260,6 +260,7 @@ const local: App.I18n.Schema = {
     tool_calendar: "日历备忘",
     tool_stockscreen: "股票筛选",
     tool_stockdetail: "个股详情",
+    tool_watchlist: "自选股票",
     user: "用户",
     user_profile: "个人中心",
     share: "分享对话",

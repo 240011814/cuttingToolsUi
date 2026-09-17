@@ -93,6 +93,22 @@ export function getWatchlist() {
   })
 }
 
+/** 获取自选股分组 */
+export function getWatchlistGroups() {
+  return request<string[]>({
+    url: '/api/stock/watchlist/groups',
+    method: 'get'
+  })
+}
+
+/** 获取已自选股票代码 */
+export function getWatchlistCodes() {
+  return request<string[]>({
+    url: '/api/stock/watchlist/codes',
+    method: 'get'
+  })
+}
+
 /** 删除自选股 */
 export function deleteWatchlist(id: number) {
   return request<boolean>({

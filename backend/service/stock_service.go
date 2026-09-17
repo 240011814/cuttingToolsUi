@@ -403,7 +403,7 @@ func (s *StockService) GetDetail(code string) (*model.StockScreenResult, error) 
 		NrTurnRatio:    result.NrTurnRatio,
 		InvTurnRatio:   result.InvTurnRatio,
 		YoyEquity:      result.YoyEquity,
-		YoyAsset:       result.YoyAsset,
+YoyAsset:      result.YoyAsset,
 		CfoToOr:        result.CfoToOr,
 	}
 
@@ -628,13 +628,101 @@ func (s *StockService) AddWatchlist(userID uint, req model.StockWatchlistRequest
 	return DB.Create(&watchlist).Error
 }
 
-// ListWatchlist 获取自选股列表
-func (s *StockService) ListWatchlist(userID uint) ([]model.StockWatchlist, error) {
-	var list []model.StockWatchlist
-	err := DB.Where("user_id = ?", userID).
-		Order("created_at DESC").
-		Find(&list).Error
-	return list, err
+// ListWatchlist 获取自选股列表(联表补齐行情/财务, 字段与筛选页对齐)
+func (s *StockService) ListWatchlist(userID uint) ([]model.StockWatchlistItem, error) {
+	var list []model.StockWatchlistItem
+	err := DB.Table("stock_watchlist AS w").
+		Select(`w.id, w.code, w.group_name,
+			COALESCE(si.name, '') AS name, COALESCE(si.market, '') AS market,
+			COALESCE(si.type, 0) AS type, COALESCE(si.industry, '') AS industry,
+			COALESCE(si.is_st, 0) AS is_st,
+			sd.close AS price, sd.change_pct, sd.turnover_rate, sd.amount,
+			CASE WHEN si.total_share > 0 THEN ROUND(sd.close * si.total_share / 10000, 2)
+			     WHEN si.total_market_cap > 0 THEN ROUND(si.total_market_cap / 100000000, 2)
+			     ELSE NULL END AS market_cap,
+			CASE WHEN si.float_share > 0 THEN ROUND(sd.close * si.float_share / 10000, 2)
+			     WHEN si.float_market_cap > 0 THEN ROUND(si.float_market_cap / 100000000, 2)
+			     ELSE NULL END AS float_market_cap,
+			CASE WHEN sf.eps != 0 THEN ROUND(sd.close / sf.eps, 2) ELSE NULL END AS pe_ttm,
+			CASE WHEN sf.bps != 0 THEN ROUND(sd.close / sf.bps, 2) ELSE NULL END AS pb,
+			sf.roe, sf.revenue_yoy, sf.net_profit_yoy, sf.gross_margin, sf.net_margin,
+			sf.debt_ratio, sf.current_ratio, sf.quick_ratio`).
+		Joins(`LEFT JOIN stock_info AS si ON si.code = w.code`).
+		Joins(`LEFT JOIN stock_daily AS sd ON sd.code = w.code AND sd.frequency = 'daily' AND sd.trade_date = (
+			SELECT MAX(trade_date) FROM stock_daily WHERE code = w.code AND frequency = 'daily'
+		)`).
+		Joins(`LEFT JOIN stock_finance AS sf ON sf.code = w.code AND sf.report_date = (
+			SELECT MAX(report_date) FROM stock_finance WHERE code = w.code
+		)`).
+		Where("w.user_id = ?", userID).
+		Order("w.created_at DESC").
+		Scan(&list).Error
+	if err != nil {
+		return nil, err
+	}
+
+	codes := make([]string, 0, len(list))
+	for i := range list {
+		codes = append(codes, list[i].Code)
+	}
+	enrichWatchlistConcepts(list, codes)
+
+	return list, nil
+}
+
+// enrichWatchlistConcepts 补充自选股概念板块
+func enrichWatchlistConcepts(list []model.StockWatchlistItem, codes []string) {
+	if len(codes) == 0 {
+		return
+	}
+
+	type conceptResult struct {
+		Code        string `gorm:"column:code"`
+		ConceptName string `gorm:"column:concept_name"`
+	}
+
+	var conceptResults []conceptResult
+	DB.Raw(`
+		SELECT code, concept_name
+		FROM stock_concept
+		WHERE code IN ?
+	`, codes).Find(&conceptResults)
+
+	conceptMap := make(map[string][]string)
+	for _, c := range conceptResults {
+		conceptMap[c.Code] = append(conceptMap[c.Code], c.ConceptName)
+	}
+
+	for i := range list {
+		list[i].Concepts = conceptMap[list[i].Code]
+	}
+}
+
+// ListWatchlistGroups 获取用户的自选股分组
+func (s *StockService) ListWatchlistGroups(userID uint) ([]string, error) {
+	groups := make([]string, 0)
+	err := DB.Model(&model.StockWatchlist{}).
+		Where("user_id = ?", userID).
+		Distinct().
+		Order("group_name").
+		Pluck("group_name", &groups).Error
+	if err != nil {
+		return nil, err
+	}
+	return groups, nil
+}
+
+// ListWatchlistCodes 获取用户已自选的股票代码
+func (s *StockService) ListWatchlistCodes(userID uint) ([]string, error) {
+	codes := make([]string, 0)
+	err := DB.Model(&model.StockWatchlist{}).
+		Where("user_id = ?", userID).
+		Distinct().
+		Pluck("code", &codes).Error
+	if err != nil {
+		return nil, err
+	}
+	return codes, nil
 }
 
 // DeleteWatchlist 删除自选股

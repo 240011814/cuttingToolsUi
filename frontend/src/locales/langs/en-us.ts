@@ -264,6 +264,7 @@ const local: App.I18n.Schema = {
     tool_calendar: "Calendar",
     tool_stockscreen: "Stock Screener",
     tool_stockdetail: "Stock Detail",
+    tool_watchlist: "Watchlist",
     user: "User",
     user_profile: "Profile",
     share: "Shared Conversation",

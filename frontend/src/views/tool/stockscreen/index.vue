@@ -10,9 +10,10 @@ import {
   saveFilterCondition,
   getFilterConditions,
   deleteFilterCondition,
-  addWatchlist,
-  fetchSyncStatus
+  fetchSyncStatus,
+  getWatchlistCodes
 } from '@/service/api'
+import WatchlistAddDialog from '@/components/custom/watchlist-add-dialog.vue'
 
 defineOptions({ name: 'ToolStockscreen' })
 
@@ -29,6 +30,7 @@ const pageSize = ref(20)
 const industryOptions = ref<string[]>([])
 const conceptOptions = ref<{ label: string; value: string }[]>([])
 const savedFilters = ref<Api.Stock.FilterConditionSave[]>([])
+const watchlistCodes = ref<Set<string>>(new Set())
 
 function screenRowKey(row: Api.Stock.ScreenResult) {
   return row.code
@@ -133,12 +135,13 @@ const columns = [
         disabled: !hasAuth('stock:menu:view'),
         onClick: () => goToDetail(row.code) 
       }, { default: () => '详情' }),
-      h(NButton, { 
-        size: 'tiny', 
-        text: true, 
-        disabled: !hasAuth('stock:watchlist:edit'),
-        onClick: () => handleAddWatchlist(row.code) 
-      }, { default: () => '加自选' })
+      !watchlistCodes.value.has(row.code) && hasAuth('stock:watchlist:edit')
+        ? h(NButton, { 
+            size: 'tiny', 
+            text: true, 
+            onClick: () => handleAddWatchlist(row) 
+          }, { default: () => '加自选' })
+        : null
     ])
   }
 ]
@@ -239,13 +242,27 @@ function goToDetail(code: string) {
   router.push({ name: 'tool_stockdetail', query: { code } })
 }
 
-async function handleAddWatchlist(code: string) {
+const showAddDialog = ref(false)
+const addCode = ref('')
+const addName = ref('')
+
+async function loadWatchlistCodes() {
   try {
-    await addWatchlist({ code })
-    message.success('已添加到自选股')
-  } catch (e: any) {
-    message.error(e.message || '添加失败')
+    const { data } = await getWatchlistCodes()
+    watchlistCodes.value = new Set(data || [])
+  } catch {
+    // ignore
   }
+}
+
+function handleAddWatchlist(row: Api.Stock.ScreenResult) {
+  addCode.value = row.code
+  addName.value = row.name
+  showAddDialog.value = true
+}
+
+function handleWatchlistAdded() {
+  watchlistCodes.value = new Set([...watchlistCodes.value, addCode.value])
 }
 
 async function handleSaveFilter() {
@@ -378,6 +395,7 @@ onMounted(async () => {
     // ignore
   }
   loadSavedFilters()
+  loadWatchlistCodes()
   doScreen()
   refreshSyncStatus()
 })
@@ -585,5 +603,7 @@ onUnmounted(() => {
         />
       </div>
     </div>
+
+    <WatchlistAddDialog v-model:show="showAddDialog" :code="addCode" :name="addName" @added="handleWatchlistAdded" />
   </div>
 </template>

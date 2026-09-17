@@ -277,6 +277,30 @@ func (h *StockHandler) HandleListWatchlist(c *gin.Context) {
 	SendSuccess(c, result)
 }
 
+// HandleListWatchlistGroups 获取自选股分组
+func (h *StockHandler) HandleListWatchlistGroups(c *gin.Context) {
+	userID := GetUserID(c)
+	result, err := h.svc.ListWatchlistGroups(userID)
+	if err != nil {
+		SendError(c, "500", "查询失败: "+err.Error())
+		return
+	}
+
+	SendSuccess(c, result)
+}
+
+// HandleListWatchlistCodes 获取已自选股票代码
+func (h *StockHandler) HandleListWatchlistCodes(c *gin.Context) {
+	userID := GetUserID(c)
+	result, err := h.svc.ListWatchlistCodes(userID)
+	if err != nil {
+		SendError(c, "500", "查询失败: "+err.Error())
+		return
+	}
+
+	SendSuccess(c, result)
+}
+
 // HandleDeleteWatchlist 删除自选股
 func (h *StockHandler) HandleDeleteWatchlist(c *gin.Context) {
 	userID := GetUserID(c)

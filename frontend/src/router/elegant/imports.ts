@@ -47,5 +47,6 @@ export const views: Record<LastLevelRouteKey, RouteComponent | (() => Promise<Ro
   tool_calendar: () => import("@/views/tool/calendar/index.vue"),
   tool_stockdetail: () => import("@/views/tool/stockdetail/index.vue"),
   tool_stockscreen: () => import("@/views/tool/stockscreen/index.vue"),
+  tool_watchlist: () => import("@/views/tool/watchlist/index.vue"),
   user_profile: () => import("@/views/user/profile/index.vue"),
 };

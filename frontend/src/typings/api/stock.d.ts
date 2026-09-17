@@ -128,14 +128,10 @@ declare namespace Api {
       updatedAt: string
     }
 
-    interface WatchlistItem {
+    interface WatchlistItem extends ScreenResult {
       id: number
-      userId: number
-      code: string
-      name: string | null
       groupName: string
-      note: string
-      createdAt: string
+      isSt: boolean
     }
 
     interface SyncStatus {

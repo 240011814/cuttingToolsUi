@@ -317,6 +317,8 @@ func main() {
 			// 自选股管理
 			stockGroup.POST("/watchlist", api.RequirePermission("stock:watchlist:edit"), stockHandler.HandleAddWatchlist)
 			stockGroup.GET("/watchlist", api.RequirePermission("stock:watchlist:view"), stockHandler.HandleListWatchlist)
+			stockGroup.GET("/watchlist/groups", api.RequirePermission("stock:watchlist:view"), stockHandler.HandleListWatchlistGroups)
+			stockGroup.GET("/watchlist/codes", api.RequirePermission("stock:watchlist:view"), stockHandler.HandleListWatchlistCodes)
 			stockGroup.DELETE("/watchlist/:id", api.RequirePermission("stock:watchlist:edit"), stockHandler.HandleDeleteWatchlist)
 
 			// 数据同步(管理员)

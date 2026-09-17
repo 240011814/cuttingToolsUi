@@ -5,11 +5,12 @@ import {
   stockDetail,
   stockKline,
   stockFinanceHistory,
-  addWatchlist,
   syncSingleStock,
   fetchSyncStatus,
   fetchStockSyncState,
+  getWatchlistCodes,
 } from "@/service/api";
+import WatchlistAddDialog from "@/components/custom/watchlist-add-dialog.vue";
 import { useMessage, NButton, NDataTable, NTag, NSpin, NTabs, NTabPane } from "naive-ui";
 import * as echarts from "echarts";
 
@@ -402,13 +403,24 @@ watch(klinePeriod, () => {
   loadKline();
 });
 
-async function handleAddWatchlist() {
+const showAddDialog = ref(false);
+const watchlistCodes = ref<Set<string>>(new Set());
+
+async function loadWatchlistCodes() {
   try {
-    await addWatchlist({ code: code.value });
-    message.success("已添加到自选股");
-  } catch (e: any) {
-    message.error(e.message || "添加失败");
+    const { data } = await getWatchlistCodes();
+    watchlistCodes.value = new Set(data || []);
+  } catch {
+    // ignore
   }
+}
+
+function handleAddWatchlist() {
+  showAddDialog.value = true;
+}
+
+function handleWatchlistAdded() {
+  watchlistCodes.value = new Set([...watchlistCodes.value, code.value]);
 }
 
 const syncLoading = ref(false);
@@ -915,6 +927,7 @@ watch(klineData, () => {
 
 onMounted(() => {
   loadDetail();
+  loadWatchlistCodes();
 
   fetchSyncStatus()
     .then(({ data }) => {
@@ -951,7 +964,7 @@ onUnmounted(() => {
           <template #icon><span class="i-mdi:refresh" /></template>
           {{ syncRunning ? "同步中..." : "同步最新" }}
         </NButton>
-        <NButton type="primary" @click="handleAddWatchlist">加自选</NButton>
+        <NButton v-if="!watchlistCodes.has(code)" type="primary" @click="handleAddWatchlist">加自选</NButton>
       </div>
     </div>
 
@@ -1245,5 +1258,12 @@ onUnmounted(() => {
         </NTabs>
       </template>
     </NSpin>
+
+    <WatchlistAddDialog
+      v-model:show="showAddDialog"
+      :code="code"
+      :name="detail?.name || ''"
+      @added="handleWatchlistAdded"
+    />
   </div>
 </template>

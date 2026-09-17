@@ -118,6 +118,7 @@ declare module 'vue' {
     TableColumnSetting: typeof import('./../components/advanced/table-column-setting.vue')['default']
     TableHeaderOperation: typeof import('./../components/advanced/table-header-operation.vue')['default']
     ThemeSchemaSwitch: typeof import('./../components/common/theme-schema-switch.vue')['default']
+    WatchlistAddDialog: typeof import('./../components/custom/watchlist-add-dialog.vue')['default']
     WaveBg: typeof import('./../components/custom/wave-bg.vue')['default']
   }
 }
@@ -230,5 +231,6 @@ declare global {
   const TableColumnSetting: typeof import('./../components/advanced/table-column-setting.vue')['default']
   const TableHeaderOperation: typeof import('./../components/advanced/table-header-operation.vue')['default']
   const ThemeSchemaSwitch: typeof import('./../components/common/theme-schema-switch.vue')['default']
+  const WatchlistAddDialog: typeof import('./../components/custom/watchlist-add-dialog.vue')['default']
   const WaveBg: typeof import('./../components/custom/wave-bg.vue')['default']
 }

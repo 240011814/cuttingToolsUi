@@ -199,6 +199,7 @@ const routeMap: RouteMap = {
   "tool_calendar": "/tool/calendar",
   "tool_stockdetail": "/tool/stockdetail",
   "tool_stockscreen": "/tool/stockscreen",
+  "tool_watchlist": "/tool/watchlist",
   "user": "/user",
   "user_profile": "/user/profile"
 };

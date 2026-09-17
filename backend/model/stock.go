@@ -185,6 +185,35 @@ func (StockWatchlist) TableName() string {
 	return "stock_watchlist"
 }
 
+// StockWatchlistItem 自选股展示项(联表补齐行情/财务, 字段与筛选页对齐)
+type StockWatchlistItem struct {
+	ID             uint     `json:"id"`
+	Code           string   `json:"code"`
+	GroupName      string   `json:"groupName"`
+	Name           string   `json:"name"`
+	Market         string   `json:"market"`
+	Type           int      `json:"type"`
+	Industry       string   `json:"industry"`
+	IsSt           bool     `json:"isSt"`
+	Price          *float64 `json:"price"`
+	ChangePct      *float64 `json:"changePct"`
+	TurnoverRate   *float64 `json:"turnoverRate"`
+	Amount         *float64 `json:"amount"`
+	MarketCap      *float64 `json:"marketCap"`
+	FloatMarketCap *float64 `json:"floatMarketCap"`
+	PeTtm          *float64 `json:"peTtm"`
+	Pb             *float64 `json:"pb"`
+	Roe            *float64 `json:"roe"`
+	RevenueYoy     *float64 `json:"revenueYoy"`
+	NetProfitYoy   *float64 `json:"netProfitYoy"`
+	GrossMargin    *float64 `json:"grossMargin"`
+	NetMargin      *float64 `json:"netMargin"`
+	DebtRatio      *float64 `json:"debtRatio"`
+	CurrentRatio   *float64 `json:"currentRatio"`
+	QuickRatio     *float64 `json:"quickRatio"`
+	Concepts       []string `json:"concepts"`
+}
+
 // === 筛选请求/响应结构 ===
 
 // FilterCondition 单个筛选条件
