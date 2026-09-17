@@ -148,6 +148,7 @@ frontend/
 - 中间件: `AuthMiddleware` (JWT) → `RequirePermission("resource:action")` (RBAC)
 - 响应: `SendSuccess(c, data)` / `SendError(c, code, msg)`
 - 文件命名: `snake_case.go`
+- baostock api 代码要符合flake8规范
 
 ### 前端
 

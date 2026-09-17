@@ -16,7 +16,7 @@ def execute(params: dict[str, str]) -> dict[str, object]:
     if df.empty:
         return {"fields": [], "total": 0, "items": []}
 
-    fields = ["月份", "全国_同比增长", "全国_环比增长", "全国_累计同比增长"]
+    fields = ["月份", "全国-当月", "全国-同比增长", "全国-环比增长", "全国-累计"]
 
     available_fields = [f for f in fields if f in df.columns]
     items: list[dict[str, str]] = []

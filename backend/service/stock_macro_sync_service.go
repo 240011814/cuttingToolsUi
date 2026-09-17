@@ -477,10 +477,9 @@ func (s *StockSyncService) syncGDP() error {
 		Ok   bool `json:"ok"`
 		Data struct {
 			Items []struct {
-				Quarter              string `json:"季度"`
-				GdpYoy               string `json:"国内生产总值_同比增长"`
-				GdpCumulative        string `json:"国内生产总值_累计值"`
-				GdpCumulativeYoy     string `json:"国内生产总值_累计同比增长"`
+				Quarter           string `json:"季度"`
+				GdpAbsolute       string `json:"国内生产总值-绝对值"`
+				GdpYoy            string `json:"国内生产总值-同比增长"`
 			} `json:"items"`
 		} `json:"data"`
 	}
@@ -497,10 +496,9 @@ func (s *StockSyncService) syncGDP() error {
 			continue
 		}
 		rows = append(rows, model.MacroGDP{
-			Quarter:           item.Quarter,
-			GdpYoy:           parseFloatPtr(item.GdpYoy),
-			GdpCumulative:    parseFloatPtr(item.GdpCumulative),
-			GdpCumulativeYoy: parseFloatPtr(item.GdpCumulativeYoy),
+			Quarter:    item.Quarter,
+			GdpYoy:     parseFloatPtr(item.GdpYoy),
+			GdpCumulative: parseFloatPtr(item.GdpAbsolute),
 		})
 	}
 	if len(rows) == 0 {
@@ -510,7 +508,7 @@ func (s *StockSyncService) syncGDP() error {
 
 	if err := DB.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "quarter"}},
-		DoUpdates: clause.AssignmentColumns([]string{"gdp_yoy", "gdp_cumulative", "gdp_cumulative_yoy"}),
+		DoUpdates: clause.AssignmentColumns([]string{"gdp_yoy", "gdp_cumulative"}),
 	}).Create(&rows).Error; err != nil {
 		return fmt.Errorf("写入GDP失败: %v", err)
 	}
@@ -530,10 +528,11 @@ func (s *StockSyncService) syncCPI() error {
 		Ok   bool `json:"ok"`
 		Data struct {
 			Items []struct {
-				Month              string `json:"月份"`
-				CpiYoy             string `json:"全国_同比增长"`
-				CpiMom             string `json:"全国_环比增长"`
-				CpiCumulativeYoy   string `json:"全国_累计同比增长"`
+				Month          string `json:"月份"`
+				CpiCurrent     string `json:"全国-当月"`
+				CpiYoy         string `json:"全国-同比增长"`
+				CpiMom         string `json:"全国-环比增长"`
+				CpiCumulative  string `json:"全国-累计"`
 			} `json:"items"`
 		} `json:"data"`
 	}
@@ -553,7 +552,7 @@ func (s *StockSyncService) syncCPI() error {
 			Month:            item.Month,
 			CpiYoy:           parseFloatPtr(item.CpiYoy),
 			CpiMom:           parseFloatPtr(item.CpiMom),
-			CpiCumulativeYoy: parseFloatPtr(item.CpiCumulativeYoy),
+			CpiCumulativeYoy: parseFloatPtr(item.CpiCumulative),
 		})
 	}
 	if len(rows) == 0 {
@@ -638,10 +637,10 @@ func (s *StockSyncService) syncPPI() error {
 		Ok   bool `json:"ok"`
 		Data struct {
 			Items []struct {
-				Month              string `json:"月份"`
-				PpiYoy             string `json:"工业生产者出厂价格指数_同比增长"`
-				PpiMom             string `json:"工业生产者出厂价格指数_环比增长"`
-				PpiCumulativeYoy   string `json:"工业生产者出厂价格指数_累计同比增长"`
+				Month          string `json:"月份"`
+				PpiCurrent     string `json:"当月"`
+				PpiYoy         string `json:"当月同比增长"`
+				PpiCumulative  string `json:"累计"`
 			} `json:"items"`
 		} `json:"data"`
 	}
@@ -660,8 +659,7 @@ func (s *StockSyncService) syncPPI() error {
 		rows = append(rows, model.MacroPPI{
 			Month:            item.Month,
 			PpiYoy:           parseFloatPtr(item.PpiYoy),
-			PpiMom:           parseFloatPtr(item.PpiMom),
-			PpiCumulativeYoy: parseFloatPtr(item.PpiCumulativeYoy),
+			PpiCumulativeYoy: parseFloatPtr(item.PpiCumulative),
 		})
 	}
 	if len(rows) == 0 {
@@ -671,7 +669,7 @@ func (s *StockSyncService) syncPPI() error {
 
 	if err := DB.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "month"}},
-		DoUpdates: clause.AssignmentColumns([]string{"ppi_yoy", "ppi_mom", "ppi_cumulative_yoy"}),
+		DoUpdates: clause.AssignmentColumns([]string{"ppi_yoy", "ppi_cumulative_yoy"}),
 	}).Create(&rows).Error; err != nil {
 		return fmt.Errorf("写入PPI失败: %v", err)
 	}
