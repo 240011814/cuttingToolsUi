@@ -10,15 +10,21 @@ const props = defineProps<{
   loading: boolean
 }>()
 
-const legendNames = ['PPI同比增长(%)', 'PPI环比增长(%)']
+const legendNames = ['PPI当月同比增长(%)', 'PPI累计指数']
 
 const { domRef, updateOptions } = useEcharts(() => ({
   tooltip: { trigger: 'axis' },
   legend: { data: legendNames, top: 0 },
-  grid: { left: '3%', right: '4%', bottom: '3%', top: '15%', containLabel: true },
+  grid: { left: '3%', right: '8%', bottom: '3%', top: '15%', containLabel: true },
   xAxis: { type: 'category', boundaryGap: false, data: [] as string[] },
-  yAxis: { type: 'value', name: '增长率(%)', scale: true },
-  series: legendNames.map(name => ({ name, type: 'line', symbolSize: 6, data: [] as number[] }))
+  yAxis: [
+    { type: 'value', name: '同比增长(%)', scale: true },
+    { type: 'value', name: '累计指数', scale: true }
+  ],
+  series: [
+    { name: legendNames[0], type: 'line', symbolSize: 6, data: [] as number[], yAxisIndex: 0 },
+    { name: legendNames[1], type: 'line', symbolSize: 6, data: [] as number[], yAxisIndex: 1, lineStyle: { type: 'dashed' } }
+  ]
 }))
 
 const tableData = computed(() => [...props.data].reverse())
@@ -33,7 +39,7 @@ watch(
     updateOptions(opts => {
       opts.xAxis.data = rows.map(r => r.month)
       opts.series[0].data = rows.map(r => r.ppiYoy ?? Number.NaN)
-      opts.series[1].data = rows.map(r => r.ppiMom ?? Number.NaN)
+      opts.series[1].data = rows.map(r => r.ppiCumulativeYoy ?? Number.NaN)
       return opts
     })
   },
@@ -42,15 +48,14 @@ watch(
 
 const columns = [
   { title: '月份', key: 'month', width: 120, fixed: 'left' as const },
-  { title: 'PPI同比增长(%)', key: 'ppiYoy', width: 140, render: (r: Api.Macro.PPI) => fmt(r.ppiYoy) },
-  { title: 'PPI环比增长(%)', key: 'ppiMom', width: 140, render: (r: Api.Macro.PPI) => fmt(r.ppiMom) },
-  { title: 'PPI累计同比增长(%)', key: 'ppiCumulativeYoy', width: 170, render: (r: Api.Macro.PPI) => fmt(r.ppiCumulativeYoy) }
+  { title: 'PPI当月同比增长(%)', key: 'ppiYoy', width: 160, render: (r: Api.Macro.PPI) => fmt(r.ppiYoy) },
+  { title: 'PPI累计指数', key: 'ppiCumulativeYoy', width: 140, render: (r: Api.Macro.PPI) => fmt(r.ppiCumulativeYoy) }
 ]
 </script>
 
 <template>
   <div class="flex flex-col gap-4">
-    <NCard :bordered="false" size="small" title="PPI增长率走势(%)">
+    <NCard :bordered="false" size="small" title="PPI走势">
       <div ref="domRef" class="h-360px overflow-hidden" />
     </NCard>
     <NCard :bordered="false" size="small" title="PPI数据明细">
@@ -58,7 +63,7 @@ const columns = [
         :columns="columns"
         :data="tableData"
         :loading="loading"
-        :scroll-x="570"
+        :scroll-x="420"
         :pagination="{ pageSize: 20 }"
         size="small"
         striped
