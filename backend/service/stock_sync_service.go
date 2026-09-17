@@ -1655,9 +1655,14 @@ func parseIntPtr(s string) *int8 {
 // httpGet 发送HTTP GET请求 (复用 client 连接, 429限额错误不重试)
 func (s *StockSyncService) httpGet(url string) ([]byte, error) {
 	var lastErr error
-	for retry := 0; retry < 3; retry++ {
+	for retry := 0; retry < 100; retry++ {
+		delay := time.Duration(3*(1<<(retry-1))) * time.Second
+		log.Printf("[StockSync] 请求 %s (重试 %d, 延迟 %v)", url, retry, delay)
+		if delay >= 60 * time.Second {
+			delay = 60 * time.Second
+		}
 		if retry > 0 {
-			time.Sleep(time.Duration(retry) * 5 * time.Second)
+			time.Sleep(delay)
 		}
 
 		req, err := http.NewRequest("GET", url, nil)

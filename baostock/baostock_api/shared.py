@@ -216,6 +216,9 @@ def force_disconnect() -> None:
         finally:
             # logout 失败时 SDK 不会关闭 socket, 这里兜底关闭, 否则半开连接会拖累重连
             _close_socket()
+            # 旧连接 FIN 发出后, 服务端可能还没处理完就收到新 SYN -> "服务器连接失败"
+            # 等 2 秒让服务端释放旧会话, 再由 _execute_with_retry 的 backoff 补充等待
+            time.sleep(2)
 
 
 bs.login = _patched_login
