@@ -51,6 +51,7 @@ declare module "@elegant-router/types" {
     "system_user": "/system/user";
     "tool": "/tool";
     "tool_calendar": "/tool/calendar";
+    "tool_macro": "/tool/macro";
     "tool_stockdetail": "/tool/stockdetail";
     "tool_stockscreen": "/tool/stockscreen";
     "tool_watchlist": "/tool/watchlist";
@@ -146,6 +147,7 @@ declare module "@elegant-router/types" {
     | "system_permission"
     | "system_user"
     | "tool_calendar"
+    | "tool_macro"
     | "tool_stockdetail"
     | "tool_stockscreen"
     | "tool_watchlist"

@@ -61,6 +61,10 @@ func (h *StockHandler) RegisterCronTasks(js *service.JobScheduler) {
 		return sync.RunExclusive("全部财务数据(定时)", sync.SyncAllFinance)
 	})
 
+	js.RegisterTask("stock.sync_macro", "同步宏观经济数据(存款/贷款利率/准备金率/货币供应量)", json.RawMessage(`{}`), func(_ *model.JobDefinition, _ json.RawMessage) error {
+		return sync.RunExclusive("宏观经济数据(定时)", func() error { return sync.SyncMacroData(false) })
+	})
+
 	js.RegisterTask("stock.sync_clickhouse", "同步行情/财务到ClickHouse(增量)", json.RawMessage(`{"full": false}`), func(_ *model.JobDefinition, params json.RawMessage) error {
 		full := false
 		if len(params) > 0 {
@@ -423,4 +427,65 @@ func (h *StockHandler) HandleSyncAllFinance(c *gin.Context) {
 // HandleSyncStatus 获取同步任务状态
 func (h *StockHandler) HandleSyncStatus(c *gin.Context) {
 	SendSuccess(c, h.syncService.GetStatus())
+}
+
+// HandleGetMacroReserveRatios 存款准备金率历史
+func (h *StockHandler) HandleGetMacroReserveRatios(c *gin.Context) {
+	result, err := h.svc.GetReserveRatios()
+	if err != nil {
+		SendError(c, "500", "获取存款准备金率失败: "+err.Error())
+		return
+	}
+	SendSuccess(c, result)
+}
+
+// HandleGetMacroMoneySupplyMonth 货币供应量月度历史
+func (h *StockHandler) HandleGetMacroMoneySupplyMonth(c *gin.Context) {
+	result, err := h.svc.GetMoneySupplyMonth()
+	if err != nil {
+		SendError(c, "500", "获取货币供应量(月度)失败: "+err.Error())
+		return
+	}
+	SendSuccess(c, result)
+}
+
+// HandleGetMacroMoneySupplyYear 货币供应量年度历史(年底余额)
+func (h *StockHandler) HandleGetMacroMoneySupplyYear(c *gin.Context) {
+	result, err := h.svc.GetMoneySupplyYear()
+	if err != nil {
+		SendError(c, "500", "获取货币供应量(年度)失败: "+err.Error())
+		return
+	}
+	SendSuccess(c, result)
+}
+
+// HandleGetMacroDepositRates 存款利率历史
+func (h *StockHandler) HandleGetMacroDepositRates(c *gin.Context) {
+	result, err := h.svc.GetDepositRates()
+	if err != nil {
+		SendError(c, "500", "获取存款利率失败: "+err.Error())
+		return
+	}
+	SendSuccess(c, result)
+}
+
+// HandleGetMacroLoanRates 贷款利率历史
+func (h *StockHandler) HandleGetMacroLoanRates(c *gin.Context) {
+	result, err := h.svc.GetLoanRates()
+	if err != nil {
+		SendError(c, "500", "获取贷款利率失败: "+err.Error())
+		return
+	}
+	SendSuccess(c, result)
+}
+
+// HandleSyncMacro 同步宏观经济数据(存款准备金率/货币供应量)
+func (h *StockHandler) HandleSyncMacro(c *gin.Context) {
+	if !h.syncService.StartTask("宏观经济数据", func() error {
+		return h.syncService.SyncMacroData(false)
+	}) {
+		SendError(c, "409", "已有同步任务在运行中，请稍后再试")
+		return
+	}
+	SendSuccess(c, true)
 }

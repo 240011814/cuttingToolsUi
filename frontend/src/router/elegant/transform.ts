@@ -197,6 +197,7 @@ const routeMap: RouteMap = {
   "system_user": "/system/user",
   "tool": "/tool",
   "tool_calendar": "/tool/calendar",
+  "tool_macro": "/tool/macro",
   "tool_stockdetail": "/tool/stockdetail",
   "tool_stockscreen": "/tool/stockscreen",
   "tool_watchlist": "/tool/watchlist",

@@ -309,6 +309,14 @@ func main() {
 			stockGroup.GET("/:code/finance-history", stockHandler.HandleGetFinanceHistory)
 			stockGroup.GET("/:code/sync-state", stockHandler.HandleGetSyncState)
 
+			// 宏观经济数据
+			stockGroup.GET("/macro/deposit-rate", api.RequirePermission("stock:macro:view"), stockHandler.HandleGetMacroDepositRates)
+			stockGroup.GET("/macro/loan-rate", api.RequirePermission("stock:macro:view"), stockHandler.HandleGetMacroLoanRates)
+			stockGroup.GET("/macro/reserve-ratio", api.RequirePermission("stock:macro:view"), stockHandler.HandleGetMacroReserveRatios)
+			stockGroup.GET("/macro/money-supply-month", api.RequirePermission("stock:macro:view"), stockHandler.HandleGetMacroMoneySupplyMonth)
+			stockGroup.GET("/macro/money-supply-year", api.RequirePermission("stock:macro:view"), stockHandler.HandleGetMacroMoneySupplyYear)
+			stockGroup.POST("/macro/sync", api.RequirePermission("stock:sync:execute"), stockHandler.HandleSyncMacro)
+
 			// 筛选条件管理
 			stockGroup.POST("/filters", api.RequirePermission("stock:screen:save"), stockHandler.HandleSaveFilterCondition)
 			stockGroup.GET("/filters", stockHandler.HandleListFilterConditions)

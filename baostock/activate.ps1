@@ -7,8 +7,6 @@ if (-not (Test-Path $venvPath)) {
     python -m venv $venvPath
 }
 
-& "$venvPath\Scripts\Activate.ps1"
-
 Write-Host "Installing dependencies..." -ForegroundColor Cyan
 pip install -r (Join-Path $PSScriptRoot "requirements.txt") -i https://pypi.org/simple
 
