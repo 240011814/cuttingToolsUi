@@ -43,6 +43,13 @@ from baostock_api import (
     query_trade_dates_endpoint,
     usage_endpoint,
     query_zz500_stocks_endpoint,
+    query_lhb_detail_endpoint,
+    query_fund_flow_endpoint,
+    query_north_flow_endpoint,
+    query_gdp_endpoint,
+    query_cpi_endpoint,
+    query_pmi_endpoint,
+    query_ppi_endpoint,
 )
 from baostock_api.shared import (
     DAILY_LIMIT,
@@ -92,6 +99,13 @@ QUERY_ENDPOINTS: dict[str, Any] = {
     "/query_sz50_stocks": query_sz50_stocks_endpoint,
     "/query_trade_dates": query_trade_dates_endpoint,
     "/query_zz500_stocks": query_zz500_stocks_endpoint,
+    "/query_lhb_detail": query_lhb_detail_endpoint,
+    "/query_fund_flow": query_fund_flow_endpoint,
+    "/query_north_flow": query_north_flow_endpoint,
+    "/query_gdp": query_gdp_endpoint,
+    "/query_cpi": query_cpi_endpoint,
+    "/query_pmi": query_pmi_endpoint,
+    "/query_ppi": query_ppi_endpoint,
 }
 
 

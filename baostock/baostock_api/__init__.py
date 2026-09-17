@@ -30,3 +30,14 @@ def _load_version() -> str:
 
 
 __version__ = _load_version()
+
+# 新增端点
+from . import (
+    query_lhb_detail_endpoint,
+    query_fund_flow_endpoint,
+    query_north_flow_endpoint,
+    query_gdp_endpoint,
+    query_cpi_endpoint,
+    query_pmi_endpoint,
+    query_ppi_endpoint,
+)
