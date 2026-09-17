@@ -136,7 +136,6 @@ onUnmounted(() => {
     <div class="flex items-center justify-between">
       <div>
         <h2 class="text-lg font-bold">宏观经济数据</h2>
-        <span class="text-sm text-gray-500">数据来源: baostock, 余额单位亿元, 比率为百分比</span>
       </div>
       <div class="flex items-center gap-3">
         <span v-if="syncRunning" class="text-sm text-blue-500">同步中...</span>
