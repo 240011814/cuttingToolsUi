@@ -1709,7 +1709,7 @@ func (s *StockSyncService) httpGetWithDelay(url string) ([]byte, error) {
 	if err != nil {
 		log.Printf("[StockSync] 请求失败: %s, 错误: %v", url, err)
 	} else {
-		time.Sleep(80 * time.Millisecond)
+		time.Sleep(5 * time.Millisecond)
 	}
 	return data, err
 }
