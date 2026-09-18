@@ -36,7 +36,7 @@ func (s *StockService) Screen(req model.StockScreenRequest) (*model.StockScreenR
 			     WHEN si.float_market_cap > 0 THEN ROUND(si.float_market_cap / 100000000, 2)
 			     ELSE NULL END AS float_market_cap,
 			CASE WHEN sf.eps != 0 THEN ROUND(sd.close / sf.eps, 2) ELSE NULL END AS pe_ttm,
-			CASE WHEN sf.bps != 0 THEN ROUND(sd.close / sf.bps, 2) ELSE NULL END AS pb,
+			sd.pb_mrq AS pb,
 			sf.roe, sf.revenue_yoy, sf.net_profit_yoy,
 			sf.gross_margin, sf.net_margin, sf.debt_ratio, sf.current_ratio, sf.quick_ratio`).
 		Joins(`LEFT JOIN stock_daily AS sd ON sd.code = si.code AND sd.frequency = 'daily' AND sd.trade_date = (
@@ -360,7 +360,7 @@ func (s *StockService) GetDetail(code string) (*model.StockScreenResult, error) 
 			     WHEN si.float_market_cap > 0 THEN ROUND(si.float_market_cap / 100000000, 2)
 			     ELSE NULL END AS float_market_cap,
 			CASE WHEN sf.eps != 0 THEN ROUND(sd.close / sf.eps, 2) ELSE NULL END AS pe_ttm,
-			CASE WHEN sf.bps != 0 THEN ROUND(sd.close / sf.bps, 2) ELSE NULL END AS pb,
+			sd.pb_mrq AS pb,
 			sf.roe, sf.revenue_yoy, sf.net_profit_yoy,
 			sf.gross_margin, sf.net_margin, sf.debt_ratio, sf.current_ratio, sf.quick_ratio,
 			sf.cash_ratio, sf.nr_turn_ratio, sf.inv_turn_ratio, sf.yoy_equity, sf.yoy_asset, sf.cfo_to_or`).
@@ -644,7 +644,7 @@ func (s *StockService) ListWatchlist(userID uint) ([]model.StockWatchlistItem, e
 			     WHEN si.float_market_cap > 0 THEN ROUND(si.float_market_cap / 100000000, 2)
 			     ELSE NULL END AS float_market_cap,
 			CASE WHEN sf.eps != 0 THEN ROUND(sd.close / sf.eps, 2) ELSE NULL END AS pe_ttm,
-			CASE WHEN sf.bps != 0 THEN ROUND(sd.close / sf.bps, 2) ELSE NULL END AS pb,
+			sd.pb_mrq AS pb,
 			sf.roe, sf.revenue_yoy, sf.net_profit_yoy, sf.gross_margin, sf.net_margin,
 			sf.debt_ratio, sf.current_ratio, sf.quick_ratio`).
 		Joins(`LEFT JOIN stock_info AS si ON si.code = w.code`).
