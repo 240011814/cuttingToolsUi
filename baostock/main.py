@@ -108,6 +108,12 @@ QUERY_ENDPOINTS: dict[str, Any] = {
     "/query_ppi": query_ppi_endpoint,
 }
 
+# akshare 接口无串行限制和次数限额，单独列出，不走 usage_counter
+AKSHARE_ENDPOINTS: set[str] = {
+    "/query_gdp", "/query_cpi", "/query_pmi", "/query_ppi", "/query_lpr",
+    "/query_lhb_detail", "/query_fund_flow", "/query_north_flow",
+}
+
 
 @app.get("/health")
 def health() -> JSONResponse:
@@ -162,20 +168,22 @@ def _execute_with_retry(endpoint: Any, query: dict[str, list[str]]) -> Any:
         time.sleep(backoff)
 
 
-def _handle_query(request: Request, endpoint: Any) -> JSONResponse:
+def _handle_query(request: Request, endpoint: Any, path: str) -> JSONResponse:
     query = parse_qs(request.url.query)
 
-    try:
-        usage = usage_counter.consume()
-    except DailyLimitExceeded:
-        return JSONResponse(
-            status_code=HTTPStatus.TOO_MANY_REQUESTS,
-            content=make_error_payload(
-                f"daily limit exceeded: {DAILY_LIMIT}",
-                "daily_limit_exceeded",
-                usage_counter.get_stats(),
-            ),
-        )
+    usage = usage_counter.get_stats()
+    if path not in AKSHARE_ENDPOINTS:
+        try:
+            usage = usage_counter.consume()
+        except DailyLimitExceeded:
+            return JSONResponse(
+                status_code=HTTPStatus.TOO_MANY_REQUESTS,
+                content=make_error_payload(
+                    f"daily limit exceeded: {DAILY_LIMIT}",
+                    "daily_limit_exceeded",
+                    usage_counter.get_stats(),
+                ),
+            )
 
     started = time.monotonic()
     try:
@@ -212,15 +220,15 @@ def _handle_query(request: Request, endpoint: Any) -> JSONResponse:
     )
 
 
-def _make_query_handler(endpoint: Any):
+def _make_query_handler(endpoint: Any, path: str):
     def handler(request: Request) -> JSONResponse:
-        return _handle_query(request, endpoint)
+        return _handle_query(request, endpoint, path)
 
     return handler
 
 
 for _path, _endpoint in QUERY_ENDPOINTS.items():
-    app.add_api_route(_path, _make_query_handler(_endpoint), methods=["GET"], name=_path.lstrip("/"))
+    app.add_api_route(_path, _make_query_handler(_endpoint, _path), methods=["GET"], name=_path.lstrip("/"))
 
 
 @app.exception_handler(StarletteHTTPException)
