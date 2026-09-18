@@ -136,23 +136,30 @@ def _execute_with_retry(endpoint: Any, query: dict[str, list[str]]) -> Any:
         except ValueError:
             # 本地参数错误是确定性问题, 重试无意义
             raise
-        except BaostockQueryError:
-            # 服务端返回的确定性错误(参数错误/限额等), 连接本身正常, 重连重试也无效
-            raise
+        except BaostockQueryError as error:
+            if "未登录" not in str(error):
+                # 其他确定性错误(参数错误/限额等), 连接本身正常, 重连重试也无效
+                raise
+            # session 过期导致的"用户未登录", 需要 force_disconnect + 重新登录
+            err = error
         except Exception as error:
             # 其余视为瞬时错误(连接重置/登录失败等), 断开重连后重试
-            force_disconnect()
-            if attempt >= MAX_QUERY_ATTEMPTS:
-                raise
-            backoff = RETRY_BACKOFF_SECONDS[min(attempt - 1, len(RETRY_BACKOFF_SECONDS) - 1)]
-            logging.warning(
-                "query attempt %d/%d failed, force reconnect and retry in %.1fs: %s",
-                attempt,
-                MAX_QUERY_ATTEMPTS,
-                backoff,
-                error,
-            )
-            time.sleep(backoff)
+            err = error
+        else:
+            continue
+
+        force_disconnect()
+        if attempt >= MAX_QUERY_ATTEMPTS:
+            raise err
+        backoff = RETRY_BACKOFF_SECONDS[min(attempt - 1, len(RETRY_BACKOFF_SECONDS) - 1)]
+        logging.warning(
+            "query attempt %d/%d failed, force reconnect and retry in %.1fs: %s",
+            attempt,
+            MAX_QUERY_ATTEMPTS,
+            backoff,
+            err,
+        )
+        time.sleep(backoff)
 
 
 def _handle_query(request: Request, endpoint: Any) -> JSONResponse:
