@@ -194,6 +194,7 @@ const routeMap: RouteMap = {
   "system_lottery": "/system/lottery",
   "system_model-scenario": "/system/model-scenario",
   "system_permission": "/system/permission",
+  "system_skill": "/system/skill",
   "system_user": "/system/user",
   "tool": "/tool",
   "tool_calendar": "/tool/calendar",

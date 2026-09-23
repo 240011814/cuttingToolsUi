@@ -109,6 +109,9 @@ func main() {
 	modelScenarioService := service.NewModelScenarioService()
 	modelScenarioHandler := api.NewModelScenarioHandler(modelScenarioService)
 
+	skillService := service.NewAISkillService(aiAgentService)
+	skillHandler := api.NewSkillHandler(skillService)
+
 	courseService := service.NewCourseService()
 	courseHandler := api.NewCourseHandler(courseService)
 
@@ -262,6 +265,16 @@ func main() {
 			modelScenarioGroup.POST("", api.RequirePermission("model_scenario:create"), modelScenarioHandler.HandleCreate)
 			modelScenarioGroup.PUT("/:id", api.RequirePermission("model_scenario:update"), modelScenarioHandler.HandleUpdate)
 			modelScenarioGroup.DELETE("/:id", api.RequirePermission("model_scenario:delete"), modelScenarioHandler.HandleDelete)
+		}
+
+		// Skill APIs (Eino Skill Middleware 动态加载)
+		skillGroup := apiGroup.Group("/skills")
+		skillGroup.Use(api.RequirePermission("system:skill:view"))
+		{
+			skillGroup.GET("", skillHandler.HandleList)
+			skillGroup.POST("", api.RequirePermission("system:skill:create"), skillHandler.HandleCreate)
+			skillGroup.PUT("/:id", api.RequirePermission("system:skill:update"), skillHandler.HandleUpdate)
+			skillGroup.DELETE("/:id", api.RequirePermission("system:skill:delete"), skillHandler.HandleDelete)
 		}
 
 		// Course APIs

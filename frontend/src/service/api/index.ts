@@ -17,3 +17,4 @@ export * from './reminder';
 export * from './stock';
 export * from './macro';
 export * from './job';
+export * from './skill';

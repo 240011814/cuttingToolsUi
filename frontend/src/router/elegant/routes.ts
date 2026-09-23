@@ -372,6 +372,18 @@ export const generatedRoutes: GeneratedRoute[] = [
         }
       },
       {
+        name: 'system_skill',
+        path: '/system/skill',
+        component: 'view.system_skill',
+        meta: {
+          title: 'system_skill',
+          i18nKey: 'route.system_skill',
+          icon: 'mdi:puzzle-outline',
+          permissions: ['system:skill:view'],
+          order: 8
+        }
+      },
+      {
         name: 'system_user',
         path: '/system/user',
         component: 'view.system_user',

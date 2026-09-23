@@ -48,6 +48,7 @@ declare module "@elegant-router/types" {
     "system_lottery": "/system/lottery";
     "system_model-scenario": "/system/model-scenario";
     "system_permission": "/system/permission";
+    "system_skill": "/system/skill";
     "system_user": "/system/user";
     "tool": "/tool";
     "tool_calendar": "/tool/calendar";
@@ -145,6 +146,7 @@ declare module "@elegant-router/types" {
     | "system_lottery"
     | "system_model-scenario"
     | "system_permission"
+    | "system_skill"
     | "system_user"
     | "tool_calendar"
     | "tool_macro"

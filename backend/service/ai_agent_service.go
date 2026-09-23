@@ -304,6 +304,17 @@ func (s *AIAgentService) getOrCreateRunner(modelOverride string) (*adk.Runner, e
 		return nil, err
 	}
 
+	handlers := []adk.ChatModelAgentMiddleware{
+		NewLoggingMiddleware(),
+		NewApprovalMiddleware(),
+	}
+	// Eino Skill Middleware: 从数据库动态加载 Skill
+	if skillMW, skillErr := BuildSkillMiddleware(s.ctx, s); skillErr != nil {
+		log.Printf("Failed to build skill middleware: %v", skillErr)
+	} else {
+		handlers = append(handlers, skillMW)
+	}
+
 	agent, err := adk.NewChatModelAgent(s.ctx, &adk.ChatModelAgentConfig{
 		Name:        "default",
 		Description: "AI Assistant",
@@ -314,10 +325,7 @@ func (s *AIAgentService) getOrCreateRunner(modelOverride string) (*adk.Runner, e
 				Tools: s.buildTools(),
 			},
 		},
-		Handlers: []adk.ChatModelAgentMiddleware{
-			NewLoggingMiddleware(),
-			NewApprovalMiddleware(),
-		},
+		Handlers: handlers,
 	})
 	if err != nil {
 		log.Fatal(err)

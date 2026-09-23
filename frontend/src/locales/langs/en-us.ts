@@ -260,6 +260,7 @@ const local: App.I18n.Schema = {
     system_job: "Job Management",
     "system_lottery": "Lottery Management",
     "system_model-scenario": "Models & Scenarios",
+    system_skill: "Skill Management",
     tool: "Tools",
     tool_calendar: "Calendar",
     tool_stockscreen: "Stock Screener",
