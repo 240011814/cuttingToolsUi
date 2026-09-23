@@ -272,6 +272,8 @@ func main() {
 		skillGroup.Use(api.RequirePermission("system:skill:view"))
 		{
 			skillGroup.GET("", skillHandler.HandleList)
+			skillGroup.GET("/discover/github/cache", skillHandler.HandleGetCachedDiscovery)
+			skillGroup.POST("/discover/github", skillHandler.HandleDiscoverGitHub)
 			skillGroup.POST("", api.RequirePermission("system:skill:create"), skillHandler.HandleCreate)
 			skillGroup.PUT("/:id", api.RequirePermission("system:skill:update"), skillHandler.HandleUpdate)
 			skillGroup.DELETE("/:id", api.RequirePermission("system:skill:delete"), skillHandler.HandleDelete)

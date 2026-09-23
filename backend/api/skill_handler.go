@@ -26,6 +26,38 @@ func (h *SkillHandler) HandleList(c *gin.Context) {
 	SendSuccess(c, items)
 }
 
+// DiscoverSkillRequest 从 GitHub 仓库扫描 Skill 的请求
+type DiscoverSkillRequest struct {
+	Repo string `json:"repo" binding:"required"`
+	Ref  string `json:"ref"`
+	Path string `json:"path"`
+}
+
+// HandleDiscoverGitHub 扫描 GitHub 仓库中的 Skill (不落库, 供前端预填新增表单)
+func (h *SkillHandler) HandleDiscoverGitHub(c *gin.Context) {
+	var req DiscoverSkillRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		SendError(c, "400", "请求参数错误: "+err.Error())
+		return
+	}
+	result, err := h.svc.DiscoverFromGitHub(c.Request.Context(), req.Repo, req.Ref, req.Path)
+	if err != nil {
+		SendError(c, "500", err.Error())
+		return
+	}
+	SendSuccess(c, result)
+}
+
+// HandleGetCachedDiscovery 读取某仓库上次扫描成功的内存缓存 (不触发扫描)
+func (h *SkillHandler) HandleGetCachedDiscovery(c *gin.Context) {
+	repo := c.Query("repo")
+	if repo == "" {
+		SendSuccess(c, nil)
+		return
+	}
+	SendSuccess(c, h.svc.GetCachedDiscovery(repo, c.Query("ref"), c.Query("path")))
+}
+
 // HandleCreate 创建 Skill
 func (h *SkillHandler) HandleCreate(c *gin.Context) {
 	var req model.CreateAISkillRequest

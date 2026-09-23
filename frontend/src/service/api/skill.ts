@@ -23,8 +23,37 @@ export interface AISkillCreateRequest {
   enabled: boolean;
 }
 
+export interface DiscoveredSkill {
+  name: string;
+  description: string;
+  context: string;
+  agent: string;
+  model: string;
+  content: string;
+  path: string;
+  repo_url: string;
+}
+
 export function fetchSkills() {
   return request<AISkillItem[]>({ url: '/api/skills' });
+}
+
+export interface SkillDiscoverResult {
+  repo: string;
+  total: number;
+  cached: boolean;
+  warning?: string;
+  skills: DiscoveredSkill[];
+}
+
+export function fetchDiscoverGithubSkills(data: { repo: string; ref?: string; path?: string }) {
+  // 扫描仓库需逐个拉取 SKILL.md, 覆盖默认 10s 超时(大仓库较慢)
+  return request<SkillDiscoverResult>({ url: '/api/skills/discover/github', method: 'post', data, timeout: 600 * 1000 });
+}
+
+// 读取上次扫描成功的内存缓存 (不触发扫描)
+export function fetchGithubSkillsCache(params: { repo: string; ref?: string; path?: string }) {
+  return request<SkillDiscoverResult | null>({ url: '/api/skills/discover/github/cache', params });
 }
 
 export function fetchCreateSkill(data: AISkillCreateRequest) {
