@@ -10,8 +10,9 @@ import (
 	"backend/model"
 
 	"github.com/cloudwego/eino/adk"
-	"github.com/cloudwego/eino/compose"
+	"github.com/cloudwego/eino/adk/middlewares/patchtoolcalls"
 	"github.com/cloudwego/eino/components/tool"
+	"github.com/cloudwego/eino/compose"
 	"github.com/cloudwego/eino/schema"
 )
 
@@ -180,4 +181,10 @@ func (m *loggingMiddleware) AfterModelRewriteState(ctx context.Context, state *a
 
 func NewLoggingMiddleware() adk.ChatModelAgentMiddleware {
 	return &loggingMiddleware{}
+}
+
+// BuildPatchToolCallsMiddleware 修补会话历史中「悬空的工具调用」
+// (assistant 消息有 tool_calls 但缺少对应的 tool result), 保证发往模型的输入合法
+func BuildPatchToolCallsMiddleware(ctx context.Context) (adk.ChatModelAgentMiddleware, error) {
+	return patchtoolcalls.New(ctx, nil)
 }

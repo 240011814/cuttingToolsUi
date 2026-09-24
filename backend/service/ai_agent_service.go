@@ -18,15 +18,15 @@ import (
 )
 
 type AIAgentService struct {
-	ctx            context.Context
-	activeProvider *model.AIProvider
-	activeModel    *model.AIModel
-	enabledModels  []model.AIModel
-	timeout        time.Duration
-	timeoutConfig  TimeoutConfig
-	runnerCache    map[string]*adk.Runner
-	promptCache    map[string]string
-	sysCfgService  *SystemConfigService
+	ctx             context.Context
+	activeProvider  *model.AIProvider
+	activeModel     *model.AIModel
+	enabledModels   []model.AIModel
+	timeout         time.Duration
+	timeoutConfig   TimeoutConfig
+	runnerCache     map[string]*adk.Runner
+	promptCache     map[string]string
+	sysCfgService   *SystemConfigService
 	checkpointStore compose.CheckPointStore
 }
 
@@ -35,11 +35,11 @@ func NewAIAgentService(timeoutMinutes int, sysCfgService *SystemConfigService) (
 		timeoutMinutes = 5
 	}
 	s := &AIAgentService{
-		ctx:            context.Background(),
-		timeout:        time.Duration(timeoutMinutes) * time.Minute,
-		runnerCache:    make(map[string]*adk.Runner),
-		promptCache:    make(map[string]string),
-		sysCfgService:  sysCfgService,
+		ctx:             context.Background(),
+		timeout:         time.Duration(timeoutMinutes) * time.Minute,
+		runnerCache:     make(map[string]*adk.Runner),
+		promptCache:     make(map[string]string),
+		sysCfgService:   sysCfgService,
 		checkpointStore: NewInMemoryCheckPointStore(),
 	}
 	// 从数据库读取超时配置
@@ -168,7 +168,6 @@ func (s *AIAgentService) clearRunnerCache(userID uint, agentID uint) {
 func (s *AIAgentService) ClearRunnerCache() {
 	s.runnerCache = make(map[string]*adk.Runner)
 }
-
 
 func (s *AIAgentService) ReloadConfig() error {
 
@@ -314,6 +313,12 @@ func (s *AIAgentService) getOrCreateRunner(modelOverride string) (*adk.Runner, e
 	} else {
 		handlers = append(handlers, skillMW)
 	}
+	// 修补悬空 tool call(有 tool_calls 但缺 tool result 的历史)
+	if patchMW, patchErr := BuildPatchToolCallsMiddleware(s.ctx); patchErr != nil {
+		log.Printf("Failed to build patchtoolcalls middleware: %v", patchErr)
+	} else {
+		handlers = append(handlers, patchMW)
+	}
 
 	agent, err := adk.NewChatModelAgent(s.ctx, &adk.ChatModelAgentConfig{
 		Name:        "default",
@@ -333,8 +338,8 @@ func (s *AIAgentService) getOrCreateRunner(modelOverride string) (*adk.Runner, e
 
 	runner := adk.NewRunner(s.ctx, adk.RunnerConfig{
 		Agent:           agent,
-		EnableStreaming:  true,
-		CheckPointStore:  s.checkpointStore,
+		EnableStreaming: true,
+		CheckPointStore: s.checkpointStore,
 	})
 	s.runnerCache[cacheKey] = runner
 	return runner, nil
@@ -368,40 +373,38 @@ func (s *AIAgentService) getModel(modelOverride string) (*ark.ChatModel, error) 
 	if modelOverride != "" {
 		modelCode = modelOverride
 	}
-	chatConfig :=&ark.ChatModelConfig{
-		Model:  modelCode,
-		APIKey: s.activeProvider.APIKey,
-		BaseURL: s.activeProvider.BaseURL, 
+	chatConfig := &ark.ChatModelConfig{
+		Model:   modelCode,
+		APIKey:  s.activeProvider.APIKey,
+		BaseURL: s.activeProvider.BaseURL,
 	}
-		var configMap map[string]interface{}
-		if err := json.Unmarshal([]byte(s.activeModel.ConfigJSON), &configMap); err == nil {
-			if t, ok := configMap["temperature"].(float64); ok {
-				 temperature := float32(t)
-				 chatConfig.Temperature = &temperature
-			}
-			if topP, ok := configMap["top_p"].(float64); ok {
-				topP := float32(topP)
-				chatConfig.TopP = &topP
-			}
-			if maxTokens, ok := configMap["max_tokens"].(float64); ok {
-				maxTokens := int(maxTokens)
-				chatConfig.MaxTokens = &maxTokens
-			}
-			if frequencyPenalty, ok := configMap["frequency_penalty"].(float64); ok {
-				frequencyPenalty := float32(frequencyPenalty)
-				chatConfig.FrequencyPenalty = &frequencyPenalty
-			}
-			if presencePenalty, ok := configMap["presence_penalty"].(float64); ok {
-				presencePenalty := float32(presencePenalty)
-				chatConfig.PresencePenalty = &presencePenalty
-			}
-		} else {
-			log.Printf("AI model config_json parse failed model=%s config_json=%s err=%v", s.activeModel.ModelCode, s.activeModel.ConfigJSON, err)
+	var configMap map[string]interface{}
+	if err := json.Unmarshal([]byte(s.activeModel.ConfigJSON), &configMap); err == nil {
+		if t, ok := configMap["temperature"].(float64); ok {
+			temperature := float32(t)
+			chatConfig.Temperature = &temperature
 		}
+		if topP, ok := configMap["top_p"].(float64); ok {
+			topP := float32(topP)
+			chatConfig.TopP = &topP
+		}
+		if maxTokens, ok := configMap["max_tokens"].(float64); ok {
+			maxTokens := int(maxTokens)
+			chatConfig.MaxTokens = &maxTokens
+		}
+		if frequencyPenalty, ok := configMap["frequency_penalty"].(float64); ok {
+			frequencyPenalty := float32(frequencyPenalty)
+			chatConfig.FrequencyPenalty = &frequencyPenalty
+		}
+		if presencePenalty, ok := configMap["presence_penalty"].(float64); ok {
+			presencePenalty := float32(presencePenalty)
+			chatConfig.PresencePenalty = &presencePenalty
+		}
+	} else {
+		log.Printf("AI model config_json parse failed model=%s config_json=%s err=%v", s.activeModel.ModelCode, s.activeModel.ConfigJSON, err)
+	}
 	return ark.NewChatModel(s.ctx, chatConfig)
 }
-
-
 
 func (s *AIAgentService) ChatStream(userID uint, agentID uint, historyID uint, messages []*schema.Message, modelOverride string) (*adk.AsyncIterator[*adk.AgentEvent], error) {
 	runner, err := s.getOrCreateRunner(modelOverride)
