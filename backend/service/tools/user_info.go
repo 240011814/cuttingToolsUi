@@ -17,37 +17,58 @@ var userMemorySvc interfaces.UserMemoryService
 // SetUserMemoryService 注册用户画像/经历服务实例供工具使用
 func SetUserMemoryService(svc interfaces.UserMemoryService) { userMemorySvc = svc }
 
-type userInfoTool struct{}
+const (
+	userInfoQueryDesc = "查询用户画像与个人经历。get_profile 获取用户画像; search_experience 分页搜索用户过去的经历(返回 total/page/page_size/items)。当需要了解用户是什么样的人、有什么目标/偏好，或回顾用户过往经历时使用。"
+	userInfoEditDesc  = "更新用户画像与个人经历。add_experience 记录一段用户经历; update_profile 更新用户画像事实。当用户希望你记住某段经历、或根据对话更新对用户的认识时使用。"
+)
 
-type userInfoRequest struct {
-	Action   string   `json:"action" jsonschema:"description=操作类型: get_profile 获取画像, search_experience 搜索经历, add_experience 记录经历, update_profile 更新画像"`
-	Query    string   `json:"query,omitempty" jsonschema:"description=搜索关键词（search_experience 时使用）"`
-	Page     int      `json:"page,omitempty" jsonschema:"description=页码（search_experience 时使用, 默认1）"`
-	PageSize int      `json:"page_size,omitempty" jsonschema:"description=每页数量（search_experience 时使用, 默认10, 最大50）"`
-	Category string   `json:"category,omitempty" jsonschema:"description=经历分类: work/project/study/achievement/challenge/other"`
-	Title    string   `json:"title,omitempty" jsonschema:"description=经历标题（add_experience 时必填）"`
-	Content  string   `json:"content,omitempty" jsonschema:"description=经历内容（add_experience 时使用）"`
-	Tags     []string `json:"tags,omitempty" jsonschema:"description=经历标签"`
-	Facts    []string `json:"facts,omitempty" jsonschema:"description=要合并进画像的新事实（update_profile 时必填）"`
-}
+type UserInfoQueryConfig struct{}
 
-const userInfoDesc = "管理用户的画像与个人经历。get_profile 获取用户画像; search_experience 分页搜索用户过去的经历(返回 total/page/page_size/items); add_experience 记录一段用户经历; update_profile 更新用户画像事实。当需要了解用户是什么样的人、有什么目标/偏好，或用户提到过往经历、让你记住某件事时使用。"
+type UserInfoEditConfig struct{}
 
 func init() {
-	Register("user_info", "用户画像与经历", userInfoDesc, nil,
+	Register("user_info_query", "用户画像查询", userInfoQueryDesc, UserInfoQueryConfig{},
 		func(config map[string]any) (tool.BaseTool, error) {
-			return &userInfoTool{}, nil
+			return &userInfoQueryTool{}, nil
+		})
+	Register("user_info_edit", "用户画像编辑", userInfoEditDesc, UserInfoEditConfig{},
+		func(config map[string]any) (tool.BaseTool, error) {
+			return &userInfoEditTool{}, nil
 		})
 }
 
-func (t *userInfoTool) Info(_ context.Context) (*schema.ToolInfo, error) {
+func userIDFromSession(ctx context.Context) (uint, error) {
+	sessionValues := adk.GetSessionValues(ctx)
+	userIDVal, ok := sessionValues["user_id"]
+	if !ok {
+		return 0, fmt.Errorf("无法获取用户 ID")
+	}
+	userID, ok := userIDVal.(uint)
+	if !ok {
+		return 0, fmt.Errorf("用户 ID 类型错误")
+	}
+	return userID, nil
+}
+
+// ============ 查询工具 ============
+
+type userInfoQueryTool struct{}
+
+type userInfoQueryRequest struct {
+	Action   string `json:"action" jsonschema:"description=操作类型: get_profile 获取画像, search_experience 搜索经历"`
+	Query    string `json:"query,omitempty" jsonschema:"description=搜索关键词（search_experience 时使用）"`
+	Page     int    `json:"page,omitempty" jsonschema:"description=页码（search_experience 时使用, 默认1）"`
+	PageSize int    `json:"page_size,omitempty" jsonschema:"description=每页数量（search_experience 时使用, 默认10, 最大50）"`
+}
+
+func (t *userInfoQueryTool) Info(_ context.Context) (*schema.ToolInfo, error) {
 	return &schema.ToolInfo{
-		Name: "user_info",
-		Desc: userInfoDesc,
+		Name: "user_info_query",
+		Desc: userInfoQueryDesc,
 		ParamsOneOf: schema.NewParamsOneOfByParams(map[string]*schema.ParameterInfo{
 			"action": {
 				Type:     schema.String,
-				Desc:     "操作类型: get_profile 获取画像, search_experience 搜索经历, add_experience 记录经历, update_profile 更新画像",
+				Desc:     "操作类型: get_profile 获取画像, search_experience 搜索经历",
 				Required: true,
 			},
 			"query": {
@@ -62,47 +83,21 @@ func (t *userInfoTool) Info(_ context.Context) (*schema.ToolInfo, error) {
 				Type: schema.Integer,
 				Desc: "每页数量（search_experience 时使用, 默认10, 最大50）",
 			},
-			"category": {
-				Type: schema.String,
-				Desc: "经历分类: work/project/study/achievement/challenge/other",
-			},
-			"title": {
-				Type: schema.String,
-				Desc: "经历标题（add_experience 时必填）",
-			},
-			"content": {
-				Type: schema.String,
-				Desc: "经历内容（add_experience 时使用）",
-			},
-			"tags": {
-				Type: schema.Array,
-				Desc: "经历标签",
-			},
-			"facts": {
-				Type: schema.Array,
-				Desc: "要合并进画像的新事实（update_profile 时必填）",
-			},
 		}),
 	}, nil
 }
 
-func (t *userInfoTool) InvokableRun(ctx context.Context, arguments string, _ ...tool.Option) (string, error) {
-	var req userInfoRequest
+func (t *userInfoQueryTool) InvokableRun(ctx context.Context, arguments string, _ ...tool.Option) (string, error) {
+	var req userInfoQueryRequest
 	if err := json.Unmarshal([]byte(arguments), &req); err != nil {
 		return "", fmt.Errorf("解析参数失败: %w", err)
 	}
 	if userMemorySvc == nil {
 		return "", fmt.Errorf("用户画像服务未初始化")
 	}
-
-	sessionValues := adk.GetSessionValues(ctx)
-	userIDVal, ok := sessionValues["user_id"]
-	if !ok {
-		return "", fmt.Errorf("无法获取用户 ID")
-	}
-	userID, ok := userIDVal.(uint)
-	if !ok {
-		return "", fmt.Errorf("用户 ID 类型错误")
+	userID, err := userIDFromSession(ctx)
+	if err != nil {
+		return "", err
 	}
 
 	switch req.Action {
@@ -137,6 +132,72 @@ func (t *userInfoTool) InvokableRun(ctx context.Context, arguments string, _ ...
 		})
 		return string(result), nil
 
+	default:
+		return "", fmt.Errorf("不支持的操作: %s，支持的操作: get_profile, search_experience", req.Action)
+	}
+}
+
+// ============ 编辑工具 ============
+
+type userInfoEditTool struct{}
+
+type userInfoEditRequest struct {
+	Action   string   `json:"action" jsonschema:"description=操作类型: add_experience 记录经历, update_profile 更新画像"`
+	Category string   `json:"category,omitempty" jsonschema:"description=经历分类: work/project/study/achievement/challenge/other"`
+	Title    string   `json:"title,omitempty" jsonschema:"description=经历标题（add_experience 时必填）"`
+	Content  string   `json:"content,omitempty" jsonschema:"description=经历内容（add_experience 时使用）"`
+	Tags     []string `json:"tags,omitempty" jsonschema:"description=经历标签"`
+	Facts    []string `json:"facts,omitempty" jsonschema:"description=要合并进画像的新事实（update_profile 时必填）"`
+}
+
+func (t *userInfoEditTool) Info(_ context.Context) (*schema.ToolInfo, error) {
+	return &schema.ToolInfo{
+		Name: "user_info_edit",
+		Desc: userInfoEditDesc,
+		ParamsOneOf: schema.NewParamsOneOfByParams(map[string]*schema.ParameterInfo{
+			"action": {
+				Type:     schema.String,
+				Desc:     "操作类型: add_experience 记录经历, update_profile 更新画像",
+				Required: true,
+			},
+			"category": {
+				Type: schema.String,
+				Desc: "经历分类: work/project/study/achievement/challenge/other",
+			},
+			"title": {
+				Type: schema.String,
+				Desc: "经历标题（add_experience 时必填）",
+			},
+			"content": {
+				Type: schema.String,
+				Desc: "经历内容（add_experience 时使用）",
+			},
+			"tags": {
+				Type: schema.Array,
+				Desc: "经历标签",
+			},
+			"facts": {
+				Type: schema.Array,
+				Desc: "要合并进画像的新事实（update_profile 时必填）",
+			},
+		}),
+	}, nil
+}
+
+func (t *userInfoEditTool) InvokableRun(ctx context.Context, arguments string, _ ...tool.Option) (string, error) {
+	var req userInfoEditRequest
+	if err := json.Unmarshal([]byte(arguments), &req); err != nil {
+		return "", fmt.Errorf("解析参数失败: %w", err)
+	}
+	if userMemorySvc == nil {
+		return "", fmt.Errorf("用户画像服务未初始化")
+	}
+	userID, err := userIDFromSession(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	switch req.Action {
 	case "add_experience":
 		if req.Title == "" {
 			return "", fmt.Errorf("经历标题不能为空")
@@ -163,9 +224,11 @@ func (t *userInfoTool) InvokableRun(ctx context.Context, arguments string, _ ...
 		return "用户画像已更新", nil
 
 	default:
-		return "", fmt.Errorf("不支持的操作: %s，支持的操作: get_profile, search_experience, add_experience, update_profile", req.Action)
+		return "", fmt.Errorf("不支持的操作: %s，支持的操作: add_experience, update_profile", req.Action)
 	}
 }
+
+// ============ 辅助 ============
 
 type experienceView struct {
 	ID         uint        `json:"id"`
