@@ -163,6 +163,7 @@ func HandleChatStream(agentService *service.AIAgentService, historyService *serv
 							fullAssistantReply += msg.Content
 							c.SSEvent("message", gin.H{"content": msg.Content})
 						}
+						emitUsage(c, msg)
 					}
 				} else if mv.Message != nil {
 					msg := mv.Message
@@ -174,12 +175,31 @@ func HandleChatStream(agentService *service.AIAgentService, historyService *serv
 						fullAssistantReply += msg.Content
 						c.SSEvent("message", gin.H{"content": msg.Content})
 					}
+					emitUsage(c, msg)
 				}
 			}
 
 			return true
 		})
 	}
+}
+
+// emitUsage 将模型返回的 token 用量以 SSE 下发给前端
+func emitUsage(c *gin.Context, msg *schema.Message) {
+	if msg == nil || msg.ResponseMeta == nil || msg.ResponseMeta.Usage == nil {
+		return
+	}
+	usage := msg.ResponseMeta.Usage
+	if usage.TotalTokens <= 0 {
+		return
+	}
+	c.SSEvent("message", gin.H{
+		"usage": gin.H{
+			"prompt_tokens":     usage.PromptTokens,
+			"completion_tokens": usage.CompletionTokens,
+			"total_tokens":      usage.TotalTokens,
+		},
+	})
 }
 
 // HandleListModels 返回所有已启用的模型列表

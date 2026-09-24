@@ -165,7 +165,7 @@ func (m *loggingMiddleware) BeforeModelRewriteState(ctx context.Context, state *
 func (m *loggingMiddleware) AfterModelRewriteState(ctx context.Context, state *adk.TypedChatModelAgentState[*schema.Message], _ *adk.TypedModelContext[*schema.Message]) (context.Context, *adk.TypedChatModelAgentState[*schema.Message], error) {
 	for _, msg := range state.Messages {
 		if msg.Role == schema.Assistant {
-			if msg.ResponseMeta != nil && msg.ResponseMeta.Usage.TotalTokens > 0 {
+			if msg.ResponseMeta != nil && msg.ResponseMeta.Usage != nil && msg.ResponseMeta.Usage.TotalTokens > 0 {
 				log.Printf("[eino] chat model end: prompt_tokens=%d completion_tokens=%d total_tokens=%d",
 					msg.ResponseMeta.Usage.PromptTokens,
 					msg.ResponseMeta.Usage.CompletionTokens,
