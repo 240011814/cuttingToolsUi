@@ -475,16 +475,6 @@ export const generatedRoutes: GeneratedRoute[] = [
     },
     children: [
       {
-        name: 'user_profile',
-        path: '/user/profile',
-        component: 'view.user_profile',
-        meta: {
-          title: 'user_profile',
-          i18nKey: 'route.user_profile',
-          icon: 'mdi:account-circle-outline'
-        }
-      },
-      {
         name: 'user_portrait',
         path: '/user/portrait',
         component: 'view.user_portrait',
@@ -492,6 +482,16 @@ export const generatedRoutes: GeneratedRoute[] = [
           title: 'user_portrait',
           i18nKey: 'route.user_portrait',
           icon: 'mdi:account-details-outline'
+        }
+      },
+      {
+        name: 'user_profile',
+        path: '/user/profile',
+        component: 'view.user_profile',
+        meta: {
+          title: 'user_profile',
+          i18nKey: 'route.user_profile',
+          icon: 'mdi:account-circle-outline'
         }
       }
     ]
