@@ -168,20 +168,27 @@ func (s *UserMemoryService) ListExperiences(userID uint, page, pageSize int, cat
 	return total, list, nil
 }
 
-func (s *UserMemoryService) SearchExperiences(userID uint, query string, limit int) ([]model.UserExperience, error) {
-	if limit <= 0 || limit > 50 {
-		limit = 10
+func (s *UserMemoryService) SearchExperiences(userID uint, query string, page, pageSize int) (int64, []model.UserExperience, error) {
+	if page < 1 {
+		page = 1
 	}
-	q := DB.Where("user_id = ? AND status = ?", userID, "active")
+	if pageSize <= 0 || pageSize > 50 {
+		pageSize = 10
+	}
+	q := DB.Model(&model.UserExperience{}).Where("user_id = ? AND status = ?", userID, "active")
 	if query != "" {
 		like := "%" + query + "%"
 		q = q.Where("title LIKE ? OR content LIKE ? OR tags LIKE ?", like, like, like)
 	}
-	var list []model.UserExperience
-	if err := q.Order("occurred_at DESC, id DESC").Limit(limit).Find(&list).Error; err != nil {
-		return nil, err
+	var total int64
+	if err := q.Count(&total).Error; err != nil {
+		return 0, nil, err
 	}
-	return list, nil
+	var list []model.UserExperience
+	if err := q.Order("occurred_at DESC, id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list).Error; err != nil {
+		return 0, nil, err
+	}
+	return total, list, nil
 }
 
 func (s *UserMemoryService) AddExperience(userID uint, exp *model.UserExperience) (*model.UserExperience, error) {

@@ -22,6 +22,8 @@ type userInfoTool struct{}
 type userInfoRequest struct {
 	Action   string   `json:"action" jsonschema:"description=操作类型: get_profile 获取画像, search_experience 搜索经历, add_experience 记录经历, update_profile 更新画像"`
 	Query    string   `json:"query,omitempty" jsonschema:"description=搜索关键词（search_experience 时使用）"`
+	Page     int      `json:"page,omitempty" jsonschema:"description=页码（search_experience 时使用, 默认1）"`
+	PageSize int      `json:"page_size,omitempty" jsonschema:"description=每页数量（search_experience 时使用, 默认10, 最大50）"`
 	Category string   `json:"category,omitempty" jsonschema:"description=经历分类: work/project/study/achievement/challenge/other"`
 	Title    string   `json:"title,omitempty" jsonschema:"description=经历标题（add_experience 时必填）"`
 	Content  string   `json:"content,omitempty" jsonschema:"description=经历内容（add_experience 时使用）"`
@@ -29,7 +31,7 @@ type userInfoRequest struct {
 	Facts    []string `json:"facts,omitempty" jsonschema:"description=要合并进画像的新事实（update_profile 时必填）"`
 }
 
-const userInfoDesc = "管理用户的画像与个人经历。get_profile 获取用户画像; search_experience 搜索用户过去的经历; add_experience 记录一段用户经历; update_profile 更新用户画像事实。当需要了解用户是什么样的人、有什么目标/偏好，或用户提到过往经历、让你记住某件事时使用。"
+const userInfoDesc = "管理用户的画像与个人经历。get_profile 获取用户画像; search_experience 分页搜索用户过去的经历(返回 total/page/page_size/items); add_experience 记录一段用户经历; update_profile 更新用户画像事实。当需要了解用户是什么样的人、有什么目标/偏好，或用户提到过往经历、让你记住某件事时使用。"
 
 func init() {
 	Register("user_info", "用户画像与经历", userInfoDesc, nil,
@@ -51,6 +53,14 @@ func (t *userInfoTool) Info(_ context.Context) (*schema.ToolInfo, error) {
 			"query": {
 				Type: schema.String,
 				Desc: "搜索关键词（search_experience 时使用）",
+			},
+			"page": {
+				Type: schema.Integer,
+				Desc: "页码（search_experience 时使用, 默认1）",
+			},
+			"page_size": {
+				Type: schema.Integer,
+				Desc: "每页数量（search_experience 时使用, 默认10, 最大50）",
 			},
 			"category": {
 				Type: schema.String,
@@ -104,14 +114,27 @@ func (t *userInfoTool) InvokableRun(ctx context.Context, arguments string, _ ...
 		return profile, nil
 
 	case "search_experience":
-		list, err := userMemorySvc.SearchExperiences(userID, req.Query, 10)
+		total, list, err := userMemorySvc.SearchExperiences(userID, req.Query, req.Page, req.PageSize)
 		if err != nil {
 			return "", fmt.Errorf("搜索经历失败: %w", err)
 		}
-		if len(list) == 0 {
+		if total == 0 {
 			return "未找到相关经历", nil
 		}
-		result, _ := json.Marshal(toExperienceViews(list))
+		page := req.Page
+		if page < 1 {
+			page = 1
+		}
+		pageSize := req.PageSize
+		if pageSize <= 0 {
+			pageSize = 10
+		}
+		result, _ := json.Marshal(map[string]any{
+			"total":     total,
+			"page":      page,
+			"page_size": pageSize,
+			"items":     toExperienceViews(list),
+		})
 		return string(result), nil
 
 	case "add_experience":
@@ -145,12 +168,12 @@ func (t *userInfoTool) InvokableRun(ctx context.Context, arguments string, _ ...
 }
 
 type experienceView struct {
-	ID         uint           `json:"id"`
-	Category   string         `json:"category"`
-	Title      string         `json:"title"`
-	Content    string         `json:"content"`
-	Tags       []string       `json:"tags"`
-	OccurredAt interface{}    `json:"occurred_at"`
+	ID         uint        `json:"id"`
+	Category   string      `json:"category"`
+	Title      string      `json:"title"`
+	Content    string      `json:"content"`
+	Tags       []string    `json:"tags"`
+	OccurredAt interface{} `json:"occurred_at"`
 }
 
 func toExperienceViews(list []model.UserExperience) []experienceView {
