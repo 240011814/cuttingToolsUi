@@ -34,6 +34,11 @@ const smtpPassword = ref("");
 const showSmtpPassword = ref(false);
 const smtpFrom = ref("");
 const smtpFromName = ref("");
+const savingMemory = ref(false);
+const memoryEnabled = ref(true);
+const memoryExtractionModel = ref("");
+const memoryIdleMinutes = ref(15);
+const memoryMinUserMessages = ref(6);
 
 async function loadConfig() {
   loading.value = true;
@@ -98,6 +103,24 @@ async function loadConfig() {
 
       const smtpFromNameConfig = data.find((c: any) => c.key === "smtp_from_name");
       smtpFromName.value = smtpFromNameConfig?.value || "";
+
+      const memoryEnabledConfig = data.find(
+        (c: any) => c.key === "memory_extraction_enabled"
+      );
+      memoryEnabled.value = memoryEnabledConfig?.value !== "false";
+
+      const memoryModelConfig = data.find((c: any) => c.key === "memory_extraction_model");
+      memoryExtractionModel.value = memoryModelConfig?.value || "";
+
+      const memoryIdleConfig = data.find(
+        (c: any) => c.key === "memory_session_idle_minutes"
+      );
+      memoryIdleMinutes.value = memoryIdleConfig ? Number(memoryIdleConfig.value) : 15;
+
+      const memoryMinConfig = data.find(
+        (c: any) => c.key === "memory_min_min_user_messages"
+      );
+      memoryMinUserMessages.value = memoryMinConfig ? Number(memoryMinConfig.value) : 6;
     }
   } catch (err: any) {
     message.error(`加载配置失败: ${err?.message || "未知错误"}`);
@@ -237,6 +260,49 @@ async function handleSaveSmtp() {
     message.error(`保存失败: ${err?.message || "未知错误"}`);
   } finally {
     savingSmtp.value = false;
+  }
+}
+
+async function handleToggleMemory(val: boolean) {
+  savingMemory.value = true;
+  try {
+    await saveConfig(
+      "memory_extraction_enabled",
+      val ? "true" : "false",
+      "用户画像/经历抽取开关"
+    );
+    message.success(val ? "画像/经历抽取已开启" : "画像/经历抽取已关闭");
+  } catch (err: any) {
+    memoryEnabled.value = !val;
+    message.error(`保存失败: ${err?.message || "未知错误"}`);
+  } finally {
+    savingMemory.value = false;
+  }
+}
+
+async function handleSaveMemory() {
+  savingMemory.value = true;
+  try {
+    await saveConfig(
+      "memory_extraction_model",
+      memoryExtractionModel.value,
+      "画像/经历抽取使用的模型代码(空则用默认模型)"
+    );
+    await saveConfig(
+      "memory_session_idle_minutes",
+      String(memoryIdleMinutes.value),
+      "会话静默多少分钟后触发抽取"
+    );
+    await saveConfig(
+      "memory_min_min_user_messages",
+      String(memoryMinUserMessages.value),
+      "纳入抽取的最小用户消息数(大于该值)"
+    );
+    message.success("画像/经历抽取配置已保存");
+  } catch (err: any) {
+    message.error(`保存失败: ${err?.message || "未知错误"}`);
+  } finally {
+    savingMemory.value = false;
   }
 }
 
@@ -446,6 +512,71 @@ onMounted(() => {
                   @click="handleSaveTimeout"
                 >
                   保存超时配置
+                </NButton>
+              </NFormItem>
+            </NForm>
+          </div>
+
+          <!-- 用户画像 / 经历抽取配置 -->
+          <div class="p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+            <div class="flex items-center justify-between mb-4">
+              <div>
+                <div class="font-bold text-gray-800 dark:text-gray-200">
+                  用户画像 / 经历抽取
+                </div>
+                <div class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  从聊天会话中抽取并总结用户画像与个人经历（与 Mem0 并存），修改后立即生效。
+                </div>
+              </div>
+              <NSwitch
+                v-model:value="memoryEnabled"
+                :loading="savingMemory"
+                @update:value="handleToggleMemory"
+              >
+                <template #checked>开启</template>
+                <template #unchecked>关闭</template>
+              </NSwitch>
+            </div>
+            <NForm label-placement="left" label-width="120">
+              <NGrid :cols="2" :x-gap="12" :y-gap="8">
+                <NFormItemGi label="抽取模型">
+                  <NInput
+                    v-model:value="memoryExtractionModel"
+                    placeholder="留空使用默认模型"
+                    :disabled="!memoryEnabled"
+                  />
+                </NFormItemGi>
+                <NFormItemGi label="会话静默(分钟)">
+                  <NInputNumber
+                    v-model:value="memoryIdleMinutes"
+                    :min="1"
+                    :max="1440"
+                    :disabled="!memoryEnabled"
+                    size="small"
+                  >
+                    <template #suffix>分钟</template>
+                  </NInputNumber>
+                </NFormItemGi>
+                <NFormItemGi label="最少用户消息数">
+                  <NInputNumber
+                    v-model:value="memoryMinUserMessages"
+                    :min="1"
+                    :max="100"
+                    :disabled="!memoryEnabled"
+                    size="small"
+                  >
+                    <template #suffix>条</template>
+                  </NInputNumber>
+                </NFormItemGi>
+              </NGrid>
+              <NFormItem class="mt-4">
+                <NButton
+                  type="primary"
+                  :loading="savingMemory"
+                  :disabled="!memoryEnabled"
+                  @click="handleSaveMemory"
+                >
+                  保存画像抽取配置
                 </NButton>
               </NFormItem>
             </NForm>
