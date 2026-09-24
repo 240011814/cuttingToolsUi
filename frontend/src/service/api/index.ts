@@ -18,3 +18,4 @@ export * from './stock';
 export * from './macro';
 export * from './job';
 export * from './skill';
+export * from './user-portrait';

@@ -28,6 +28,7 @@ type AIAgentService struct {
 	promptCache     map[string]string
 	sysCfgService   *SystemConfigService
 	checkpointStore compose.CheckPointStore
+	memoryService   *UserMemoryService
 }
 
 func NewAIAgentService(timeoutMinutes int, sysCfgService *SystemConfigService) (*AIAgentService, error) {
@@ -55,6 +56,11 @@ func NewAIAgentService(timeoutMinutes int, sysCfgService *SystemConfigService) (
 		return s, nil
 	}
 	return s, nil
+}
+
+// SetMemoryService 注入用户画像服务(用于对话时注入画像)
+func (s *AIAgentService) SetMemoryService(m *UserMemoryService) {
+	s.memoryService = m
 }
 
 func (s *AIAgentService) ListAvailableAgents(userID uint) ([]model.AIAgent, error) {
@@ -323,7 +329,7 @@ func (s *AIAgentService) getOrCreateRunner(modelOverride string) (*adk.Runner, e
 	agent, err := adk.NewChatModelAgent(s.ctx, &adk.ChatModelAgentConfig{
 		Name:        "default",
 		Description: "AI Assistant",
-		Instruction: "{custom_prompt}\n\n当前时间: {current_time}\n当前用户ID: {user_id}",
+		Instruction: "{custom_prompt}\n\n{user_profile}\n\n当前时间: {current_time}\n当前用户ID: {user_id}",
 		Model:       chatModel,
 		ToolsConfig: adk.ToolsConfig{
 			ToolsNodeConfig: compose.ToolsNodeConfig{
@@ -406,6 +412,27 @@ func (s *AIAgentService) getModel(modelOverride string) (*ark.ChatModel, error) 
 	return ark.NewChatModel(s.ctx, chatConfig)
 }
 
+// GenerateText 非流式生成, 供画像/经历抽取等后台任务复用当前模型配置
+func (s *AIAgentService) GenerateText(modelOverride, systemPrompt, userPrompt string) (string, error) {
+	if s.activeProvider == nil || s.activeModel == nil {
+		return "", errors.New("AI 模型未配置")
+	}
+	chatModel, err := s.getModel(modelOverride)
+	if err != nil {
+		return "", err
+	}
+	ctx, cancel := context.WithTimeout(s.ctx, s.timeout)
+	defer cancel()
+	resp, err := chatModel.Generate(ctx, []*schema.Message{
+		{Role: schema.System, Content: systemPrompt},
+		{Role: schema.User, Content: userPrompt},
+	})
+	if err != nil {
+		return "", err
+	}
+	return resp.Content, nil
+}
+
 func (s *AIAgentService) ChatStream(userID uint, agentID uint, historyID uint, messages []*schema.Message, modelOverride string) (*adk.AsyncIterator[*adk.AgentEvent], error) {
 	runner, err := s.getOrCreateRunner(modelOverride)
 	if err != nil {
@@ -414,9 +441,15 @@ func (s *AIAgentService) ChatStream(userID uint, agentID uint, historyID uint, m
 
 	customPrompt := s.getCustomPrompt(userID, agentID)
 
+	userProfile := ""
+	if s.memoryService != nil {
+		userProfile = s.memoryService.BuildProfilePrompt(userID)
+	}
+
 	checkPointID := fmt.Sprintf("%d_%d", userID, historyID)
 	return runner.Run(s.ctx, messages, adk.WithCheckPointID(checkPointID), adk.WithSessionValues(map[string]any{
 		"custom_prompt": customPrompt,
+		"user_profile":  userProfile,
 		"current_time":  time.Now().Format("2006-01-02 15:04:05"),
 		"user_id":       userID,
 	})), nil

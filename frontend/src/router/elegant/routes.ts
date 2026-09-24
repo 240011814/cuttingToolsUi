@@ -483,6 +483,16 @@ export const generatedRoutes: GeneratedRoute[] = [
           i18nKey: 'route.user_profile',
           icon: 'mdi:account-circle-outline'
         }
+      },
+      {
+        name: 'user_portrait',
+        path: '/user/portrait',
+        component: 'view.user_portrait',
+        meta: {
+          title: 'user_portrait',
+          i18nKey: 'route.user_portrait',
+          icon: 'mdi:account-details-outline'
+        }
       }
     ]
   }

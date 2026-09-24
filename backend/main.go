@@ -54,6 +54,12 @@ func main() {
 	promptService = service.NewPromptService(service.DB, aiAgentService)
 	aiAgentHandler := api.NewAIAgentHandler(aiAgentService)
 
+	// 用户画像/经历服务 (与 mem0 并存)
+	userMemoryService := service.NewUserMemoryService(aiAgentService, systemConfigService)
+	aiAgentService.SetMemoryService(userMemoryService)
+	tools.SetUserMemoryService(userMemoryService)
+	userPortraitHandler := api.NewUserPortraitHandler(userMemoryService)
+
 	// mem0 从 ai_tools 表读取配置
 	timeoutConfig := systemConfigService.GetTimeoutConfig()
 	var mem0Timeout time.Duration
@@ -125,6 +131,7 @@ func main() {
 	jobHandler := api.NewJobHandler(jobScheduler)
 	if jobScheduler != nil {
 		stockHandler.RegisterCronTasks(jobScheduler)
+		userMemoryService.RegisterCronTasks(jobScheduler)
 	}
 
 	r.GET("/api/health", func(c *gin.Context) {
@@ -239,6 +246,18 @@ func main() {
 			memoryGroup.POST("", mem0Handler.HandleAddMemory)
 			memoryGroup.POST("/search", mem0Handler.HandleSearchMemories)
 			memoryGroup.DELETE("/:id", mem0Handler.HandleDeleteMemory)
+		}
+
+		// 用户画像与经历 (本地, 与 mem0 并存; 本人数据仅登录+归属校验)
+		userMemoryGroup := apiGroup.Group("/user")
+		{
+			userMemoryGroup.GET("/portrait", userPortraitHandler.GetPortrait)
+			userMemoryGroup.PUT("/portrait", userPortraitHandler.UpdatePortrait)
+			userMemoryGroup.POST("/portrait/extract", userPortraitHandler.TriggerExtract)
+			userMemoryGroup.GET("/experiences", userPortraitHandler.ListExperiences)
+			userMemoryGroup.POST("/experiences", userPortraitHandler.CreateExperience)
+			userMemoryGroup.PUT("/experiences/:id", userPortraitHandler.UpdateExperience)
+			userMemoryGroup.DELETE("/experiences/:id", userPortraitHandler.DeleteExperience)
 		}
 
 		// Cut APIs

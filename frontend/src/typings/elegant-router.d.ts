@@ -57,6 +57,7 @@ declare module "@elegant-router/types" {
     "tool_stockscreen": "/tool/stockscreen";
     "tool_watchlist": "/tool/watchlist";
     "user": "/user";
+    "user_portrait": "/user/portrait";
     "user_profile": "/user/profile";
   };
 
@@ -153,6 +154,7 @@ declare module "@elegant-router/types" {
     | "tool_stockdetail"
     | "tool_stockscreen"
     | "tool_watchlist"
+    | "user_portrait"
     | "user_profile"
   >;
 
